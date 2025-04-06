@@ -1,0 +1,141 @@
+.floating {
+    background: rgba(255, 255, 255, 0.9);
+    padding: 10px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+}
+
+.connected-users {
+    position: fixed;
+    top: 10px;
+    left: 435px;
+    display: flex;
+    gap: 6px;
+    min-height: 40px;
+    min-width: 40px;
+    flex-wrap: nowrap;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+
+    &.expanded {
+        flex-wrap: wrap;
+        overflow: visible;
+    }
+
+    .user-circle {
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background-color: #3f51b5;
+        color: white;
+        font-size: 18px;
+        font-weight: bold;
+        text-transform: uppercase;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        cursor: default;
+    }
+
+    .remaining-users {
+        background-color: #ccc;
+        /* Neutral color for the "+X" indicator */
+        font-size: 16px;
+        font-weight: bold;
+    }
+}
+
+.floating-toolbar {
+    position: fixed;
+    top: 50%;
+    left: 20px;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    button {
+        width: 45px;
+        height: 45px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    button:hover {
+        transform: scale(1.05);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    button.active {
+        border: 2px solid #3f51b5;
+        background-color: #e4ecff;
+    }
+}
+
+.board-name-container {
+    position: fixed;
+    top: 10px;
+    left: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    input {
+        border: none;
+        outline: none;
+        font-size: 18px;
+        font-weight: bold;
+        background: transparent;
+        width: 230px;
+    }
+
+    button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+    }
+}
+
+.zoom-toolbar {
+    position: absolute;
+    right: 15px;
+    bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 4px 7px 4px 6px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+
+    button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+    }
+
+    input {
+        width: 60px;
+        text-align: center;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        padding: 4px;
+        outline: none;
+    }
+
+    span {
+        font-size: 14px;
+        color: #333;
+    }
+}

@@ -1,0 +1,15 @@
+<h1 mat-dialog-title>Select a Board</h1>
+<div mat-dialog-content>
+  <mat-form-field>
+    <mat-label>Board Name</mat-label>
+    <mat-select [(value)]="selectedBoardId">
+      <mat-option *ngFor="let board of boards" [value]="board.id">
+        {{ board.name }}
+      </mat-option>
+    </mat-select>
+  </mat-form-field>
+</div>
+<div mat-dialog-actions>
+  <button mat-button color="warn" type="button" (click)="onCancel()">Cancel</button>
+  <button mat-button color="primary" type="button" [disabled]="!selectedBoardId" (click)="onSelect()">Select</button>
+</div>

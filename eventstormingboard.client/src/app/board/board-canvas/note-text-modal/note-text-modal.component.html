@@ -1,0 +1,16 @@
+<h1 mat-dialog-title>Edit Note Text</h1>
+<form (ngSubmit)="onSave()" #noteForm="ngForm">
+  <div mat-dialog-content>
+    <mat-form-field>
+      <mat-label>Note Text</mat-label>
+      <input matInput [(ngModel)]="data.text" name="noteText" required #noteInput/>
+      <mat-error *ngIf="noteForm.controls['noteText']?.invalid && noteForm.controls['noteText']?.touched">
+        Note text is required.
+      </mat-error>
+    </mat-form-field>
+  </div>
+  <div mat-dialog-actions>
+    <button mat-button color="warn" type="button" (click)="onCancel()">Cancel</button>
+    <button mat-button color="primary" type="submit" [disabled]="noteForm.invalid" cdkFocusInitial>Save</button>
+  </div>
+</form>

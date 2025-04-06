@@ -1,0 +1,5 @@
+<div class="canvas-container">
+    <canvas #canvas class="storming-canvas" (dblclick)="onDoubleClick($event)" (wheel)="onWheel($event)"
+        (mousemove)="onMouseMove($event)" (mouseup)="onMouseUp($event)" (mousedown)="onMouseDown($event)"></canvas>
+    <canvas #minimap class="minimap floating" (click)="onMinimapClick($event)"></canvas>
+</div>

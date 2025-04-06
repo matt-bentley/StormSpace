@@ -1,0 +1,15 @@
+<div class="splash-container">
+    <div class="splash-image"></div>
+    <div class="splash-content">
+        <h1>Welcome to StormSpace</h1>
+        <mat-form-field appearance="fill">
+            <mat-label>Enter your name</mat-label>
+            <input matInput [(ngModel)]="userName" name="userName" required />
+        </mat-form-field>
+        <div class="board-actions">
+            <button mat-raised-button color="primary" (click)="createNewBoard()">Create New Board</button>
+            <button mat-raised-button color="accent" [disabled]="!boards.length" (click)="selectExistingBoard()">Select
+                Existing Board</button>
+        </div>
+    </div>
+</div>

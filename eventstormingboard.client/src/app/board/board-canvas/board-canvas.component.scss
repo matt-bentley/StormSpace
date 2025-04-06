@@ -1,0 +1,22 @@
+.canvas-container {
+    position: relative;
+
+    .storming-canvas {
+        cursor: grab;
+        width: 100%;
+    }
+
+    canvas:active {
+        cursor: grabbing;
+    }
+
+    .minimap {
+        position: absolute;
+        right: 15px;
+        bottom: 78px;
+        background-color: white;
+        opacity: 0.8;
+        padding: 0px;
+        cursor: pointer;
+    }
+}

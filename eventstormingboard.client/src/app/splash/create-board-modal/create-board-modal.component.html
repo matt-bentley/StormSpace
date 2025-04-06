@@ -1,0 +1,17 @@
+<h1 mat-dialog-title>Create Storm Board</h1>
+<form (ngSubmit)="onSave()" #noteForm="ngForm">
+  <div mat-dialog-content>
+    <mat-form-field>
+      <mat-label>Board Name</mat-label>
+      <input matInput [(ngModel)]="data.name" name="name" required />
+      <mat-error *ngIf="noteForm.controls['name']?.invalid && noteForm.controls['name']?.touched">
+        Board Name is required.
+      </mat-error>
+    </mat-form-field>
+    <p>Warning! Storm boards self-destruct in 1 hour if not used.</p>
+  </div>
+  <div mat-dialog-actions>
+    <button mat-button color="warn" type="button" (click)="onCancel()">Cancel</button>
+    <button mat-button color="primary" type="submit" [disabled]="noteForm.invalid" cdkFocusInitial>Create</button>
+  </div>
+</form>

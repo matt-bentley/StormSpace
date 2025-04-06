@@ -1,0 +1,91 @@
+<div class="board-name-container floating">
+    <input [(ngModel)]="canvasService.boardState.name" placeholder="Enter board name" (blur)="onBoardNameUpdated()" />
+    <button mat-icon-button (click)="canvasService.downloadCanvasImage()" matTooltip="Export Board as Image">
+        <mat-icon>image</mat-icon>
+    </button>
+    <button mat-icon-button (click)="exportBoardAsJSON()" matTooltip="Export Board as JSON">
+        <mat-icon>download</mat-icon>
+    </button>
+    <button mat-icon-button matTooltip="Import Board from JSON">
+        <input type="file" accept=".json" (change)="importBoardFromJSON($event)" hidden #fileInput />
+        <mat-icon (click)="fileInput.click()">upload</mat-icon>
+    </button>
+</div>
+<div class="connected-users floating" [class.expanded]="isConnectedUsersHovered" (mouseenter)="isConnectedUsersHovered = true" (mouseleave)="isConnectedUsersHovered = false">
+    <div *ngFor="let user of (isConnectedUsersHovered ? connectedUsers : connectedUsers.slice(0, 5))" 
+         class="user-circle" 
+         [style.background-color]="user.getColour()" 
+         [matTooltip]="user.userName">
+        {{ user.userName.charAt(0).toUpperCase() }}
+    </div>
+    <div *ngIf="!isConnectedUsersHovered && connectedUsers.length > 5" 
+         class="user-circle remaining-users" 
+         matTooltip="{{ connectedUsers.length - 5 }} more users">
+        +{{ connectedUsers.length - 5 }}
+    </div>
+</div>
+<div class="floating-toolbar floating">
+    <button mat-icon-button (click)="toggleSelectMode()" [class.active]="canvasService.isSelectMode" matTooltip="Select Mode"
+        matTooltipPosition="right">
+        <mat-icon svgIcon="arrow_selector_tool"></mat-icon>
+    </button>
+    <button mat-icon-button (click)="togglePanMode()" [class.active]="canvasService.isPanningMode" matTooltip="Pan Mode"
+        matTooltipPosition="right">
+        <mat-icon>pan_tool</mat-icon>
+    </button>
+    <button mat-icon-button (click)="toggleConnectionMode()" [class.active]="canvasService.isDrawingConnection"
+        matTooltip="Connection Mode" matTooltipPosition="right">
+        <mat-icon>trending_flat</mat-icon>
+    </button>
+    <button mat-icon-button (click)="addNote('event')" [ngStyle]="{ background: getNoteColor('event') }"
+        matTooltip="Add Event" matTooltipPosition="right">
+        <mat-icon>event</mat-icon>
+    </button>
+    <button mat-icon-button (click)="addNote('command')" [ngStyle]="{ background: getNoteColor('command') }"
+        matTooltip="Add Command" matTooltipPosition="right">
+        <mat-icon>send</mat-icon>
+    </button>
+    <button mat-icon-button (click)="addNote('aggregate')" [ngStyle]="{ background: getNoteColor('aggregate') }"
+        matTooltip="Add Aggregate" matTooltipPosition="right">
+        <mat-icon svgIcon="database"></mat-icon>
+    </button>
+    <button mat-icon-button (click)="addNote('user')" [ngStyle]="{ background: getNoteColor('user') }"
+        matTooltip="Add User" matTooltipPosition="right">
+        <mat-icon>person</mat-icon>
+    </button>
+    <button mat-icon-button (click)="addNote('policy')" [ngStyle]="{ background: getNoteColor('policy') }"
+        matTooltip="Add Policy" matTooltipPosition="right">
+        <mat-icon>policy</mat-icon>
+    </button>
+    <button mat-icon-button (click)="addNote('readModel')" [ngStyle]="{ background: getNoteColor('readModel') }"
+        matTooltip="Add Read Model" matTooltipPosition="right">
+        <mat-icon>book</mat-icon>
+    </button>
+    <button mat-icon-button (click)="addNote('externalSystem')"
+        [ngStyle]="{ background: getNoteColor('externalSystem') }" matTooltip="Add External System"
+        matTooltipPosition="right">
+        <mat-icon>cloud</mat-icon>
+    </button>
+    <button mat-icon-button (click)="addNote('concern')" [ngStyle]="{ background: getNoteColor('concern') }"
+        matTooltip="Add Concern" matTooltipPosition="right">
+        <mat-icon>warning</mat-icon>
+    </button>
+    <button mat-icon-button (click)="canvasService.undo()" matTooltip="Undo" matTooltipPosition="right">
+        <mat-icon>undo</mat-icon>
+    </button>
+    <button mat-icon-button (click)="canvasService.redo()" matTooltip="Redo" matTooltipPosition="right">
+        <mat-icon>redo</mat-icon>
+    </button>
+</div>
+<app-board-canvas></app-board-canvas>
+<div class="zoom-toolbar floating">
+    <button mat-icon-button (click)="canvasService.zoomIn()" matTooltip="Zoom In">
+        <mat-icon>zoom_in</mat-icon>
+    </button>
+    <button mat-icon-button (click)="canvasService.zoomOut()" matTooltip="Zoom Out">
+        <mat-icon>zoom_out</mat-icon>
+    </button>
+    <input type="number" [(ngModel)]="canvasService.zoomPercentage" (change)="canvasService.setZoom()" min="20" max="500" step="10"
+        matTooltip="Set Zoom Percentage" />
+    <span>%</span>
+</div>
