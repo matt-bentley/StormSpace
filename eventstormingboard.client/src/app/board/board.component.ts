@@ -34,7 +34,7 @@ export class BoardComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   private id!: string;
   private userName: string;
-  private previousName: string ;
+  private previousName: string;
   private colors: { [key: string]: string } = {
     event: '#fdb634',
     command: '#61c4fd',
@@ -111,7 +111,7 @@ export class BoardComponent implements OnInit, OnDestroy {
   }
 
   public getNoteColor(type: string): string {
-    return this.colors[type] || '#ffffff'; // Default to white if type not found  
+    return this.colors[type] || '#ffffff'; // Default to white if type not found
   }
 
   public toggleSelectMode(): void {
@@ -133,7 +133,6 @@ export class BoardComponent implements OnInit, OnDestroy {
   }
 
   public addNote(type: string): void {
-
     const x = (-this.canvasService.originX) / this.canvasService.scale + 140;
     const y = (-this.canvasService.originY + 100) / this.canvasService.scale;
 
@@ -159,7 +158,8 @@ export class BoardComponent implements OnInit, OnDestroy {
       width: noteWidth,
       height: noteHeight,
       text: `${type.charAt(0).toUpperCase() + type.slice(1)}`,
-      color: this.colors[type]
+      color: this.colors[type],
+      type: type as Note['type']
     };
 
     const command = new CreateNoteCommand(note);
@@ -174,7 +174,12 @@ export class BoardComponent implements OnInit, OnDestroy {
       .subscribe(board => {
         this.canvasService.id = this.id;
         this.canvasService.boardState.name = board.name;
-        this.canvasService.boardState.notes = board.notes;
+        // Map NoteDto[] to Note[]
+        this.canvasService.boardState.notes = board.notes.map(n => ({
+          ...n,
+          type: n.type as Note['type'],
+          selected: false // default, or preserve if needed
+        }));
         this.canvasService.boardState.connections = board.connections;
         this.canvasService.drawCanvas();
       });
@@ -276,4 +281,4 @@ export class BoardComponent implements OnInit, OnDestroy {
       this.canvasService.hasChanges = false;
     });
   }
-}  
+}

@@ -51,7 +51,8 @@ namespace EventStormingBoard.Server.Controllers
                     Y = n.Y,
                     Width = n.Width,
                     Height = n.Height,
-                    Color = n.Color
+                    Color = n.Color,
+                    Type = n.Type
                 }).ToList(),
                 Connections = board.Connections.Select(c => new ConnectionDto
                 {
@@ -103,7 +104,8 @@ namespace EventStormingBoard.Server.Controllers
                 Y = n.Y,
                 Width = n.Width,
                 Height = n.Height,
-                Color = n.Color
+                Color = n.Color,
+                Type = n.Type
             }).ToList();
             board.Connections = boardUpdate.Connections.Select(c => new Connection
             {
