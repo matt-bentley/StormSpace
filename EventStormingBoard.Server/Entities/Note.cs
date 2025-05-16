@@ -9,5 +9,6 @@
         public double Width { get; set; }
         public double Height { get; set; }
         public string? Color { get; set; }
+        public string? Type { get; set; } // event, command, aggregate, user, policy, readModel, externalSystem, concern
     }
 }
