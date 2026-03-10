@@ -208,24 +208,28 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     if (this.draggingNote) {
-      const to = { x: this.draggingNote.x, y: this.draggingNote.y };
-
-      if (0 !== to.x || 0 !== to.y) {
-        const finalDragPositions: NoteMove[] = [];
-        this.canvasService.boardState.notes.filter(e => e.selected).forEach(n => {
-          finalDragPositions.push({
-            noteId: n.id,
-            coordinates: { x: n.x, y: n.y }
-          });
+      const finalDragPositions: NoteMove[] = [];
+      this.canvasService.boardState.notes.filter(e => e.selected).forEach(n => {
+        finalDragPositions.push({
+          noteId: n.id,
+          coordinates: { x: n.x, y: n.y }
         });
-        const initialDragPositions: NoteMove[] = [];
-        this.initialDragPositions.forEach((value, key) => {
-          initialDragPositions.push({
-            noteId: key,
-            coordinates: value
-          });
-        });
+      });
 
+      const initialDragPositions: NoteMove[] = [];
+      this.initialDragPositions.forEach((value, key) => {
+        initialDragPositions.push({
+          noteId: key,
+          coordinates: value
+        });
+      });
+
+      const hasMoved = finalDragPositions.some(position => {
+        const from = this.initialDragPositions.get(position.noteId);
+        return !!from && (from.x !== position.coordinates.x || from.y !== position.coordinates.y);
+      });
+
+      if (hasMoved) {
         const moveCommand = new MoveNotesCommand(initialDragPositions, finalDragPositions);
         this.canvasService.executeCommand(moveCommand);
       }
@@ -314,11 +318,11 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
 
     if ((event.key === 'Delete' || event.key === 'Backspace') && !this.canvasService.isDrawingConnection) {
       const selectedNoteIds = this.canvasService.boardState.notes.filter(n => n.selected).map(n => n.id);
-      var notes = JSON.parse(JSON.stringify(this.canvasService.boardState.notes.filter(n => n.selected))) as Note[];
-      var connections = JSON.parse(JSON.stringify(this.canvasService.boardState.connections.filter(c =>
-        !c.selected &&
-        !selectedNoteIds.includes(c.fromNoteId) &&
-        !selectedNoteIds.includes(c.toNoteId)
+      const notes = JSON.parse(JSON.stringify(this.canvasService.boardState.notes.filter(n => n.selected))) as Note[];
+      const connections = JSON.parse(JSON.stringify(this.canvasService.boardState.connections.filter(c =>
+        c.selected ||
+        selectedNoteIds.includes(c.fromNoteId) ||
+        selectedNoteIds.includes(c.toNoteId)
       ))) as Connection[];
       const command = new DeleteNotesCommand(notes, connections);
       this.canvasService.executeCommand(command);
@@ -346,7 +350,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
 
     if (this.handlePanning(event)) return;
     if (this.handeResize()) return;
-    if (this.handleDragging(event)) return;
+    if (this.handleDragging()) return;
     if (this.handleSelection()) return;
     if (this.handleHover()) return;
     if (this.handleTemporaryArrow(event)) return;
@@ -874,7 +878,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     return false;
   }
 
-  private handleDragging(event: MouseEvent): boolean {
+  private handleDragging(): boolean {
     if (this.draggingNote) {
       const deltaX = this.currentMousePos.x - this.dragOffsetX - this.draggingNote.x;
       const deltaY = this.currentMousePos.y - this.dragOffsetY - this.draggingNote.y;
@@ -885,22 +889,6 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
       });
 
       this.canvas.nativeElement.style.cursor = 'move';
-      this.drawCanvas();
-      return true;
-    }
-
-    // Existing logic: Panning the canvas  
-    if (this.panning) {
-      const deltaX = event.clientX - this.lastPanX;
-      const deltaY = event.clientY - this.lastPanY;
-
-      this.canvasService.originX += deltaX;
-      this.canvasService.originY += deltaY;
-
-      this.lastPanX = event.clientX;
-      this.lastPanY = event.clientY;
-
-      this.canvas.nativeElement.style.cursor = 'grab';
       this.drawCanvas();
       return true;
     }

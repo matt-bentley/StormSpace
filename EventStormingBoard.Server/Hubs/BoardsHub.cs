@@ -8,25 +8,21 @@ namespace EventStormingBoard.Server.Hubs
 {
     public sealed class BoardsHub : Hub
     {
-        private static readonly ConcurrentDictionary<Guid, HashSet<BoardUserDto>> BoardUsers = new();
+        private static readonly ConcurrentDictionary<Guid, ConcurrentDictionary<string, BoardUserDto>> BoardUsers = new();
 
         public async Task JoinBoard(Guid boardId, string userName)
         {
             var connectionId = Context.ConnectionId;
 
-            if (!BoardUsers.ContainsKey(boardId))
-            {
-                BoardUsers[boardId] = new HashSet<BoardUserDto>();
-            }
-
-            BoardUsers[boardId].Add(new BoardUserDto()
+            var boardConnections = BoardUsers.GetOrAdd(boardId, _ => new ConcurrentDictionary<string, BoardUserDto>());
+            boardConnections[connectionId] = new BoardUserDto()
             {
                 BoardId = boardId,
                 ConnectionId = connectionId,
                 UserName = userName
-            });
+            };
 
-            var connectedUsers = BoardUsers[boardId].ToList();
+            var connectedUsers = boardConnections.Values.ToList();
             await Clients.Caller.SendAsync("ConnectedUsers", connectedUsers);
 
             await Clients.Group(boardId.ToString()).SendAsync("UserJoinedBoard", new UserJoinedBoardEvent()
@@ -42,10 +38,7 @@ namespace EventStormingBoard.Server.Hubs
         {
             var connectionId = Context.ConnectionId;
 
-            if (BoardUsers.ContainsKey(boardId))
-            {
-                await RemoveUserFromBoardAsync(boardId, connectionId);
-            }
+            await RemoveUserFromBoardAsync(boardId, connectionId);
 
             await Groups.RemoveFromGroupAsync(connectionId, boardId.ToString());
         }
@@ -53,9 +46,9 @@ namespace EventStormingBoard.Server.Hubs
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
             var connectionId = Context.ConnectionId;
-            foreach (var board in BoardUsers)
+            foreach (var board in BoardUsers.ToArray())
             {
-                if (board.Value.Any(e => e.ConnectionId == connectionId))
+                if (board.Value.ContainsKey(connectionId))
                 {
                     await RemoveUserFromBoardAsync(board.Key, connectionId);
                 }
@@ -66,11 +59,11 @@ namespace EventStormingBoard.Server.Hubs
 
         private async Task RemoveUserFromBoardAsync(Guid boardId, string connectionId)
         {
-            if (BoardUsers.ContainsKey(boardId))
+            if (BoardUsers.TryGetValue(boardId, out var boardConnections))
             {
-                BoardUsers[boardId].RemoveWhere(e => e.ConnectionId == connectionId);
+                boardConnections.TryRemove(connectionId, out _);
 
-                if (BoardUsers[boardId].Count == 0)
+                if (boardConnections.IsEmpty)
                 {
                     BoardUsers.TryRemove(boardId, out _);
                 }

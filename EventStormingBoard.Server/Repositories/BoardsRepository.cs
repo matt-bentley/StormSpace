@@ -9,10 +9,12 @@ namespace EventStormingBoard.Server.Repositories
         Board? GetById(Guid id);
         void Add(Board board);
         bool Update(Guid id, Board boardUpdate);
+        bool Delete(Guid id);
     }
 
     public sealed class BoardsRepository : IBoardsRepository
     {
+        private const string BoardsCacheKey = "boards";
         private readonly IMemoryCache _cache;
         private readonly MemoryCacheEntryOptions _cacheOptions;
 
@@ -27,7 +29,7 @@ namespace EventStormingBoard.Server.Repositories
 
         public List<Board> GetAll()
         {
-            var boards = _cache.GetOrCreate("boards", entry =>
+            var boards = _cache.GetOrCreate(BoardsCacheKey, entry =>
             {
                 entry.SetOptions(_cacheOptions);
                 return new List<Board>();
@@ -37,29 +39,42 @@ namespace EventStormingBoard.Server.Repositories
 
         public Board? GetById(Guid id)
         {
-            _cache.TryGetValue(id, out Board? board);
-            return board;
+            return GetAll().FirstOrDefault(board => board.Id == id);
         }
 
         public void Add(Board board)
         {
-            _cache.Set(board.Id, board, _cacheOptions);
             var boards = GetAll();
             boards.Add(board);
-            _cache.Set("boards", boards, _cacheOptions);
+            _cache.Set(BoardsCacheKey, boards, _cacheOptions);
         }
 
         public bool Update(Guid id, Board boardUpdate)
         {
-            if (_cache.TryGetValue(id, out Board? board) && board != null)
+            var boards = GetAll();
+            var board = boards.FirstOrDefault(b => b.Id == id);
+            if (board != null)
             {
                 board.Name = boardUpdate.Name;
                 board.Notes = boardUpdate.Notes;
                 board.Connections = boardUpdate.Connections;
-                _cache.Set(id, board, _cacheOptions);
+                _cache.Set(BoardsCacheKey, boards, _cacheOptions);
                 return true;
             }
             return false;
+        }
+
+        public bool Delete(Guid id)
+        {
+            var boards = GetAll();
+            var removed = boards.RemoveAll(board => board.Id == id) > 0;
+            if (!removed)
+            {
+                return false;
+            }
+
+            _cache.Set(BoardsCacheKey, boards, _cacheOptions);
+            return true;
         }
     }
 }

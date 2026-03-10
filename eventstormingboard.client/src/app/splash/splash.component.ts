@@ -9,8 +9,6 @@ import { MatInputModule } from '@angular/material/input';
 import { Router } from '@angular/router';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { CreateBoardModalComponent } from './create-board-modal/create-board-modal.component';
-import { BoardsService } from '../_shared/services/boards.service';
-import { BoardSummaryDto } from '../_shared/models/board.model';
 import { SelectBoardModalComponent } from './select-board-modal/select-board-modal.component';
 
 @Component({
@@ -30,11 +28,9 @@ import { SelectBoardModalComponent } from './select-board-modal/select-board-mod
 export class SplashComponent implements OnInit {
 
   public userName: string = '';
-  public boards: BoardSummaryDto[] = [];
 
   constructor(
     private router: Router,
-    private boardsService: BoardsService,
     private dialog: MatDialog) { }
 
   public createNewBoard(): void {
@@ -74,9 +70,5 @@ export class SplashComponent implements OnInit {
     if (savedUserName) {
       this.userName = savedUserName;
     }
-
-    this.boardsService.get().subscribe((boards) => {
-      this.boards = boards;
-    });
   }
 }  

@@ -24,7 +24,8 @@ import { BoardCanvasService } from './board-canvas/board-canvas.service';
         CommonModule,
         FormsModule,
         BoardCanvasComponent
-    ],
+      ],
+      providers: [BoardCanvasService],
     templateUrl: './board.component.html',
     styleUrls: ['./board.component.scss']
 })
@@ -166,6 +167,8 @@ export class BoardComponent implements OnInit, OnDestroy {
   }
 
   public ngOnInit(): void {
+
+    this.toggleSelectMode();
 
     this.subscribeToEvents();
 

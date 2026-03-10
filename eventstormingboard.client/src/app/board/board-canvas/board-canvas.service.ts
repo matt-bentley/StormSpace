@@ -6,9 +6,7 @@ import { Command } from '../../_shared/models/command.model';
 import { CreateConnectionCommand, CreateNoteCommand, DeleteNotesCommand, EditNoteTextCommand, MoveNotesCommand, PasteCommand, ResizeNoteCommand, UpdateBoardNameCommand } from '../board.commands';
 import { BoardEvent, BoardNameUpdatedEvent, ConnectionCreatedEvent, NoteCreatedEvent, NoteResizedEvent, NotesDeletedEvent, NotesMovedEvent, NoteTextEditedEvent, PastedEvent } from '../../_shared/models/board-events.model';
 
-@Injectable({
-  providedIn: 'root'
-})
+@Injectable()
 export class BoardCanvasService {
 
   private undoStack: Command<BoardState>[] = [];

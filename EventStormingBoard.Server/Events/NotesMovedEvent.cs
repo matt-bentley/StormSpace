@@ -1,4 +1,4 @@
-﻿using EventStormingBoard.Server.Models;
+using EventStormingBoard.Server.Models;
 
 namespace EventStormingBoard.Server.Events
 {

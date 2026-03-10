@@ -65,12 +65,18 @@ namespace EventStormingBoard.Server.Controllers
 
         [HttpPost]
         [ProducesResponseType(typeof(BoardDto), StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public IActionResult Post([FromBody] BoardCreateDto boardCreate)
         {
+            if (string.IsNullOrWhiteSpace(boardCreate.Name))
+            {
+                return BadRequest("Board name is required.");
+            }
+
             var board = new Board
             {
                 Id = Guid.NewGuid(),
-                Name = boardCreate.Name,
+                Name = boardCreate.Name.Trim(),
                 Notes = new List<Note>(),
                 Connections = new List<Connection>()
             };
@@ -88,6 +94,7 @@ namespace EventStormingBoard.Server.Controllers
         [HttpPut("{id}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public IActionResult Put(Guid id, [FromBody] BoardUpdateDto boardUpdate)
         {
             var board = _repository.GetById(id);
@@ -95,7 +102,11 @@ namespace EventStormingBoard.Server.Controllers
             {
                 return NotFound();
             }
-            board.Name = boardUpdate.Name;
+            if (string.IsNullOrWhiteSpace(boardUpdate.Name))
+            {
+                return BadRequest("Board name is required.");
+            }
+            board.Name = boardUpdate.Name.Trim();
             board.Notes = boardUpdate.Notes.Select(n => new Note
             {
                 Id = n.Id,
@@ -114,6 +125,20 @@ namespace EventStormingBoard.Server.Controllers
             }).ToList();
 
             _repository.Update(id, board);
+            return NoContent();
+        }
+
+        [HttpDelete("{id}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public IActionResult Delete(Guid id)
+        {
+            var deleted = _repository.Delete(id);
+            if (!deleted)
+            {
+                return NotFound();
+            }
+
             return NoContent();
         }
     }

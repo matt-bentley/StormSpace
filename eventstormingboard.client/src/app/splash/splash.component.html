@@ -8,7 +8,7 @@
         </mat-form-field>
         <div class="board-actions">
             <button mat-raised-button color="primary" (click)="createNewBoard()">Create New Board</button>
-            <button mat-raised-button color="accent" [disabled]="!boards.length" (click)="selectExistingBoard()">Select
+            <button mat-raised-button color="accent" [disabled]="!userName" (click)="selectExistingBoard()">Select
                 Existing Board</button>
         </div>
     </div>

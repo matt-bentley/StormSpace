@@ -72,13 +72,13 @@ export class BoardsSignalRService {
 
   public async joinBoard(boardId: string, userName: string): Promise<void> {
     await this.connectionEstablished;
-    this.hubConnection.invoke('JoinBoard', boardId, userName)
+    await this.hubConnection.invoke('JoinBoard', boardId, userName)
       .catch(err => console.error('Error joining board group:', err));
   }
 
   public async leaveBoard(boardId: string): Promise<void> {
     await this.connectionEstablished;
-    this.hubConnection.invoke('LeaveBoard', boardId)
+    await this.hubConnection.invoke('LeaveBoard', boardId)
       .catch(err => console.error('Error leaving board group:', err));
   }
 

@@ -26,4 +26,8 @@ export class BoardsService {
   public update(id: string, boardUpdateDto: BoardUpdateDto): Observable<void> {
     return this.http.put<void>(`${this.baseUrl}/${id}`, boardUpdateDto);
   }
+
+  public delete(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/${id}`);
+  }
 }
