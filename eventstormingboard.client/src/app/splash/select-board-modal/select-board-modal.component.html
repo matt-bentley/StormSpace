@@ -3,9 +3,11 @@
   <mat-form-field>
     <mat-label>Board Name</mat-label>
     <mat-select [(value)]="selectedBoardId">
-      <mat-option *ngFor="let board of boards" [value]="board.id">
-        {{ board.name }}
-      </mat-option>
+      @for (board of boards; track board) {
+        <mat-option [value]="board.id">
+          {{ board.name }}
+        </mat-option>
+      }
     </mat-select>
   </mat-form-field>
 </div>

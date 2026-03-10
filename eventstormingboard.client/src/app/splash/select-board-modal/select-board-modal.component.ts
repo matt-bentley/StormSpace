@@ -5,25 +5,23 @@ import { MatInputModule } from '@angular/material/input';
 import { FormsModule } from '@angular/forms';
 import { MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
-import { CommonModule } from '@angular/common';
+
 import { BoardsService } from '../../_shared/services/boards.service';
 import { BoardSummaryDto } from '../../_shared/models/board.model';
 import { MatSelectModule } from '@angular/material/select';
 
 @Component({
-  selector: 'app-select-board-modal',
-  standalone: true,
-  imports: [
+    selector: 'app-select-board-modal',
+    imports: [
     MatFormFieldModule,
     MatInputModule,
     FormsModule,
     MatDialogModule,
     MatButtonModule,
-    CommonModule,
     MatSelectModule
-  ],
-  templateUrl: './select-board-modal.component.html',
-  styleUrls: ['./select-board-modal.component.scss']
+],
+    templateUrl: './select-board-modal.component.html',
+    styleUrls: ['./select-board-modal.component.scss']
 })
 export class SelectBoardModalComponent implements OnInit {
   boards: BoardSummaryDto[] = [];

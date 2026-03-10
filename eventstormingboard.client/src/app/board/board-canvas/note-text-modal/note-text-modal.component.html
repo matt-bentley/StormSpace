@@ -4,9 +4,11 @@
     <mat-form-field>
       <mat-label>Note Text</mat-label>
       <input matInput [(ngModel)]="data.text" name="noteText" required #noteInput/>
-      <mat-error *ngIf="noteForm.controls['noteText']?.invalid && noteForm.controls['noteText']?.touched">
-        Note text is required.
-      </mat-error>
+      @if (noteForm.controls['noteText']?.invalid && noteForm.controls['noteText']?.touched) {
+        <mat-error>
+          Note text is required.
+        </mat-error>
+      }
     </mat-form-field>
   </div>
   <div mat-dialog-actions>

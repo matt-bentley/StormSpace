@@ -1,0 +1,28 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "StormSpace",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "server: build",
+      "program": "${workspaceFolder}/EventStormingBoard.Server/bin/Debug/net8.0/EventStormingBoard.Server.dll",
+      "args": [
+        "--urls",
+        "http://localhost:5212"
+      ],
+      "cwd": "${workspaceFolder}/EventStormingBoard.Server",
+      "stopAtEntry": false,
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_HOSTINGSTARTUPASSEMBLIES": "Microsoft.AspNetCore.SpaProxy"
+      },
+      "serverReadyAction": {
+        "action": "debugWithChrome",
+        "pattern": "\\bNow listening on:\\s+(https?://\\S+)",
+        "webRoot": "${workspaceFolder}/eventstormingboard.client/src",
+        "runtimeArgs": ["--app=%URI%"]
+      }
+    }
+  ]
+}

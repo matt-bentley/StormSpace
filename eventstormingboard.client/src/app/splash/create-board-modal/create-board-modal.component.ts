@@ -5,22 +5,20 @@ import { MatInputModule } from '@angular/material/input';
 import { FormsModule } from '@angular/forms';
 import { MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
-import { CommonModule } from '@angular/common';
+
 import { BoardsService } from '../../_shared/services/boards.service';
 
 @Component({
-  selector: 'app-create-board-modal',
-  standalone: true,
-  imports: [
+    selector: 'app-create-board-modal',
+    imports: [
     MatFormFieldModule,
     MatInputModule,
     FormsModule,
     MatDialogModule,
-    MatButtonModule,
-    CommonModule
-  ],
-  templateUrl: './create-board-modal.component.html',
-  styleUrls: ['./create-board-modal.component.scss']
+    MatButtonModule
+],
+    templateUrl: './create-board-modal.component.html',
+    styleUrls: ['./create-board-modal.component.scss']
 })
 export class CreateBoardModalComponent {
   constructor(

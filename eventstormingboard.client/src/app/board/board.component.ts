@@ -16,18 +16,17 @@ import { BoardCanvasComponent } from './board-canvas/board-canvas.component';
 import { BoardCanvasService } from './board-canvas/board-canvas.service';
 
 @Component({
-  selector: 'app-board',
-  standalone: true,
-  imports: [
-    MatButtonModule,
-    MatIconModule,
-    MatTooltipModule,
-    CommonModule,
-    FormsModule,
-    BoardCanvasComponent
-  ],
-  templateUrl: './board.component.html',
-  styleUrls: ['./board.component.scss']
+    selector: 'app-board',
+    imports: [
+        MatButtonModule,
+        MatIconModule,
+        MatTooltipModule,
+        CommonModule,
+        FormsModule,
+        BoardCanvasComponent
+    ],
+    templateUrl: './board.component.html',
+    styleUrls: ['./board.component.scss']
 })
 export class BoardComponent implements OnInit, OnDestroy {
 

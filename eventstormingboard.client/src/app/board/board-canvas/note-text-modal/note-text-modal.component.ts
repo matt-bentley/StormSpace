@@ -5,21 +5,19 @@ import { MatInputModule } from '@angular/material/input';
 import { FormsModule } from '@angular/forms';
 import { MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
-import { CommonModule } from '@angular/common';
+
 
 @Component({
-  selector: 'app-note-text-modal',
-  standalone: true,
-  imports: [
+    selector: 'app-note-text-modal',
+    imports: [
     MatFormFieldModule,
     MatInputModule,
     FormsModule,
     MatDialogModule,
-    MatButtonModule,
-    CommonModule
-  ],
-  templateUrl: './note-text-modal.component.html',
-  styleUrls: ['./note-text-modal.component.scss']
+    MatButtonModule
+],
+    templateUrl: './note-text-modal.component.html',
+    styleUrls: ['./note-text-modal.component.scss']
 })
 export class NoteTextModalComponent implements AfterViewInit {
 

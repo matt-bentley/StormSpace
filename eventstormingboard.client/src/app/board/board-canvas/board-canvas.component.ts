@@ -12,13 +12,12 @@ import { BoardCanvasService } from './board-canvas.service';
 import { Subject, takeUntil } from 'rxjs';
 
 @Component({
-  selector: 'app-board-canvas',
-  standalone: true,
-  imports: [
-    MatDialogModule
-  ],
-  templateUrl: './board-canvas.component.html',
-  styleUrls: ['./board-canvas.component.scss']
+    selector: 'app-board-canvas',
+    imports: [
+        MatDialogModule
+    ],
+    templateUrl: './board-canvas.component.html',
+    styleUrls: ['./board-canvas.component.scss']
 })
 export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
 
@@ -365,7 +364,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  @HostListener('window:resize', ['$event'])
+  @HostListener('window:resize')
   public onResize(): void {
     this.canvas.nativeElement.width = window.innerWidth;
     this.canvas.nativeElement.height = window.innerHeight;

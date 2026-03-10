@@ -4,9 +4,11 @@
     <mat-form-field>
       <mat-label>Board Name</mat-label>
       <input matInput [(ngModel)]="data.name" name="name" required />
-      <mat-error *ngIf="noteForm.controls['name']?.invalid && noteForm.controls['name']?.touched">
-        Board Name is required.
-      </mat-error>
+      @if (noteForm.controls['name']?.invalid && noteForm.controls['name']?.touched) {
+        <mat-error>
+          Board Name is required.
+        </mat-error>
+      }
     </mat-form-field>
     <p>Warning! Storm boards self-destruct in 1 hour if not used.</p>
   </div>

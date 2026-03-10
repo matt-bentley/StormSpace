@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
-import { CommonModule } from '@angular/common';
+
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { FormsModule } from '@angular/forms';
@@ -14,20 +14,18 @@ import { BoardSummaryDto } from '../_shared/models/board.model';
 import { SelectBoardModalComponent } from './select-board-modal/select-board-modal.component';
 
 @Component({
-  selector: 'app-splash',
-  standalone: true,
-  imports: [
+    selector: 'app-splash',
+    imports: [
     MatButtonModule,
     MatIconModule,
     MatTooltipModule,
-    CommonModule,
     FormsModule,
     MatFormFieldModule,
     MatInputModule,
     MatDialogModule
-  ],
-  templateUrl: './splash.component.html',
-  styleUrls: ['./splash.component.scss']
+],
+    templateUrl: './splash.component.html',
+    styleUrls: ['./splash.component.scss']
 })
 export class SplashComponent implements OnInit {
 
