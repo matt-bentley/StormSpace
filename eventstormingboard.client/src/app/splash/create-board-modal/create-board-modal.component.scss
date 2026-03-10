@@ -1,3 +1,16 @@
 mat-form-field{
     width: 100%;
 }
+
+.warning-text {
+    font-size: 13px;
+    color: #e53e3e;
+    background-color: #fff5f5;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border-left: 4px solid #e53e3e;
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    font-weight: 500;
+}

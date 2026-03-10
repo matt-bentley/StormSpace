@@ -11,12 +11,21 @@
     }
 
     .minimap {
-        position: absolute;
-        right: 15px;
-        bottom: 78px;
+        position: fixed; /* Keep it fixed with respect to the viewport */
+        right: 20px; /* Align precisely with the right gutter */
+        bottom: 84px; /* Move it comfortably above the bottom-right control container */
         background-color: white;
         opacity: 0.8;
         padding: 0px;
         cursor: pointer;
+        border-radius: 8px; /* Adds consistency with the app's overall modern look */
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        border: 1px solid rgba(0,0,0,0.05);
+        z-index: 900;
+        transition: opacity 0.2s ease;
+
+        &:hover {
+            opacity: 1;
+        }
     }
 }

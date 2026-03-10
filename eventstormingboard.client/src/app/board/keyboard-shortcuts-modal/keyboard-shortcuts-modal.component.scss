@@ -1,29 +1,27 @@
-.shortcuts-title {
-  font-size: 24px;
-  letter-spacing: 0.2px;
-  margin-bottom: 8px;
-}
-
 .shortcuts-content {
   max-height: 70vh;
   min-width: 420px;
   display: grid;
-  gap: 12px;
-  padding-top: 4px;
+  gap: 16px;
+  padding-top: 8px;
+  padding-bottom: 8px;
 }
 
 .shortcuts-section {
   margin: 0;
-  border: 1px solid #d8e1e8;
-  border-radius: 10px;
-  background: linear-gradient(180deg, #ffffff 0%, #f9fcff 100%);
-  padding: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  background: white;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
 
   h3 {
-    margin: 0 0 10px;
-    font-size: 15px;
+    margin: 0 0 12px;
+    font-size: 16px;
     font-weight: 600;
-    color: #1f2937;
+    color: #3f51b5;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
   }
 
   ul {
@@ -32,7 +30,7 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 12px;
   }
 
   li {
@@ -40,8 +38,8 @@
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    border-bottom: 1px dashed #e3e9ef;
-    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    padding-bottom: 12px;
   }
 
   li:last-child {
@@ -53,29 +51,33 @@
 .key-combo {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   flex-wrap: wrap;
   min-width: 180px;
 }
 
 .shortcut-description {
-  color: #2f3c48;
+  color: #4a5568;
   text-align: right;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 kbd {
-  border: 1px solid #c7ccd1;
-  border-bottom-width: 2px;
-  border-radius: 4px;
-  background: #f5f7f9;
-  color: #1f2937;
-  font-size: 12px;
+  border: 1px solid #cbd5e0;
+  border-bottom-width: 3px;
+  border-radius: 6px;
+  background: #f7fafc;
+  color: #2d3748;
+  font-size: 13px;
+  font-weight: 600;
   line-height: 1;
-  padding: 4px 6px;
+  padding: 6px 10px;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.05);
 }
 
 .plus {
-  color: #68727d;
+  color: #a0aec0;
   font-weight: 600;
 }
 

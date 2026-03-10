@@ -1,47 +1,82 @@
 :host {
-    --board-top-offset: 78px;
+    --board-top-offset: 104px;
     --board-gutter: 20px;
 }
 
 .floating {
-    background: rgba(255, 255, 255, 0.9);
-    padding: 10px;
-    border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    padding: 12px;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.4);
     z-index: 1000;
 }
 
-.connected-users {
+.top-bar-container {
     position: fixed;
-    top: 10px;
-    left: 435px;
+    top: var(--board-gutter, 20px);
+    left: var(--board-gutter, 20px);
     display: flex;
-    gap: 6px;
-    min-height: 40px;
-    min-width: 40px;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 16px; /* Slightly tighter padding for a neat top bar */
+    z-index: 1000;
+}
+
+.top-bar-divider {
+    width: 2px;
+    height: 32px;
+    background-color: rgba(0, 0, 0, 0.1);
+    border-radius: 2px;
+}
+
+.connected-users {
+    display: flex;
+    gap: -8px;
+    min-height: 48px;
+    min-width: 48px;
     flex-wrap: nowrap;
     overflow: hidden;
-    transition: max-height 0.3s ease;
+    transition: max-height 0.3s ease, gap 0.3s ease;
+    align-items: center;
 
     &.expanded {
         flex-wrap: wrap;
         overflow: visible;
+        gap: 6px;
+        .user-circle {
+             margin-left: 0;
+             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
     }
 
     .user-circle {
-        width: 40px;
-        height: 40px;
+        width: 38px;
+        height: 38px;
         display: flex;
         align-items: center;
         justify-content: center;
         border-radius: 50%;
         background-color: #3f51b5;
         color: white;
-        font-size: 18px;
-        font-weight: bold;
+        font-size: 16px;
+        font-weight: 600;
         text-transform: uppercase;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 0 0 2px #fff, 0 4px 8px rgba(0, 0, 0, 0.15);
+        margin-left: -12px;
         cursor: default;
+        transition: transform 0.2s;
+        
+        &:first-child {
+            margin-left: 0;
+        }
+        
+        &:hover {
+            transform: translateY(-2px);
+            z-index: 10;
+        }
     }
 
     .remaining-users {
@@ -58,7 +93,7 @@
     left: var(--board-gutter);
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
     height: fit-content;
     max-height: calc(100vh - var(--board-top-offset) - 20px);
     overflow-y: auto;
@@ -87,18 +122,26 @@
     }
 
     button {
-        width: 45px;
-        height: 45px;
+        width: 48px;
+        height: 48px;
         display: flex;
         align-items: center;
         justify-content: center;
-        border-radius: 8px;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        border-radius: 12px;
+        border: 1px solid rgba(0,0,0,0.05);
+        transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, filter 0.2s ease;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        
+        .mat-icon {
+            color: rgba(0, 0, 0, 0.75); /* Toned down icon color for better contrast on bright notes */
+        }
     }
 
     button:hover {
-        transform: scale(1.05);
-        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+        transform: scale(1.1) translateY(-2px);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+        filter: brightness(1.05);
+        z-index: 2;
     }
 
     button.active {
@@ -108,20 +151,31 @@
 }
 
 .board-name-container {
-    position: fixed;
-    top: 10px;
-    left: var(--board-gutter);
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
 
     input {
-        border: none;
+        border: 1px solid transparent;
+        border-radius: 6px;
+        padding: 6px 12px;
+        margin-right: 8px;
         outline: none;
         font-size: 18px;
-        font-weight: bold;
+        font-weight: 600;
         background: transparent;
-        width: 230px;
+        width: 250px;
+        color: #2c3e50;
+        transition: border-color 0.2s, background-color 0.2s;
+        
+        &:hover {
+            background-color: rgba(0, 0, 0, 0.03);
+        }
+        &:focus {
+            background-color: #fff;
+            border-color: #3f51b5;
+            box-shadow: 0 0 0 3px rgba(63, 81, 181, 0.1);
+        }
     }
 
     button {
@@ -131,6 +185,17 @@
         border: none;
         background: transparent;
         cursor: pointer;
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        color: #555;
+        transition: background-color 0.2s, color 0.2s, transform 0.2s;
+        
+        &:hover {
+            background-color: rgba(63, 81, 181, 0.08);
+            color: #3f51b5;
+            transform: translateY(-1px);
+        }
     }
 }
 
@@ -139,10 +204,6 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    background: rgba(255, 255, 255, 0.9);
-    padding: 4px 7px 4px 6px;
-    border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 
     button {
         display: flex;
@@ -151,47 +212,91 @@
         border: none;
         background: transparent;
         cursor: pointer;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        transition: background-color 0.2s;
+        
+        &:hover {
+            background-color: rgba(0,0,0,0.04);
+        }
     }
 
     input {
-        width: 60px;
+        width: 52px;
         text-align: center;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        padding: 4px;
+        border: 1px solid rgba(0,0,0,0.1);
+        border-radius: 6px;
+        padding: 6px 4px;
         outline: none;
+        font-weight: 500;
+        background: rgba(255,255,255,0.7);
+        transition: border-color 0.2s, background 0.2s;
+        color: #444;
+
+        &:focus {
+            border-color: #3f51b5;
+            background: #fff;
+        }
     }
 
     span {
         font-size: 14px;
-        color: #333;
+        font-weight: 500;
+        color: #666;
+        margin-left: -4px;
     }
 }
 
 .bottom-right-controls {
     position: fixed;
-    right: 15px;
-    bottom: 18px;
+    right: var(--board-gutter, 20px);
+    bottom: var(--board-gutter, 20px);
     display: flex;
-    align-items: flex-end;
-    gap: 10px;
+    align-items: center;
+    gap: 16px;
     z-index: 1000;
+    padding: 6px 12px;
+}
+
+.bottom-bar-divider {
+    width: 2px;
+    height: 32px;
+    background-color: rgba(0, 0, 0, 0.1);
+    border-radius: 2px;
 }
 
 .utility-toolbar {
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 6px;
-    padding: 6px 5px;
+    gap: 8px;
     max-width: min(58vw, 560px);
     flex-wrap: wrap;
 
     button {
-        width: 36px;
-        height: 36px;
-        border-radius: 8px;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+        transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.2s, box-shadow 0.2s;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+
+        &:hover {
+            transform: translateY(-2px);
+            background-color: rgba(63, 81, 181, 0.08);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+    }
+    
+    button.active {
+        background-color: #ebf0fe;
+        color: #3f51b5;
+        border: 2px solid #3f51b5;
+        box-shadow: inset 0 2px 4px rgba(63, 81, 181, 0.1);
+        
+        .mat-icon {
+            color: #3f51b5;
+        }
     }
 
     .mat-mdc-icon-button {
@@ -231,7 +336,7 @@
 
 @media (max-height: 780px) {
     :host {
-        --board-top-offset: 90px;
+        --board-top-offset: 104px;
     }
 
     .floating-toolbar {
@@ -247,7 +352,7 @@
 @media (max-width: 900px) {
     :host {
         --board-gutter: 12px;
-        --board-top-offset: 98px;
+        --board-top-offset: 130px;
     }
 
     .board-name-container {

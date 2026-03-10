@@ -32,14 +32,37 @@ body {
     background: #f3f3f3;
 }
 
-.mat-mdc-dialog-surface{
-  border-radius: 16px!important;
+.mat-mdc-dialog-surface {
+  border-radius: 12px !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2) !important;
+  overflow: hidden !important;
 
-  .mat-mdc-dialog-title{
-    background: #e4eaed;
-    color: #121a24!important;
-    font-size: 22px!important;
-    font-weight: 500!important;
-    border-bottom: 2px solid #a6b8cd;
+  .mat-mdc-dialog-title {
+    background: linear-gradient(135deg, #3f51b5 0%, #5c6bc0 100%) !important;
+    color: #ffffff !important;
+    font-size: 20px !important;
+    font-weight: 500 !important;
+    padding: 16px 24px !important;
+    margin: 0 0 16px 0 !important; /* Force zero top margin to override standard angular material rules */
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    line-height: 1.5 !important;
+    display: flex !important;
+    align-items: center !important;
+    
+    &::before {
+      display: none !important; /* Material sometimes inserts invisible blocks for vertical alignment */
+    }
+  }
+
+  .mat-mdc-dialog-content {
+    padding: 8px 24px !important;
+  }
+
+  .mat-mdc-dialog-actions {
+    padding: 16px 24px 16px !important;
+    margin-bottom: 0 !important;
+    background-color: #f8f9fa !important;
+    border-top: 1px solid #edf2f7 !important;
   }
 }

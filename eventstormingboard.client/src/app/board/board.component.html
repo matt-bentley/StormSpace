@@ -1,32 +1,37 @@
-<div class="board-name-container floating">
-  <input [(ngModel)]="canvasService.boardState.name" placeholder="Enter board name" (blur)="onBoardNameUpdated()" />
-  <button mat-icon-button (click)="canvasService.downloadCanvasImage()" matTooltip="Export Board as Image">
-    <mat-icon>image</mat-icon>
-  </button>
-  <button mat-icon-button (click)="exportBoardAsJSON()" matTooltip="Export Board as JSON">
-    <mat-icon>download</mat-icon>
-  </button>
-  <button mat-icon-button matTooltip="Import Board from JSON">
-    <input type="file" accept=".json" (change)="importBoardFromJSON($event)" hidden #fileInput />
-    <mat-icon (click)="fileInput.click()">upload</mat-icon>
-  </button>
-</div>
-<div class="connected-users floating" [class.expanded]="isConnectedUsersHovered" (mouseenter)="isConnectedUsersHovered = true" (mouseleave)="isConnectedUsersHovered = false">
-  @for (user of (isConnectedUsersHovered ? connectedUsers : connectedUsers.slice(0, 5)); track user) {
-    <div
-      class="user-circle"
-      [style.background-color]="user.getColour()"
-      [matTooltip]="user.userName">
-      {{ user.userName.charAt(0).toUpperCase() }}
-    </div>
-  }
-  @if (!isConnectedUsersHovered && connectedUsers.length > 5) {
-    <div
-      class="user-circle remaining-users"
-      matTooltip="{{ connectedUsers.length - 5 }} more users">
-      +{{ connectedUsers.length - 5 }}
-    </div>
-  }
+<div class="top-bar-container floating">
+  <div class="board-name-container">
+    <input [(ngModel)]="canvasService.boardState.name" placeholder="Enter board name" (blur)="onBoardNameUpdated()" />
+    <button mat-icon-button (click)="canvasService.downloadCanvasImage()" matTooltip="Export Board as Image">
+      <mat-icon>image</mat-icon>
+    </button>
+    <button mat-icon-button (click)="exportBoardAsJSON()" matTooltip="Export Board as JSON">
+      <mat-icon>download</mat-icon>
+    </button>
+    <button mat-icon-button matTooltip="Import Board from JSON">
+      <input type="file" accept=".json" (change)="importBoardFromJSON($event)" hidden #fileInput />
+      <mat-icon (click)="fileInput.click()">upload</mat-icon>
+    </button>
+  </div>
+  
+  <div class="top-bar-divider"></div>
+
+  <div class="connected-users" [class.expanded]="isConnectedUsersHovered" (mouseenter)="isConnectedUsersHovered = true" (mouseleave)="isConnectedUsersHovered = false">
+    @for (user of (isConnectedUsersHovered ? connectedUsers : connectedUsers.slice(0, 5)); track user) {
+      <div
+        class="user-circle"
+        [style.background-color]="user.getColour()"
+        [matTooltip]="user.userName">
+        {{ user.userName.charAt(0).toUpperCase() }}
+      </div>
+    }
+    @if (!isConnectedUsersHovered && connectedUsers.length > 5) {
+      <div
+        class="user-circle remaining-users"
+        matTooltip="{{ connectedUsers.length - 5 }} more users">
+        +{{ connectedUsers.length - 5 }}
+      </div>
+    }
+  </div>
 </div>
 <div class="floating-toolbar floating">
   <button mat-icon-button (click)="addNote('event')" [ngStyle]="{ background: getNoteColor('event') }"
@@ -66,8 +71,8 @@
 
 <app-board-canvas></app-board-canvas>
 
-<div class="bottom-right-controls">
-  <div class="utility-toolbar floating">
+<div class="bottom-right-controls floating">
+  <div class="utility-toolbar">
     <button class="select-mode-btn" mat-icon-button (click)="toggleSelectMode()" [class.active]="canvasService.isSelectMode" matTooltip="Select Mode"
       matTooltipPosition="above">
       <mat-icon svgIcon="arrow_selector_tool"></mat-icon>
@@ -91,7 +96,9 @@
     </button>
   </div>
 
-  <div class="zoom-toolbar floating">
+  <div class="bottom-bar-divider"></div>
+
+  <div class="zoom-toolbar">
     <button mat-icon-button (click)="canvasService.zoomIn()" matTooltip="Zoom In">
       <mat-icon>zoom_in</mat-icon>
     </button>
