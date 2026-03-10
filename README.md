@@ -16,8 +16,8 @@ StormSpace is a collaborative interactive Event Storming web application. StormS
 ## Technologies Used
 
 StormSpace is built using the following technologies:
-- **Frontend**: Angular 18, Material, HTML Canvas
-- **Backend**: ASP.NET 8
+- **Frontend**: Angular 21, Material, HTML Canvas
+- **Backend**: ASP.NET 10
 - **Real-time communication**: SignalR
 
 ## Run Docker Image

@@ -6,7 +6,7 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "server: build",
-      "program": "${workspaceFolder}/EventStormingBoard.Server/bin/Debug/net8.0/EventStormingBoard.Server.dll",
+      "program": "${workspaceFolder}/EventStormingBoard.Server/bin/Debug/net10.0/EventStormingBoard.Server.dll",
       "args": [
         "--urls",
         "http://localhost:5212"
