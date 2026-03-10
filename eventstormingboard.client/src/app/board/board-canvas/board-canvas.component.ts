@@ -11,6 +11,9 @@ import { NoteTextModalComponent } from './note-text-modal/note-text-modal.compon
 import { BoardCanvasService } from './board-canvas.service';
 import { Subject, takeUntil } from 'rxjs';
 import { KeyboardShortcutsModalComponent } from '../keyboard-shortcuts-modal/keyboard-shortcuts-modal.component';
+import { BoardsSignalRService } from '../../_shared/services/boards-signalr.service';
+import { BoardUser } from '../../_shared/models/board-user.model';
+import { CursorPositionUpdatedEvent } from '../../_shared/models/board-events.model';
 
 @Component({
     selector: 'app-board-canvas',
@@ -21,6 +24,8 @@ import { KeyboardShortcutsModalComponent } from '../keyboard-shortcuts-modal/key
     styleUrls: ['./board-canvas.component.scss']
 })
 export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
+
+  private static readonly CURSOR_BROADCAST_INTERVAL_MS = 50;
 
   private destroy$ = new Subject<void>();
 
@@ -56,6 +61,8 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private hoveredNote: Note | null = null;
   private hoveredConnection: Connection | null = null;
+  private lastCursorBroadcastAt = 0;
+  private readonly localUserName = localStorage.getItem('userName') ?? 'Anonymous';
 
   @ViewChild('canvas', { static: true })
   public canvas!: ElementRef<HTMLCanvasElement>;
@@ -65,7 +72,8 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
 
   constructor(
     private dialog: MatDialog,
-    private canvasService: BoardCanvasService
+    private canvasService: BoardCanvasService,
+    private boardsHub: BoardsSignalRService
   ) {
   }
 
@@ -354,6 +362,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
 
   public onMouseMove(event: MouseEvent): void {
     this.currentMousePos = this.getMousePos(event);
+    this.broadcastCursorPositionIfNeeded();
 
     if (this.handlePanning(event)) return;
     if (this.handeResize()) return;
@@ -449,6 +458,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     });
 
     this.drawConnections();
+    this.drawRemoteCursors();
 
     if (this.isSelecting) {
       this.ctx.save();
@@ -474,6 +484,101 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     this.drawMinimap();
+  }
+
+  private drawRemoteCursors(): void {
+    for (const cursor of this.canvasService.remoteCursors.values()) {
+      const user = new BoardUser(cursor.boardId, cursor.userName, cursor.connectionId);
+      const color = user.getColour();
+
+      this.ctx.save();
+
+      // Shadow for pointer
+      this.ctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
+      this.ctx.shadowBlur = 6;
+      this.ctx.shadowOffsetX = 1;
+      this.ctx.shadowOffsetY = 2;
+
+      // Draw cursor pointer (Figma-style arrow)
+      this.ctx.beginPath();
+      this.ctx.moveTo(cursor.x, cursor.y);
+      this.ctx.lineTo(cursor.x + 14, cursor.y + 10);
+      this.ctx.lineTo(cursor.x + 8, cursor.y + 11);
+      this.ctx.lineTo(cursor.x + 4, cursor.y + 18);
+      this.ctx.closePath();
+
+      // Fill with user color
+      this.ctx.fillStyle = color;
+      this.ctx.fill();
+
+      // White exterior stroke
+      this.ctx.strokeStyle = '#ffffff';
+      this.ctx.lineWidth = 1.5;
+      this.ctx.lineJoin = 'round';
+      this.ctx.stroke();
+
+      // Remove shadow for text rendering clarity
+      this.ctx.shadowColor = 'transparent';
+
+      this.ctx.font = 'bold 12px Calibri, sans-serif';
+      const textWidth = this.ctx.measureText(cursor.userName).width;
+      const paddingX = 8;
+      const labelWidth = textWidth + paddingX * 2;
+      const labelHeight = 22;
+      const labelX = cursor.x + 12;
+      const labelY = cursor.y + 16;
+      const r = 4; // border radius
+
+      // Draw label background with rounded corners
+      this.ctx.beginPath();
+      this.ctx.moveTo(labelX + r, labelY);
+      this.ctx.lineTo(labelX + labelWidth - r, labelY);
+      this.ctx.quadraticCurveTo(labelX + labelWidth, labelY, labelX + labelWidth, labelY + r);
+      this.ctx.lineTo(labelX + labelWidth, labelY + labelHeight - r);
+      this.ctx.quadraticCurveTo(labelX + labelWidth, labelY + labelHeight, labelX + labelWidth - r, labelY + labelHeight);
+      this.ctx.lineTo(labelX + r, labelY + labelHeight);
+      this.ctx.quadraticCurveTo(labelX, labelY + labelHeight, labelX, labelY + labelHeight - r);
+      this.ctx.lineTo(labelX, labelY + r);
+      this.ctx.quadraticCurveTo(labelX, labelY, labelX + r, labelY);
+      this.ctx.closePath();
+      
+      this.ctx.fillStyle = color;
+      this.ctx.fill();
+
+      // Draw label text
+      this.ctx.fillStyle = '#ffffff';
+      this.ctx.textAlign = 'left';
+      this.ctx.textBaseline = 'middle';
+      this.ctx.fillText(cursor.userName, labelX + paddingX, labelY + labelHeight / 2 + 1);
+
+      this.ctx.restore();
+    }
+  }
+
+  private broadcastCursorPositionIfNeeded(): void {
+    if (!this.canvasService.id) {
+      return;
+    }
+
+    const now = Date.now();
+    if (now - this.lastCursorBroadcastAt < BoardCanvasComponent.CURSOR_BROADCAST_INTERVAL_MS) {
+      return;
+    }
+
+    if (!Number.isFinite(this.currentMousePos.x) || !Number.isFinite(this.currentMousePos.y)) {
+      return;
+    }
+
+    const cursorEvent: CursorPositionUpdatedEvent = {
+      boardId: this.canvasService.id,
+      connectionId: '',
+      userName: this.localUserName,
+      x: this.currentMousePos.x,
+      y: this.currentMousePos.y
+    };
+
+    this.boardsHub.broadcastCursorPositionUpdated(cursorEvent);
+    this.lastCursorBroadcastAt = now;
   }
 
   private drawMinimap(): void {

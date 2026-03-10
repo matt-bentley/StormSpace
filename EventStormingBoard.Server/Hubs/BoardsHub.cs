@@ -114,5 +114,22 @@ namespace EventStormingBoard.Server.Hubs
         {
             await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("Pasted", @event);
         }
+
+        public async Task BroadcastCursorPositionUpdated(CursorPositionUpdatedEvent @event)
+        {
+            if (!double.IsFinite(@event.X) || !double.IsFinite(@event.Y))
+            {
+                return;
+            }
+
+            @event.ConnectionId = Context.ConnectionId;
+            if (BoardUsers.TryGetValue(@event.BoardId, out var boardConnections) &&
+                boardConnections.TryGetValue(Context.ConnectionId, out var user))
+            {
+                @event.UserName = user.UserName;
+            }
+
+            await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("CursorPositionUpdated", @event);
+        }
     }
 }

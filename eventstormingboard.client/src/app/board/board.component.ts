@@ -16,6 +16,7 @@ import { BoardCanvasComponent } from './board-canvas/board-canvas.component';
 import { BoardCanvasService } from './board-canvas/board-canvas.service';
 import { MatDialog } from '@angular/material/dialog';
 import { KeyboardShortcutsModalComponent } from './keyboard-shortcuts-modal/keyboard-shortcuts-modal.component';
+import { CursorPositionUpdatedEvent } from '../_shared/models/board-events.model';
 
 @Component({
     selector: 'app-board',
@@ -33,6 +34,7 @@ import { KeyboardShortcutsModalComponent } from './keyboard-shortcuts-modal/keyb
 })
 export class BoardComponent implements OnInit, OnDestroy {
 
+  private static readonly CURSOR_STALE_TIMEOUT_MS = 15000;
   private destroy$ = new Subject<void>();
   private id!: string;
   private userName: string;
@@ -203,6 +205,7 @@ export class BoardComponent implements OnInit, OnDestroy {
 
   public ngOnDestroy(): void {
     this.boardsHub.leaveBoard(this.id);
+    this.canvasService.remoteCursors.clear();
     this.destroy$.next();
     this.destroy$.complete();
   }
@@ -223,6 +226,26 @@ export class BoardComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(event => {
         this.connectedUsers = this.connectedUsers.filter(user => user.connectionId !== event.connectionId);
+        this.canvasService.remoteCursors.delete(event.connectionId);
+        this.canvasService.drawCanvas();
+      });
+
+    this.boardsHub.cursorPositionUpdated$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((event: CursorPositionUpdatedEvent) => {
+        if (event.boardId !== this.id || !this.isValidCursorEvent(event)) {
+          return;
+        }
+
+        this.canvasService.remoteCursors.set(event.connectionId, {
+          boardId: event.boardId,
+          connectionId: event.connectionId,
+          userName: event.userName,
+          x: event.x,
+          y: event.y,
+          updatedAt: Date.now()
+        });
+        this.canvasService.drawCanvas();
       });
     this.boardsHub.boardNameUpdated$
       .pipe(takeUntil(this.destroy$))
@@ -277,10 +300,34 @@ export class BoardComponent implements OnInit, OnDestroy {
     interval(2000)
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
+        this.pruneStaleRemoteCursors();
         if (this.canvasService.hasChanges) {
           this.saveBoard();
         }
       });
+  }
+
+  private pruneStaleRemoteCursors(): void {
+    const now = Date.now();
+    let removedAny = false;
+
+    for (const [connectionId, cursor] of this.canvasService.remoteCursors.entries()) {
+      if (now - cursor.updatedAt > BoardComponent.CURSOR_STALE_TIMEOUT_MS) {
+        this.canvasService.remoteCursors.delete(connectionId);
+        removedAny = true;
+      }
+    }
+
+    if (removedAny) {
+      this.canvasService.drawCanvas();
+    }
+  }
+
+  private isValidCursorEvent(event: CursorPositionUpdatedEvent): boolean {
+    return !!event.connectionId &&
+      !!event.userName &&
+      Number.isFinite(event.x) &&
+      Number.isFinite(event.y);
   }
 
   private saveBoard(): void {

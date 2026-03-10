@@ -17,6 +17,13 @@ export interface UserLeftBoardEvent extends BoardEvent {
     connectionId: string;
 }
 
+export interface CursorPositionUpdatedEvent extends BoardEvent {
+    connectionId: string;
+    userName: string;
+    x: number;
+    y: number;
+}
+
 export interface BoardNameUpdatedEvent extends BoardEvent {
     newName: string;
     oldName: string;

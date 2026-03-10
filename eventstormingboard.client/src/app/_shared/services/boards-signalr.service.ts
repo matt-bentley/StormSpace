@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import * as signalR from '@microsoft/signalr';
 import { Subject } from 'rxjs';
-import { BoardNameUpdatedEvent, ConnectionCreatedEvent, NoteCreatedEvent, NoteResizedEvent, NotesDeletedEvent, NotesMovedEvent, NoteTextEditedEvent, PastedEvent, UserJoinedBoardEvent, UserLeftBoardEvent } from '../models/board-events.model';
+import { BoardNameUpdatedEvent, ConnectionCreatedEvent, CursorPositionUpdatedEvent, NoteCreatedEvent, NoteResizedEvent, NotesDeletedEvent, NotesMovedEvent, NoteTextEditedEvent, PastedEvent, UserJoinedBoardEvent, UserLeftBoardEvent } from '../models/board-events.model';
 import { BoardUser } from '../models/board-user.model';
 
 @Injectable({ providedIn: 'root' })
@@ -18,6 +18,7 @@ export class BoardsSignalRService {
   public userJoinedBoard$ = new Subject<UserJoinedBoardEvent>();
   public userLeftBoard$ = new Subject<UserLeftBoardEvent>();
   public boardNameUpdated$ = new Subject<BoardNameUpdatedEvent>();
+  public cursorPositionUpdated$ = new Subject<CursorPositionUpdatedEvent>();
   public noteAdded$ = new Subject<NoteCreatedEvent>();
   public notesMoved$ = new Subject<NotesMovedEvent>();
   public noteResized$ = new Subject<NoteResizedEvent>();
@@ -43,6 +44,9 @@ export class BoardsSignalRService {
     });
     this.hubConnection.on('BoardNameUpdated', (event) => {
       this.boardNameUpdated$.next(event);
+    });
+    this.hubConnection.on('CursorPositionUpdated', (event) => {
+      this.cursorPositionUpdated$.next(event);
     });
     this.hubConnection.on('NoteCreated', (event) => {
       this.noteAdded$.next(event);
@@ -84,6 +88,11 @@ export class BoardsSignalRService {
 
   public broadcastBoardNameUpdated(event: BoardNameUpdatedEvent) {
     this.hubConnection.invoke('BroadcastBoardNameUpdated', event)
+      .catch(err => console.error(err));
+  }
+
+  public broadcastCursorPositionUpdated(event: CursorPositionUpdatedEvent) {
+    this.hubConnection.invoke('BroadcastCursorPositionUpdated', event)
       .catch(err => console.error(err));
   }
 

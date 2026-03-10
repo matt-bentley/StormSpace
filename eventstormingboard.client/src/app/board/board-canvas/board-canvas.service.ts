@@ -5,6 +5,7 @@ import { BoardsSignalRService } from '../../_shared/services/boards-signalr.serv
 import { Command } from '../../_shared/models/command.model';
 import { CreateConnectionCommand, CreateNoteCommand, DeleteNotesCommand, EditNoteTextCommand, MoveNotesCommand, PasteCommand, ResizeNoteCommand, UpdateBoardNameCommand } from '../board.commands';
 import { BoardEvent, BoardNameUpdatedEvent, ConnectionCreatedEvent, NoteCreatedEvent, NoteResizedEvent, NotesDeletedEvent, NotesMovedEvent, NoteTextEditedEvent, PastedEvent } from '../../_shared/models/board-events.model';
+import { RemoteCursorState } from '../../_shared/models/remote-cursor-state.model';
 
 @Injectable()
 export class BoardCanvasService {
@@ -22,6 +23,8 @@ export class BoardCanvasService {
     connections: [],
     name: 'Untitled Board'
   };
+
+  public remoteCursors = new Map<string, RemoteCursorState>();
 
   public id!: string;
   public isDrawingConnection = false;
