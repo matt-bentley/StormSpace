@@ -14,6 +14,8 @@ import { BoardsService } from '../_shared/services/boards.service';
 import { BoardUser } from '../_shared/models/board-user.model';
 import { BoardCanvasComponent } from './board-canvas/board-canvas.component';
 import { BoardCanvasService } from './board-canvas/board-canvas.service';
+import { MatDialog } from '@angular/material/dialog';
+import { KeyboardShortcutsModalComponent } from './keyboard-shortcuts-modal/keyboard-shortcuts-modal.component';
 
 @Component({
     selector: 'app-board',
@@ -50,7 +52,8 @@ export class BoardComponent implements OnInit, OnDestroy {
     private boardsHub: BoardsSignalRService,
     public canvasService: BoardCanvasService,
     private activatedRoute: ActivatedRoute,
-    private boardsService: BoardsService
+    private boardsService: BoardsService,
+    private dialog: MatDialog
   ) {
     this.canvasService.boardState = {
       name: '',
@@ -130,6 +133,14 @@ export class BoardComponent implements OnInit, OnDestroy {
     this.canvasService.reset()
     this.canvasService.isDrawingConnection = true;
     this.canvasService.drawCanvas();
+  }
+
+  public openShortcutsGuide(): void {
+    this.dialog.open(KeyboardShortcutsModalComponent, {
+      width: '560px',
+      maxWidth: '95vw',
+      autoFocus: false
+    });
   }
 
   public addNote(type: string): void {

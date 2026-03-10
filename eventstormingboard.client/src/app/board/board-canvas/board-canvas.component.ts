@@ -10,6 +10,7 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { NoteTextModalComponent } from './note-text-modal/note-text-modal.component';
 import { BoardCanvasService } from './board-canvas.service';
 import { Subject, takeUntil } from 'rxjs';
+import { KeyboardShortcutsModalComponent } from '../keyboard-shortcuts-modal/keyboard-shortcuts-modal.component';
 
 @Component({
     selector: 'app-board-canvas',
@@ -301,6 +302,12 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
   public onKeyDown(event: KeyboardEvent): void {
 
     if (this.dialog.openDialogs.length > 0) {
+      return;
+    }
+
+    if ((event.key === '?' || (event.shiftKey && event.key === '/')) && !event.ctrlKey && !event.altKey && !event.metaKey) {
+      event.preventDefault();
+      this.openShortcutsGuide();
       return;
     }
 
@@ -1002,6 +1009,14 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
           this.canvasService.executeCommand(command);
         }
       });
+  }
+
+  private openShortcutsGuide(): void {
+    this.dialog.open(KeyboardShortcutsModalComponent, {
+      width: '560px',
+      maxWidth: '95vw',
+      autoFocus: false
+    });
   }
 
   private copySelectedNotes(): void {

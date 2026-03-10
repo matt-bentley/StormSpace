@@ -1,0 +1,29 @@
+<h2 mat-dialog-title class="shortcuts-title">Keyboard Shortcuts</h2>
+
+<div mat-dialog-content class="shortcuts-content">
+  @for (section of sections; track section.title) {
+    <section class="shortcuts-section">
+      <h3>{{ section.title }}</h3>
+
+      <ul>
+        @for (item of section.items; track $index) {
+          <li>
+            <div class="key-combo">
+              @for (key of item.keys; track $index; let last = $last) {
+                <kbd>{{ key }}</kbd>
+                @if (!last) {
+                  <span class="plus">+</span>
+                }
+              }
+            </div>
+            <span class="shortcut-description">{{ item.description }}</span>
+          </li>
+        }
+      </ul>
+    </section>
+  }
+</div>
+
+<div mat-dialog-actions align="end">
+  <button mat-button color="primary" (click)="dialogRef.close()" cdkFocusInitial>Close</button>
+</div>

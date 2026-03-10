@@ -1,3 +1,8 @@
+:host {
+    --board-top-offset: 78px;
+    --board-gutter: 20px;
+}
+
 .floating {
     background: rgba(255, 255, 255, 0.9);
     padding: 10px;
@@ -49,12 +54,37 @@
 
 .floating-toolbar {
     position: fixed;
-    top: 50%;
-    left: 20px;
-    transform: translateY(-50%);
+    top: var(--board-top-offset);
+    left: var(--board-gutter);
     display: flex;
     flex-direction: column;
     gap: 10px;
+    height: fit-content;
+    max-height: calc(100vh - var(--board-top-offset) - 20px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(69, 93, 117, 0.35) transparent;
+
+    &::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    &::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background: rgba(69, 93, 117, 0.35);
+        border-radius: 999px;
+        border: 2px solid transparent;
+        background-clip: content-box;
+    }
+
+    &::-webkit-scrollbar-thumb:hover {
+        background: rgba(69, 93, 117, 0.55);
+        background-clip: content-box;
+    }
 
     button {
         width: 45px;
@@ -80,7 +110,7 @@
 .board-name-container {
     position: fixed;
     top: 10px;
-    left: 20px;
+    left: var(--board-gutter);
     display: flex;
     align-items: center;
     gap: 10px;
@@ -105,9 +135,7 @@
 }
 
 .zoom-toolbar {
-    position: absolute;
-    right: 15px;
-    bottom: 18px;
+    position: static;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -137,5 +165,113 @@
     span {
         font-size: 14px;
         color: #333;
+    }
+}
+
+.bottom-right-controls {
+    position: fixed;
+    right: 15px;
+    bottom: 18px;
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    z-index: 1000;
+}
+
+.utility-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    padding: 6px 5px;
+    max-width: min(58vw, 560px);
+    flex-wrap: wrap;
+
+    button {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .mat-mdc-icon-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        line-height: 1;
+    }
+
+    .mat-icon {
+        width: 20px;
+        height: 20px;
+        line-height: 20px;
+        font-size: 20px;
+        display: block;
+    }
+
+    .mat-icon[data-mat-icon-name='arrow_selector_tool'] {
+        transform: translateX(-0.8px);
+    }
+
+    .pan-mode-btn .mat-icon {
+        transform: translateX(-0.8px);
+    }
+
+    button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.18);
+    }
+
+    button.active {
+        border: 2px solid #3f51b5;
+        background-color: #e4ecff;
+    }
+}
+
+@media (max-height: 780px) {
+    :host {
+        --board-top-offset: 90px;
+    }
+
+    .floating-toolbar {
+        gap: 8px;
+
+        button {
+            width: 42px;
+            height: 42px;
+        }
+    }
+}
+
+@media (max-width: 900px) {
+    :host {
+        --board-gutter: 12px;
+        --board-top-offset: 98px;
+    }
+
+    .board-name-container {
+        max-width: calc(100vw - 24px);
+        flex-wrap: wrap;
+    }
+
+    .connected-users {
+        top: 72px;
+        left: 12px;
+        max-width: calc(100vw - 24px);
+    }
+
+    .floating-toolbar {
+        top: 150px;
+    }
+
+    .bottom-right-controls {
+        left: 12px;
+        right: 12px;
+        justify-content: flex-end;
+    }
+
+    .utility-toolbar {
+        max-width: 100%;
     }
 }
