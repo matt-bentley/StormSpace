@@ -599,32 +599,84 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private drawNote(note: Note): void {
 
-    // Create a gradient for the note background
+    // Helper functions for colour manipulation
+    const parseColor = (color: string) => {
+      let r = 0, g = 0, b = 0;
+      if (color.startsWith('#')) {
+        let hex = color.slice(1);
+        if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+        r = parseInt(hex.slice(0, 2), 16);
+        g = parseInt(hex.slice(2, 4), 16);
+        b = parseInt(hex.slice(4, 6), 16);
+      } else if (color.startsWith('rgb')) {
+        const parts = color.match(/\d+/g);
+        if (parts && parts.length >= 3) {
+          r = parseInt(parts[0], 10);
+          g = parseInt(parts[1], 10);
+          b = parseInt(parts[2], 10);
+        }
+      }
+      return { r, g, b };
+    };
+
+    const darkenColor = (color: string, amount: number) => {
+      const { r, g, b } = parseColor(color);
+      const shift = Math.floor(255 * (amount / 100));
+      const tr = Math.max(0, r - shift);
+      const tg = Math.max(0, g - shift);
+      const tb = Math.max(0, b - shift);
+      return `rgb(${tr}, ${tg}, ${tb})`;
+    };
+
+    const lightenColor = (color: string, amount: number) => {
+      const { r, g, b } = parseColor(color);
+      const shift = Math.floor(255 * (amount / 100));
+      const tr = Math.min(255, r + shift);
+      const tg = Math.min(255, g + shift);
+      const tb = Math.min(255, b + shift);
+      return `rgb(${tr}, ${tg}, ${tb})`;
+    };
+
+    // Calculate dynamic gradient colours based on base colour
+    const topColor = lightenColor(note.color, 15);
+    const bottomColor = note.color;
+
+    // Create a smooth gradient for the main note body
     const gradient = this.ctx.createLinearGradient(note.x, note.y, note.x, note.y + note.height);
-    gradient.addColorStop(1, note.color);
+    gradient.addColorStop(0, topColor);
+    gradient.addColorStop(1, bottomColor);
 
-    // Apply shadow for a lifted effect
-    this.ctx.shadowBlur = 8;
-    this.ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
-    this.ctx.shadowOffsetX = 0;
-    this.ctx.shadowOffsetY = 4;
+    // More realistic multiple shadow effect
+    this.ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
+    this.ctx.shadowBlur = note.selected ? 12 : 5;
+    this.ctx.shadowOffsetX = note.selected ? 4 : 2;
+    this.ctx.shadowOffsetY = note.selected ? 6 : 3;
 
-    // Draw rectangle
+    // Draw main note rectangle
     this.ctx.beginPath();
     this.ctx.rect(note.x, note.y, note.width, note.height);
     this.ctx.closePath();
 
-    // Fill with gradient
+    // Fill main shape with gradient
     this.ctx.fillStyle = gradient;
     this.ctx.fill();
 
-    // Draw border
-    this.ctx.strokeStyle = note.selected ? '#4393e5' : '#aaa';
-    this.ctx.lineWidth = note.selected ? 2 : 1;
-    this.ctx.stroke();
-
-    // Reset shadow
+    // Reset shadow before drawing borders and details
     this.resetShadow();
+
+    // Draw border
+    this.ctx.beginPath();
+    this.ctx.rect(note.x, note.y, note.width, note.height);
+    if (note.selected) {
+      // Draw standard selection border on top
+      this.ctx.strokeStyle = '#4A85CD';
+      this.ctx.lineWidth = 2.5;
+    } else {
+      // Very faint outline for unselected
+      this.ctx.strokeStyle = darkenColor(note.color, 12);
+      this.ctx.lineWidth = 1;
+    }
+    this.ctx.stroke();
 
     // Draw text
     this.drawNoteText(note);
@@ -688,31 +740,45 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private drawArrow(fromX: number, fromY: number, toX: number, toY: number, selected = false, hovered = false): void {
-    const headLength = 10;
+    const headLength = 12;
     const angle = Math.atan2(toY - fromY, toX - fromX);
 
-    this.ctx.strokeStyle = selected ? '#4393e5' : '#000';
-    this.ctx.fillStyle = selected ? '#4393e5' : '#000';
-    this.ctx.lineWidth = selected ? 3 : 2;
+    // Soften the default connector from harsh black to a smooth slate grey
+    const baseColor = '#8b8f94'; // Slate 400
+    const hoverColor = '#64748b'; // Slate 500
+    const selectedColor = '#4A85CD';
 
-    if (hovered) {
-      this.ctx.shadowBlur = 5;
-      this.ctx.shadowColor = 'rgba(0,0,0,0.2)';
-      this.ctx.shadowOffsetX = 2;
+    const color = selected ? selectedColor : (hovered ? hoverColor : baseColor);
+
+    this.ctx.strokeStyle = color;
+    this.ctx.fillStyle = color;
+    this.ctx.lineWidth = selected ? 3 : 2;
+    this.ctx.lineCap = 'round';
+    this.ctx.lineJoin = 'round';
+
+    if (hovered || selected) {
+      this.ctx.shadowBlur = 6;
+      this.ctx.shadowColor = selected ? 'rgba(74, 133, 205, 0.3)' : 'rgba(0,0,0,0.15)';
+      this.ctx.shadowOffsetX = 1;
       this.ctx.shadowOffsetY = 2;
     } else {
       this.resetShadow();
     }
 
+    // Draw the main line
     this.ctx.beginPath();
     this.ctx.moveTo(fromX, fromY);
     this.ctx.lineTo(toX, toY);
     this.ctx.stroke();
 
+    // Draw a more modern, slightly sleeker arrowhead
     this.ctx.beginPath();
     this.ctx.moveTo(toX, toY);
-    this.ctx.lineTo(toX - headLength * Math.cos(angle - Math.PI / 6), toY - headLength * Math.sin(angle - Math.PI / 6));
-    this.ctx.lineTo(toX - headLength * Math.cos(angle + Math.PI / 6), toY - headLength * Math.sin(angle + Math.PI / 6));
+    this.ctx.lineTo(toX - headLength * Math.cos(angle - Math.PI / 7), toY - headLength * Math.sin(angle - Math.PI / 7));
+    // Pull the back of the arrow in slightly for a swept dart look
+    this.ctx.lineTo(toX - (headLength - 3) * Math.cos(angle), toY - (headLength - 3) * Math.sin(angle));
+    this.ctx.lineTo(toX - headLength * Math.cos(angle + Math.PI / 7), toY - headLength * Math.sin(angle + Math.PI / 7));
+    this.ctx.closePath();
     this.ctx.fill();
 
     this.resetShadow();
