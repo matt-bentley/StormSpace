@@ -56,6 +56,9 @@ namespace EventStormingBoard.Server.Repositories
             if (board != null)
             {
                 board.Name = boardUpdate.Name;
+                board.Domain = boardUpdate.Domain;
+                board.SessionScope = boardUpdate.SessionScope;
+                board.AgentInstructions = boardUpdate.AgentInstructions;
                 board.Notes = boardUpdate.Notes;
                 board.Connections = boardUpdate.Connections;
                 _cache.Set(BoardsCacheKey, boards, _cacheOptions);

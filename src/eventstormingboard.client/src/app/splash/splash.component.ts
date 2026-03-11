@@ -37,7 +37,7 @@ export class SplashComponent implements OnInit {
     if (this.userName) {
       localStorage.setItem('userName', this.userName);
       const dialogRef = this.dialog.open(CreateBoardModalComponent, {
-        width: '400px',
+        width: '500px',
         data: { name: '' }
       });
 

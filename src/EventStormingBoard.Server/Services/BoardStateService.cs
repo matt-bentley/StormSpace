@@ -9,6 +9,7 @@ namespace EventStormingBoard.Server.Services
     public interface IBoardStateService
     {
         void ApplyBoardNameUpdated(BoardNameUpdatedEvent @event);
+        void ApplyBoardContextUpdated(BoardContextUpdatedEvent @event);
         void ApplyNoteCreated(NoteCreatedEvent @event);
         void ApplyNotesMoved(NotesMovedEvent @event);
         void ApplyNoteResized(NoteResizedEvent @event);
@@ -33,6 +34,16 @@ namespace EventStormingBoard.Server.Services
             WithBoard(@event.BoardId, board =>
             {
                 board.Name = @event.IsUndo ? @event.OldName : @event.NewName;
+            });
+        }
+
+        public void ApplyBoardContextUpdated(BoardContextUpdatedEvent @event)
+        {
+            WithBoard(@event.BoardId, board =>
+            {
+                board.Domain = @event.IsUndo ? @event.OldDomain : @event.NewDomain;
+                board.SessionScope = @event.IsUndo ? @event.OldSessionScope : @event.NewSessionScope;
+                board.AgentInstructions = @event.IsUndo ? @event.OldAgentInstructions : @event.NewAgentInstructions;
             });
         }
 

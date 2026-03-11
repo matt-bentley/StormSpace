@@ -1,3 +1,4 @@
+using EventStormingBoard.Server.Filters;
 using EventStormingBoard.Server.Hubs;
 using EventStormingBoard.Server.Repositories;
 using EventStormingBoard.Server.Services;
@@ -19,6 +20,9 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddSingleton<IBoardsRepository, BoardsRepository>();
 builder.Services.AddSingleton<IBoardStateService, BoardStateService>();
 builder.Services.AddSingleton<IBoardEventLog, BoardEventLog>();
+builder.Services.AddSingleton<IAgentService, AgentService>();
+builder.Services.AddSingleton<AgentToolCallFilter>();
+builder.Services.AddHttpClient("AgentService");
 builder.Services.AddMemoryCache();
 
 builder.Services.AddSignalR()

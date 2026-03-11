@@ -3,8 +3,8 @@ import { BoardState } from '../../_shared/models/board-state.model';
 import { Subject } from 'rxjs';
 import { BoardsSignalRService } from '../../_shared/services/boards-signalr.service';
 import { Command } from '../../_shared/models/command.model';
-import { CreateConnectionCommand, CreateNoteCommand, DeleteNotesCommand, EditNoteTextCommand, MoveNotesCommand, PasteCommand, ResizeNoteCommand, UpdateBoardNameCommand } from '../board.commands';
-import { BoardEvent, BoardNameUpdatedEvent, ConnectionCreatedEvent, NoteCreatedEvent, NoteResizedEvent, NotesDeletedEvent, NotesMovedEvent, NoteTextEditedEvent, PastedEvent } from '../../_shared/models/board-events.model';
+import { CreateConnectionCommand, CreateNoteCommand, DeleteNotesCommand, EditNoteTextCommand, MoveNotesCommand, PasteCommand, ResizeNoteCommand, UpdateBoardContextCommand, UpdateBoardNameCommand } from '../board.commands';
+import { BoardContextUpdatedEvent, BoardEvent, BoardNameUpdatedEvent, ConnectionCreatedEvent, NoteCreatedEvent, NoteResizedEvent, NotesDeletedEvent, NotesMovedEvent, NoteTextEditedEvent, PastedEvent } from '../../_shared/models/board-events.model';
 import { RemoteCursorState } from '../../_shared/models/remote-cursor-state.model';
 
 @Injectable()
@@ -100,6 +100,8 @@ export class BoardCanvasService {
       this.boardsHub.broadcastConnectionCreated(this.toEvent<ConnectionCreatedEvent>(command, isUndo));
     } else if (command instanceof UpdateBoardNameCommand) {
       this.boardsHub.broadcastBoardNameUpdated(this.toEvent<BoardNameUpdatedEvent>(command, isUndo));
+    } else if (command instanceof UpdateBoardContextCommand) {
+      this.boardsHub.broadcastBoardContextUpdated(this.toEvent<BoardContextUpdatedEvent>(command, isUndo));
     }
   }
 

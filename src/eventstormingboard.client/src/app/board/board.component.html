@@ -1,6 +1,9 @@
 <div class="top-bar-container floating">
   <div class="board-name-container">
     <input [(ngModel)]="canvasService.boardState.name" placeholder="Enter board name" (blur)="onBoardNameUpdated()" />
+    <button mat-icon-button (click)="openBoardContext()" matTooltip="Board Context for AI">
+      <mat-icon>psychology</mat-icon>
+    </button>
     <button mat-icon-button (click)="canvasService.downloadCanvasImage()" matTooltip="Export Board as Image">
       <mat-icon>image</mat-icon>
     </button>
@@ -94,6 +97,12 @@
     <button mat-icon-button (click)="openShortcutsGuide()" matTooltip="Keyboard Shortcuts (?)" matTooltipPosition="above">
       <mat-icon>keyboard</mat-icon>
     </button>
+    <button mat-icon-button (click)="isChatOpen = !isChatOpen; hasUnreadMessages = false" [class.active]="isChatOpen" matTooltip="AI Assistant" matTooltipPosition="above" class="ai-button">
+      <mat-icon fontSet="material-icons-outlined">smart_toy</mat-icon>
+      @if (hasUnreadMessages && !isChatOpen) {
+        <span class="unread-badge"></span>
+      }
+    </button>
   </div>
 
   <div class="bottom-bar-divider"></div>
@@ -110,3 +119,9 @@
     <span>%</span>
   </div>
 </div>
+
+@if (isChatOpen) {
+  <div class="ai-chat-container floating">
+    <app-ai-chat-panel [boardId]="canvasService.id" [userName]="userName" (closed)="isChatOpen = false; hasUnreadMessages = false"></app-ai-chat-panel>
+  </div>
+}

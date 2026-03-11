@@ -1,5 +1,5 @@
 import { AfterViewInit, Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
-import { Note } from '../../_shared/models/note.model';
+import { Note, getNoteColor } from '../../_shared/models/note.model';
 import { Connection } from '../../_shared/models/connection.model';
 import { CreateConnectionCommand, DeleteNotesCommand, EditNoteTextCommand, MoveNotesCommand, PasteCommand, ResizeNoteCommand } from '../board.commands';
 import { v4 as uuid } from 'uuid';
@@ -313,6 +313,10 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
+    if (this.isEditableTarget(event.target)) {
+      return;
+    }
+
     if ((event.key === '?' || (event.shiftKey && event.key === '/')) && !event.ctrlKey && !event.altKey && !event.metaKey) {
       event.preventDefault();
       this.openShortcutsGuide();
@@ -590,7 +594,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     const { minX, minY, dynamicScale } = this.getCanvasBoundsAndScale();
 
     this.canvasService.boardState.notes.forEach(note => {
-      ctx.fillStyle = note.color;
+      ctx.fillStyle = getNoteColor(note.type);
       ctx.fillRect(
         (note.x - minX) * dynamicScale,
         (note.y - minY) * dynamicScale,
@@ -702,6 +706,15 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  private isEditableTarget(target: EventTarget | null): boolean {
+    if (!(target instanceof HTMLElement)) {
+      return false;
+    }
+
+    const editableSelector = 'input, textarea, select, [contenteditable="true"], [contenteditable=""]';
+    return target.matches(editableSelector) || target.closest(editableSelector) !== null || target.isContentEditable;
+  }
+
   private drawNote(note: Note): void {
 
     // Helper functions for colour manipulation
@@ -743,8 +756,9 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     };
 
     // Calculate dynamic gradient colours based on base colour
-    const topColor = lightenColor(note.color, 15);
-    const bottomColor = note.color;
+    const baseColor = getNoteColor(note.type);
+    const topColor = lightenColor(baseColor, 15);
+    const bottomColor = baseColor;
 
     // Create a smooth gradient for the main note body
     const gradient = this.ctx.createLinearGradient(note.x, note.y, note.x, note.y + note.height);
@@ -778,7 +792,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
       this.ctx.lineWidth = 2.5;
     } else {
       // Very faint outline for unselected
-      this.ctx.strokeStyle = darkenColor(note.color, 12);
+      this.ctx.strokeStyle = darkenColor(baseColor, 12);
       this.ctx.lineWidth = 1;
     }
     this.ctx.stroke();

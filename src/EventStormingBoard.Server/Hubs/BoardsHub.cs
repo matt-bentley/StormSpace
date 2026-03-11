@@ -13,11 +13,13 @@ namespace EventStormingBoard.Server.Hubs
 
         private readonly IBoardStateService _boardStateService;
         private readonly IBoardEventLog _boardEventLog;
+        private readonly IAgentService _agentService;
 
-        public BoardsHub(IBoardStateService boardStateService, IBoardEventLog boardEventLog)
+        public BoardsHub(IBoardStateService boardStateService, IBoardEventLog boardEventLog, IAgentService agentService)
         {
             _boardStateService = boardStateService;
             _boardEventLog = boardEventLog;
+            _agentService = agentService;
         }
 
         private string? GetUserName(Guid boardId)
@@ -102,6 +104,13 @@ namespace EventStormingBoard.Server.Hubs
             await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("BoardNameUpdated", @event);
         }
 
+        public async Task BroadcastBoardContextUpdated(BoardContextUpdatedEvent @event)
+        {
+            _boardStateService.ApplyBoardContextUpdated(@event);
+            _boardEventLog.Append(@event.BoardId, @event, GetUserName(@event.BoardId));
+            await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("BoardContextUpdated", @event);
+        }
+
         public async Task BroadcastNoteCreated(NoteCreatedEvent @event)
         {
             _boardStateService.ApplyNoteCreated(@event);
@@ -166,6 +175,34 @@ namespace EventStormingBoard.Server.Hubs
             }
 
             await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("CursorPositionUpdated", @event);
+        }
+
+        public async Task SendAgentMessage(Guid boardId, string message)
+        {
+            var userName = GetUserName(boardId) ?? "Unknown";
+
+            await Clients.Group(boardId.ToString()).SendAsync("AgentUserMessage", new AgentChatMessageDto
+            {
+                Role = "user",
+                UserName = userName,
+                Content = message,
+                Timestamp = DateTime.UtcNow
+            });
+
+            var response = await _agentService.ChatAsync(boardId, message, userName);
+            await Clients.Group(boardId.ToString()).SendAsync("AgentResponse", response);
+        }
+
+        public async Task GetAgentHistory(Guid boardId)
+        {
+            var history = _agentService.GetHistory(boardId);
+            await Clients.Caller.SendAsync("AgentChatHistory", history);
+        }
+
+        public async Task ClearAgentHistory(Guid boardId)
+        {
+            _agentService.ClearHistory(boardId);
+            await Clients.Group(boardId.ToString()).SendAsync("AgentHistoryCleared", new { BoardId = boardId });
         }
     }
 }

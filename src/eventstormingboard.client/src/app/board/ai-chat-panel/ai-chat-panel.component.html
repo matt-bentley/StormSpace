@@ -1,0 +1,98 @@
+<div class="chat-panel">
+  <div class="chat-header">
+    <mat-icon class="chat-header-icon" fontSet="material-icons-outlined">smart_toy</mat-icon>
+    <span class="chat-title">AI Assistant</span>
+    <button mat-icon-button (click)="clearHistory()" matTooltip="Clear chat history">
+      <mat-icon>delete_outline</mat-icon>
+    </button>
+    <button mat-icon-button (click)="closed.emit()" matTooltip="Close">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <div class="chat-messages" #messagesContainer>
+    @if (messages.length === 0 && !loading) {
+      <div class="empty-state">
+        <mat-icon class="empty-icon">chat_bubble_outline</mat-icon>
+        <p>Ask the AI to help with your Event Storming session.</p>
+        <p class="hint">Try: "Add an OrderPlaced event" or "What events do we have?"</p>
+      </div>
+    }
+
+    @for (msg of messages; track $index) {
+      <div class="message" [class.user]="msg.role === 'user'" [class.own-user]="isOwnMessage(msg)" [class.other-user]="msg.role === 'user' && !isOwnMessage(msg)" [class.assistant]="msg.role === 'assistant'">
+        @if (msg.role === 'assistant') {
+          <mat-icon class="avatar" fontSet="material-icons-outlined">smart_toy</mat-icon>
+        }
+        <div class="message-content">
+          @if (msg.role === 'user' && msg.userName) {
+            <span class="sender-name">{{ isOwnMessage(msg) ? 'You' : msg.userName }}</span>
+          }
+          @if (msg.toolCalls && msg.toolCalls.length > 0) {
+            <details class="tool-calls-details">
+              <summary class="tool-calls-summary">
+                <mat-icon class="tool-summary-icon">build</mat-icon>
+                {{ msg.toolCalls.length }} tool call{{ msg.toolCalls.length === 1 ? '' : 's' }}
+              </summary>
+              <div class="tool-calls">
+                @for (tc of aggregateToolCalls(msg.toolCalls!); track tc.name) {
+                  <div class="tool-call-chip">
+                    <mat-icon class="tool-icon">build</mat-icon>
+                    <span class="tool-name">{{ tc.name }}</span>
+                    @if (tc.count > 1) {
+                      <span class="tool-count">&times;{{ tc.count }}</span>
+                    }
+                  </div>
+                }
+              </div>
+            </details>
+          }
+          @if (msg.role === 'assistant') {
+            <div class="bubble markdown-body" [innerHTML]="msg.text | markdown"></div>
+          } @else {
+            <div class="bubble">{{ msg.text }}</div>
+          }
+        </div>
+      </div>
+    }
+
+    @if (loading) {
+      <div class="message assistant">
+        <mat-icon class="avatar" fontSet="material-icons-outlined">smart_toy</mat-icon>
+        <div class="message-content">
+          @if (activeToolCalls.length > 0) {
+            <div class="tool-calls active">
+              @for (tc of aggregateToolCalls(activeToolCalls); track tc.name) {
+                <div class="tool-call-chip active">
+                  <mat-icon class="tool-icon spinning">build</mat-icon>
+                  <span class="tool-name">{{ tc.name }}</span>
+                  @if (tc.count > 1) {
+                    <span class="tool-count">&times;{{ tc.count }}</span>
+                  }
+                </div>
+              }
+            </div>
+          }
+          <div class="bubble thinking">
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+
+  <div class="chat-input-area">
+    <textarea
+      [(ngModel)]="input"
+      (keydown)="onKeydown($event)"
+      placeholder="Ask the AI assistant..."
+      rows="1"
+      [disabled]="loading">
+    </textarea>
+    <button mat-icon-button (click)="send()" [disabled]="loading || !input.trim()" matTooltip="Send">
+      <mat-icon>send</mat-icon>
+    </button>
+  </div>
+</div>

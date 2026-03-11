@@ -1,6 +1,6 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
-import { Note } from '../_shared/models/note.model';
-import { CreateConnectionCommand, CreateNoteCommand, DeleteNotesCommand, EditNoteTextCommand, MoveNotesCommand, PasteCommand, ResizeNoteCommand, UpdateBoardNameCommand } from './board.commands';
+import { Note, getNoteColor } from '../_shared/models/note.model';
+import { CreateConnectionCommand, CreateNoteCommand, DeleteNotesCommand, EditNoteTextCommand, MoveNotesCommand, PasteCommand, ResizeNoteCommand, UpdateBoardContextCommand, UpdateBoardNameCommand } from './board.commands';
 import { v4 as uuid } from 'uuid';
 import { BoardsSignalRService } from '../_shared/services/boards-signalr.service';
 import { Subject, takeUntil } from 'rxjs';
@@ -17,6 +17,8 @@ import { BoardCanvasService } from './board-canvas/board-canvas.service';
 import { MatDialog } from '@angular/material/dialog';
 import { KeyboardShortcutsModalComponent } from './keyboard-shortcuts-modal/keyboard-shortcuts-modal.component';
 import { CursorPositionUpdatedEvent } from '../_shared/models/board-events.model';
+import { AiChatPanelComponent } from './ai-chat-panel/ai-chat-panel.component';
+import { BoardContextModalComponent, BoardContextData } from './board-context-modal/board-context-modal.component';
 
 @Component({
     selector: 'app-board',
@@ -26,7 +28,8 @@ import { CursorPositionUpdatedEvent } from '../_shared/models/board-events.model
         MatTooltipModule,
         CommonModule,
         FormsModule,
-        BoardCanvasComponent
+        BoardCanvasComponent,
+        AiChatPanelComponent
       ],
       providers: [BoardCanvasService],
     templateUrl: './board.component.html',
@@ -37,18 +40,8 @@ export class BoardComponent implements OnInit, OnDestroy {
   private static readonly CURSOR_STALE_TIMEOUT_MS = 15000;
   private destroy$ = new Subject<void>();
   private id!: string;
-  private userName: string;
+  public userName: string;
   private previousName: string;
-  private colors: { [key: string]: string } = {
-    event: '#fdb634',
-    command: '#61c4fd',
-    aggregate: '#f8fb1d',
-    user: '#ffffc5',
-    policy: '#df89df',
-    readModel: '#90f179',
-    externalSystem: '#f5bee7',
-    concern: '#f50532'
-  };
 
   constructor(
     private boardsHub: BoardsSignalRService,
@@ -69,10 +62,15 @@ export class BoardComponent implements OnInit, OnDestroy {
 
   public connectedUsers: BoardUser[] = [];
   public isConnectedUsersHovered = false;
+  public isChatOpen = false;
+  public hasUnreadMessages = false;
 
   public exportBoardAsJSON(): void {
     const boardState = {
       boardName: this.canvasService.boardState.name,
+      domain: this.canvasService.boardState.domain,
+      sessionScope: this.canvasService.boardState.sessionScope,
+      agentInstructions: this.canvasService.boardState.agentInstructions,
       notes: this.canvasService.boardState.notes,
       connections: this.canvasService.boardState.connections
     };
@@ -97,6 +95,9 @@ export class BoardComponent implements OnInit, OnDestroy {
       try {
         const boardState = JSON.parse(reader.result as string);
         this.canvasService.boardState.name = boardState.boardName || 'Untitled Board';
+        this.canvasService.boardState.domain = boardState.domain;
+        this.canvasService.boardState.sessionScope = boardState.sessionScope;
+        this.canvasService.boardState.agentInstructions = boardState.agentInstructions;
         this.canvasService.boardState.notes = boardState.notes || [];
         this.canvasService.boardState.connections = boardState.connections || [];
         this.canvasService.drawCanvas(); // Redraw the canvas with the imported state
@@ -116,7 +117,7 @@ export class BoardComponent implements OnInit, OnDestroy {
   }
 
   public getNoteColor(type: string): string {
-    return this.colors[type] || '#ffffff'; // Default to white if type not found
+    return getNoteColor(type);
   }
 
   public toggleSelectMode(): void {
@@ -142,6 +143,32 @@ export class BoardComponent implements OnInit, OnDestroy {
       width: '560px',
       maxWidth: '95vw',
       autoFocus: false
+    });
+  }
+
+  public openBoardContext(): void {
+    const dialogRef = this.dialog.open(BoardContextModalComponent, {
+      width: '560px',
+      maxWidth: '95vw',
+      data: {
+        domain: this.canvasService.boardState.domain || '',
+        sessionScope: this.canvasService.boardState.sessionScope || '',
+        agentInstructions: this.canvasService.boardState.agentInstructions || ''
+      } as BoardContextData
+    });
+
+    dialogRef.afterClosed().subscribe((result: BoardContextData | undefined) => {
+      if (result) {
+        const command = new UpdateBoardContextCommand(
+          result.domain || undefined,
+          this.canvasService.boardState.domain,
+          result.sessionScope || undefined,
+          this.canvasService.boardState.sessionScope,
+          result.agentInstructions || undefined,
+          this.canvasService.boardState.agentInstructions
+        );
+        this.canvasService.executeCommand(command);
+      }
     });
   }
 
@@ -171,7 +198,6 @@ export class BoardComponent implements OnInit, OnDestroy {
       width: noteWidth,
       height: noteHeight,
       text: `${type.charAt(0).toUpperCase() + type.slice(1)}`,
-      color: this.colors[type],
       type: type as Note['type']
     };
 
@@ -189,6 +215,9 @@ export class BoardComponent implements OnInit, OnDestroy {
       .subscribe(board => {
         this.canvasService.id = this.id;
         this.canvasService.boardState.name = board.name;
+        this.canvasService.boardState.domain = board.domain;
+        this.canvasService.boardState.sessionScope = board.sessionScope;
+        this.canvasService.boardState.agentInstructions = board.agentInstructions;
         // Map NoteDto[] to Note[]
         this.canvasService.boardState.notes = board.notes.map(n => ({
           ...n,
@@ -253,6 +282,17 @@ export class BoardComponent implements OnInit, OnDestroy {
         this.canvasService.executeCommand(new UpdateBoardNameCommand(event.newName, event.oldName), true, event.isUndo);
       });
 
+    this.boardsHub.boardContextUpdated$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(event => {
+        this.canvasService.executeCommand(
+          new UpdateBoardContextCommand(
+            event.newDomain, event.oldDomain,
+            event.newSessionScope, event.oldSessionScope,
+            event.newAgentInstructions, event.oldAgentInstructions
+          ), true, event.isUndo);
+      });
+
     this.boardsHub.noteAdded$
       .pipe(takeUntil(this.destroy$))
       .subscribe(event => {
@@ -293,6 +333,20 @@ export class BoardComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(event => {
         this.canvasService.executeCommand(new PasteCommand(event.notes, event.connections), true, event.isUndo);
+      });
+
+    this.boardsHub.agentUserMessage$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(event => {
+        if (!this.isChatOpen && event.userName !== this.userName) {
+          this.hasUnreadMessages = true;
+        }
+      });
+
+    this.boardsHub.agentResponse$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        if (!this.isChatOpen) this.hasUnreadMessages = true;
       });
   }
 

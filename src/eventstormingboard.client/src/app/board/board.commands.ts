@@ -21,6 +21,32 @@ export class UpdateBoardNameCommand extends Command<BoardState> {
     }
 }
 
+export class UpdateBoardContextCommand extends Command<BoardState> {
+
+    constructor(
+        private newDomain: string | undefined,
+        private oldDomain: string | undefined,
+        private newSessionScope: string | undefined,
+        private oldSessionScope: string | undefined,
+        private newAgentInstructions: string | undefined,
+        private oldAgentInstructions: string | undefined
+    ) {
+        super();
+    }
+
+    execute() {
+        this.state.domain = this.newDomain;
+        this.state.sessionScope = this.newSessionScope;
+        this.state.agentInstructions = this.newAgentInstructions;
+    }
+
+    undo() {
+        this.state.domain = this.oldDomain;
+        this.state.sessionScope = this.oldSessionScope;
+        this.state.agentInstructions = this.oldAgentInstructions;
+    }
+}
+
 export class CreateNoteCommand extends Command<BoardState> {
 
     constructor(private note: Note) {

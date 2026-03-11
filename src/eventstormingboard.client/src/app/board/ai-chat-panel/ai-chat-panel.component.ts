@@ -1,0 +1,157 @@
+import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, Pipe, PipeTransform, ViewChild } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { BoardsSignalRService, AgentChatMessage, AgentToolCallStartedEvent } from '../../_shared/services/boards-signalr.service';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { Subject, takeUntil } from 'rxjs';
+import { marked } from 'marked';
+
+marked.setOptions({ breaks: true, gfm: true });
+
+@Pipe({ name: 'markdown' })
+export class MarkdownPipe implements PipeTransform {
+  constructor(private sanitizer: DomSanitizer) {}
+
+  transform(value: string): SafeHtml {
+    const html = marked.parse(value, { async: false }) as string;
+    return this.sanitizer.bypassSecurityTrustHtml(html);
+  }
+}
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  userName?: string;
+  text: string;
+  toolCalls?: { name: string; arguments: string }[];
+}
+
+@Component({
+  selector: 'app-ai-chat-panel',
+  imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatTooltipModule, MarkdownPipe],
+  templateUrl: './ai-chat-panel.component.html',
+  styleUrls: ['./ai-chat-panel.component.scss']
+})
+export class AiChatPanelComponent implements OnInit, OnDestroy {
+  @Input() boardId!: string;
+  @Input() userName!: string;
+  @Output() closed = new EventEmitter<void>();
+  @ViewChild('messagesContainer') private messagesContainer!: ElementRef<HTMLDivElement>;
+
+  private destroy$ = new Subject<void>();
+
+  public messages: ChatMessage[] = [];
+  public activeToolCalls: { name: string; arguments: string }[] = [];
+  public input = '';
+  public loading = false;
+
+  constructor(private signalRService: BoardsSignalRService) {}
+
+  ngOnInit(): void {
+    // Load existing history from the service cache, or request from server
+    if (this.signalRService.agentChatHistory.length > 0) {
+      this.messages = this.signalRService.agentChatHistory.map(m => this.mapToDisplayMessage(m));
+      this.scrollToBottom();
+    } else {
+      // Request history from server (response arrives via AgentChatHistory listener)
+      this.signalRService.getAgentHistory(this.boardId).then(() => {
+        if (this.signalRService.agentChatHistory.length > 0) {
+          this.messages = this.signalRService.agentChatHistory.map(m => this.mapToDisplayMessage(m));
+          this.scrollToBottom();
+        }
+      });
+    }
+
+    this.signalRService.agentUserMessage$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(msg => {
+        this.messages.push(this.mapToDisplayMessage(msg));
+        this.scrollToBottom();
+      });
+
+    this.signalRService.agentResponse$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(msg => {
+        this.loading = false;
+        this.activeToolCalls = [];
+        this.messages.push(this.mapToDisplayMessage(msg));
+        this.scrollToBottom();
+      });
+
+    this.signalRService.agentToolCallStarted$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(event => {
+        if (this.loading) {
+          const args = Object.entries(event.arguments ?? {})
+            .map(([k, v]) => `${k}: ${v}`)
+            .join(', ');
+          this.activeToolCalls.push({ name: event.toolName, arguments: args });
+          this.scrollToBottom();
+        }
+      });
+
+    this.signalRService.agentHistoryCleared$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        this.messages = [];
+        this.activeToolCalls = [];
+        this.loading = false;
+      });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  public send(): void {
+    const text = this.input.trim();
+    if (!text || this.loading) return;
+
+    this.input = '';
+    this.loading = true;
+    this.activeToolCalls = [];
+    this.signalRService.sendAgentMessage(this.boardId, text);
+  }
+
+  public clearHistory(): void {
+    this.signalRService.clearAgentHistory(this.boardId);
+  }
+
+  public onKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      this.send();
+    }
+  }
+
+  public isOwnMessage(msg: ChatMessage): boolean {
+    return msg.role === 'user' && msg.userName === this.userName;
+  }
+
+  public aggregateToolCalls(toolCalls: { name: string; arguments: string }[]): { name: string; count: number }[] {
+    const map = new Map<string, number>();
+    for (const tc of toolCalls) {
+      map.set(tc.name, (map.get(tc.name) ?? 0) + 1);
+    }
+    return Array.from(map, ([name, count]) => ({ name, count }));
+  }
+
+  private mapToDisplayMessage(msg: AgentChatMessage): ChatMessage {
+    return {
+      role: msg.role as 'user' | 'assistant',
+      userName: msg.userName ?? undefined,
+      text: msg.content ?? '',
+      toolCalls: msg.toolCalls?.map(tc => ({ name: tc.name, arguments: tc.arguments }))
+    };
+  }
+
+  private scrollToBottom(): void {
+    setTimeout(() => {
+      const el = this.messagesContainer?.nativeElement;
+      if (el) el.scrollTop = el.scrollHeight;
+    });
+  }
+}

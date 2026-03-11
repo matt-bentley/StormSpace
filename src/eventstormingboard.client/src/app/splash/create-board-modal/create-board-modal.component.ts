@@ -24,7 +24,12 @@ export class CreateBoardModalComponent {
   constructor(
     public dialogRef: MatDialogRef<CreateBoardModalComponent>,
     private boardsService: BoardsService,
-    @Inject(MAT_DIALOG_DATA) public data: { name: string }
+    @Inject(MAT_DIALOG_DATA) public data: {
+      name: string;
+      domain?: string;
+      sessionScope?: string;
+      agentInstructions?: string;
+    }
   ) { }
 
   public onCancel(): void {
@@ -34,7 +39,10 @@ export class CreateBoardModalComponent {
   public onSave(): void {
     if (this.data.name) {
       this.boardsService.create({
-        name: this.data.name
+        name: this.data.name,
+        domain: this.data.domain?.trim() || undefined,
+        sessionScope: this.data.sessionScope?.trim() || undefined,
+        agentInstructions: this.data.agentInstructions?.trim() || undefined
       }).subscribe({
         next: (createdBoard) => {
           this.dialogRef.close(createdBoard.id);

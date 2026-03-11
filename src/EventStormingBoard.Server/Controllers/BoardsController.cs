@@ -46,6 +46,9 @@ namespace EventStormingBoard.Server.Controllers
             {
                 Id = board.Id,
                 Name = board.Name,
+                Domain = board.Domain,
+                SessionScope = board.SessionScope,
+                AgentInstructions = board.AgentInstructions,
                 Notes = board.Notes.Select(n => new NoteDto
                 {
                     Id = n.Id,
@@ -80,6 +83,9 @@ namespace EventStormingBoard.Server.Controllers
             {
                 Id = Guid.NewGuid(),
                 Name = boardCreate.Name.Trim(),
+                Domain = NormalizeOptional(boardCreate.Domain),
+                SessionScope = NormalizeOptional(boardCreate.SessionScope),
+                AgentInstructions = NormalizeOptional(boardCreate.AgentInstructions),
                 Notes = new List<Note>(),
                 Connections = new List<Connection>()
             };
@@ -88,10 +94,18 @@ namespace EventStormingBoard.Server.Controllers
             {
                 Id = board.Id,
                 Name = board.Name,
+                Domain = board.Domain,
+                SessionScope = board.SessionScope,
+                AgentInstructions = board.AgentInstructions,
                 Notes = new List<NoteDto>(),
                 Connections = new List<ConnectionDto>()
             };
             return CreatedAtAction(nameof(GetById), new { id = board.Id }, boardDto);
+        }
+
+        private static string? NormalizeOptional(string? value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
         }
 
         [HttpGet("{id}/events")]

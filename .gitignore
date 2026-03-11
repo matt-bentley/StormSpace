@@ -398,3 +398,6 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+
+src/EventStormingBoard.Server/appsettings.Development.json
+/src/EventStormingBoard.Server/appsettings.Development.json

@@ -29,6 +29,15 @@ export interface BoardNameUpdatedEvent extends BoardEvent {
     oldName: string;
 }
 
+export interface BoardContextUpdatedEvent extends BoardEvent {
+    newDomain?: string;
+    oldDomain?: string;
+    newSessionScope?: string;
+    oldSessionScope?: string;
+    newAgentInstructions?: string;
+    oldAgentInstructions?: string;
+}
+
 export interface NoteCreatedEvent extends BoardEvent {
     note: Note;
 }

@@ -1,6 +1,9 @@
 export interface BoardDto {
   id: string;
   name: string;
+  domain?: string;
+  sessionScope?: string;
+  agentInstructions?: string;
   notes: NoteDto[];
   connections: ConnectionDto[];
 }
@@ -12,6 +15,9 @@ export interface BoardSummaryDto {
 
 export interface BoardCreateDto {
   name: string;
+  domain?: string;
+  sessionScope?: string;
+  agentInstructions?: string;
 }
 
 export interface NoteDto {

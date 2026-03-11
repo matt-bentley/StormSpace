@@ -4,6 +4,9 @@
     {
         public Guid Id { get; set; }
         public required string Name { get; set; }
+        public string? Domain { get; set; }
+        public string? SessionScope { get; set; }
+        public string? AgentInstructions { get; set; }
         public List<NoteDto> Notes { get; set; } = new List<NoteDto>();
         public List<ConnectionDto> Connections { get; set; } = new List<ConnectionDto>();
     }

@@ -25,6 +25,7 @@
     "@angular/router": "^21.2.2",
     "@microsoft/signalr": "^8.0.7",
     "jest-editor-support": "*",
+    "marked": "^17.0.4",
     "run-script-os": "*",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
