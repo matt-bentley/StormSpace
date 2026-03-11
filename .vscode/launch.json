@@ -6,12 +6,12 @@
       "type": "coreclr",
       "request": "launch",
       "preLaunchTask": "server: build",
-      "program": "${workspaceFolder}/EventStormingBoard.Server/bin/Debug/net10.0/EventStormingBoard.Server.dll",
+      "program": "${workspaceFolder}/src/EventStormingBoard.Server/bin/Debug/net10.0/EventStormingBoard.Server.dll",
       "args": [
         "--urls",
         "http://localhost:5212"
       ],
-      "cwd": "${workspaceFolder}/EventStormingBoard.Server",
+      "cwd": "${workspaceFolder}/src/EventStormingBoard.Server",
       "stopAtEntry": false,
       "env": {
         "ASPNETCORE_ENVIRONMENT": "Development",
@@ -20,7 +20,7 @@
       "serverReadyAction": {
         "action": "debugWithChrome",
         "pattern": "\\bNow listening on:\\s+(https?://\\S+)",
-        "webRoot": "${workspaceFolder}/eventstormingboard.client/src",
+        "webRoot": "${workspaceFolder}/src/eventstormingboard.client/src",
         "runtimeArgs": ["--app=%URI%"]
       }
     }

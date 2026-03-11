@@ -13,17 +13,17 @@ RUN apt-get update && \
     apt-get install -y build-essential nodejs && \
     npm install -g npm@latest
 WORKDIR /src
-COPY ["EventStormingBoard.Server/EventStormingBoard.Server.csproj", "EventStormingBoard.Server/"]
-COPY ["eventstormingboard.client/eventstormingboard.client.esproj", "eventstormingboard.client/"]
-RUN dotnet restore "./EventStormingBoard.Server/EventStormingBoard.Server.csproj"
+COPY ["src/EventStormingBoard.Server/EventStormingBoard.Server.csproj", "src/EventStormingBoard.Server/"]
+COPY ["src/eventstormingboard.client/eventstormingboard.client.esproj", "src/eventstormingboard.client/"]
+RUN dotnet restore "./src/EventStormingBoard.Server/EventStormingBoard.Server.csproj"
 COPY . .
-WORKDIR "/src/EventStormingBoard.Server"
+WORKDIR "/src/src/EventStormingBoard.Server"
 
 RUN dotnet publish "./EventStormingBoard.Server.csproj" --no-restore -c $BUILD_CONFIGURATION -o /app
 
 # This stage is used in production or when running from VS in regular mode (Default when not using the Debug configuration)
 FROM base AS final
-COPY --from=publish /src/eventstormingboard.client/dist/eventstormingboard.client/browser wwwroot
+COPY --from=publish /src/src/eventstormingboard.client/dist/eventstormingboard.client/browser wwwroot
 COPY --from=publish /app .
 RUN chown -R 1000:1000 /app/wwwroot
 USER 1000
