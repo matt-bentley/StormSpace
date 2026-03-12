@@ -14,20 +14,20 @@ namespace EventStormingBoard.Server.Plugins
     public sealed class BoardPlugin
     {
         private readonly IBoardsRepository _repository;
-        private readonly IBoardStateService _boardStateService;
+        private readonly IBoardEventPipeline _boardEventPipeline;
         private readonly IBoardEventLog _boardEventLog;
         private readonly IHubContext<BoardsHub> _hubContext;
         private readonly Guid _boardId;
 
         public BoardPlugin(
             IBoardsRepository repository,
-            IBoardStateService boardStateService,
+            IBoardEventPipeline boardEventPipeline,
             IBoardEventLog boardEventLog,
             IHubContext<BoardsHub> hubContext,
             Guid boardId)
         {
             _repository = repository;
-            _boardStateService = boardStateService;
+            _boardEventPipeline = boardEventPipeline;
             _boardEventLog = boardEventLog;
             _hubContext = hubContext;
             _boardId = boardId;
@@ -76,6 +76,66 @@ namespace EventStormingBoard.Server.Plugins
             return sb.ToString();
         }
 
+        [KernelFunction, Description("Sets the board Domain context used to guide the Event Storming facilitator. Pass an empty value to clear it.")]
+        public string SetDomain(
+            [Description("The domain context for this board")] string? domain)
+        {
+            var board = _repository.GetById(_boardId);
+            if (board == null) return "Board not found.";
+
+            var normalizedDomain = NormalizeOptional(domain);
+            if (string.Equals(board.Domain, normalizedDomain, StringComparison.Ordinal))
+                return "Domain is already set to that value.";
+
+            var @event = new BoardContextUpdatedEvent
+            {
+                BoardId = _boardId,
+                OldDomain = board.Domain,
+                NewDomain = normalizedDomain,
+                OldSessionScope = board.SessionScope,
+                NewSessionScope = board.SessionScope,
+                OldAgentInstructions = board.AgentInstructions,
+                NewAgentInstructions = board.AgentInstructions
+            };
+
+            _boardEventPipeline.ApplyAndLog(@event, "AI Agent");
+            _hubContext.Clients.Group(_boardId.ToString()).SendAsync("BoardContextUpdated", @event);
+
+            return string.IsNullOrWhiteSpace(normalizedDomain)
+                ? "Cleared board domain context."
+                : $"Set board domain context to \"{normalizedDomain}\".";
+        }
+
+        [KernelFunction, Description("Sets the board Session Scope context used to constrain the Event Storming session. Pass an empty value to clear it.")]
+        public string SetSessionScope(
+            [Description("The session scope for this board")] string? sessionScope)
+        {
+            var board = _repository.GetById(_boardId);
+            if (board == null) return "Board not found.";
+
+            var normalizedSessionScope = NormalizeOptional(sessionScope);
+            if (string.Equals(board.SessionScope, normalizedSessionScope, StringComparison.Ordinal))
+                return "Session scope is already set to that value.";
+
+            var @event = new BoardContextUpdatedEvent
+            {
+                BoardId = _boardId,
+                OldDomain = board.Domain,
+                NewDomain = board.Domain,
+                OldSessionScope = board.SessionScope,
+                NewSessionScope = normalizedSessionScope,
+                OldAgentInstructions = board.AgentInstructions,
+                NewAgentInstructions = board.AgentInstructions
+            };
+
+            _boardEventPipeline.ApplyAndLog(@event, "AI Agent");
+            _hubContext.Clients.Group(_boardId.ToString()).SendAsync("BoardContextUpdated", @event);
+
+            return string.IsNullOrWhiteSpace(normalizedSessionScope)
+                ? "Cleared board session scope."
+                : $"Set board session scope to \"{normalizedSessionScope}\".";
+        }
+
         [KernelFunction, Description("Creates a new sticky note on the board. Valid note types for Event Storming are: Event (something that happened, past tense), Command (an action/intent triggered by a user or system), Aggregate (a cluster of domain objects), User (an actor/persona), Policy (a business rule or automated reaction, 'when X then Y'), ReadModel (a view/projection of data), ExternalSystem (an outside dependency), Concern (a problem, risk, or question).")]
         public string CreateNote(
             [Description("The text label for the note")] string text,
@@ -104,8 +164,7 @@ namespace EventStormingBoard.Server.Plugins
                 Note = noteDto
             };
 
-            _boardStateService.ApplyNoteCreated(@event);
-            _boardEventLog.Append(_boardId, @event, "AI Agent");
+            _boardEventPipeline.ApplyAndLog(@event, "AI Agent");
             _hubContext.Clients.Group(_boardId.ToString()).SendAsync("NoteCreated", @event);
 
             return $"Created {type} note \"{text}\" (id: {noteId})";
@@ -136,8 +195,7 @@ namespace EventStormingBoard.Server.Plugins
                 Connection = connDto
             };
 
-            _boardStateService.ApplyConnectionCreated(@event);
-            _boardEventLog.Append(_boardId, @event, "AI Agent");
+            _boardEventPipeline.ApplyAndLog(@event, "AI Agent");
             _hubContext.Clients.Group(_boardId.ToString()).SendAsync("ConnectionCreated", @event);
 
             return $"Connected \"{fromNote.Text}\" → \"{toNote.Text}\"";
@@ -163,8 +221,7 @@ namespace EventStormingBoard.Server.Plugins
                 ToText = newText
             };
 
-            _boardStateService.ApplyNoteTextEdited(@event);
-            _boardEventLog.Append(_boardId, @event, "AI Agent");
+            _boardEventPipeline.ApplyAndLog(@event, "AI Agent");
             _hubContext.Clients.Group(_boardId.ToString()).SendAsync("NoteTextEdited", @event);
 
             return $"Updated note text from \"{oldText}\" to \"{newText}\"";
@@ -210,8 +267,7 @@ namespace EventStormingBoard.Server.Plugins
                 To = to
             };
 
-            _boardStateService.ApplyNotesMoved(@event);
-            _boardEventLog.Append(_boardId, @event, "AI Agent");
+            _boardEventPipeline.ApplyAndLog(@event, "AI Agent");
             _hubContext.Clients.Group(_boardId.ToString()).SendAsync("NotesMoved", @event);
 
             return $"Moved {from.Count} note(s) to new positions.";
@@ -253,8 +309,7 @@ namespace EventStormingBoard.Server.Plugins
                     Note = noteDto
                 };
 
-                _boardStateService.ApplyNoteCreated(@event);
-                _boardEventLog.Append(_boardId, @event, "AI Agent");
+                _boardEventPipeline.ApplyAndLog(@event, "AI Agent");
                 _hubContext.Clients.Group(_boardId.ToString()).SendAsync("NoteCreated", @event);
 
                 createdIds.Add((noteId, input.Text));
@@ -308,8 +363,7 @@ namespace EventStormingBoard.Server.Plugins
                     Connection = connDto
                 };
 
-                _boardStateService.ApplyConnectionCreated(@event);
-                _boardEventLog.Append(_boardId, @event, "AI Agent");
+                _boardEventPipeline.ApplyAndLog(@event, "AI Agent");
                 _hubContext.Clients.Group(_boardId.ToString()).SendAsync("ConnectionCreated", @event);
 
                 results.AppendLine($"  - \"{fromNote.Text}\" → \"{toNote.Text}\"");
@@ -355,11 +409,15 @@ namespace EventStormingBoard.Server.Plugins
                 }).ToList()
             };
 
-            _boardStateService.ApplyNotesDeleted(@event);
-            _boardEventLog.Append(_boardId, @event, "AI Agent");
+            _boardEventPipeline.ApplyAndLog(@event, "AI Agent");
             _hubContext.Clients.Group(_boardId.ToString()).SendAsync("NotesDeleted", @event);
 
             return $"Deleted {notesToDelete.Count} note(s) and {connectionsToDelete.Count} connection(s)";
+        }
+
+        private static string? NormalizeOptional(string? value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
         }
     }
 }

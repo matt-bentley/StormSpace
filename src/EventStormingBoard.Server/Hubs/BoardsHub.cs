@@ -11,14 +11,12 @@ namespace EventStormingBoard.Server.Hubs
     {
         private static readonly ConcurrentDictionary<Guid, ConcurrentDictionary<string, BoardUserDto>> BoardUsers = new();
 
-        private readonly IBoardStateService _boardStateService;
-        private readonly IBoardEventLog _boardEventLog;
+        private readonly IBoardEventPipeline _boardEventPipeline;
         private readonly IAgentService _agentService;
 
-        public BoardsHub(IBoardStateService boardStateService, IBoardEventLog boardEventLog, IAgentService agentService)
+        public BoardsHub(IBoardEventPipeline boardEventPipeline, IAgentService agentService)
         {
-            _boardStateService = boardStateService;
-            _boardEventLog = boardEventLog;
+            _boardEventPipeline = boardEventPipeline;
             _agentService = agentService;
         }
 
@@ -99,64 +97,55 @@ namespace EventStormingBoard.Server.Hubs
 
         public async Task BroadcastBoardNameUpdated(BoardNameUpdatedEvent @event)
         {
-            _boardStateService.ApplyBoardNameUpdated(@event);
-            _boardEventLog.Append(@event.BoardId, @event, GetUserName(@event.BoardId));
+            _boardEventPipeline.ApplyAndLog(@event, GetUserName(@event.BoardId));
             await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("BoardNameUpdated", @event);
         }
 
         public async Task BroadcastBoardContextUpdated(BoardContextUpdatedEvent @event)
         {
-            _boardStateService.ApplyBoardContextUpdated(@event);
-            _boardEventLog.Append(@event.BoardId, @event, GetUserName(@event.BoardId));
+            _boardEventPipeline.ApplyAndLog(@event, GetUserName(@event.BoardId));
             await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("BoardContextUpdated", @event);
         }
 
         public async Task BroadcastNoteCreated(NoteCreatedEvent @event)
         {
-            _boardStateService.ApplyNoteCreated(@event);
-            _boardEventLog.Append(@event.BoardId, @event, GetUserName(@event.BoardId));
+            _boardEventPipeline.ApplyAndLog(@event, GetUserName(@event.BoardId));
             await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("NoteCreated", @event);
         }
 
         public async Task BroadcastNotesMoved(NotesMovedEvent @event)
         {
-            _boardStateService.ApplyNotesMoved(@event);
-            _boardEventLog.Append(@event.BoardId, @event, GetUserName(@event.BoardId));
+            _boardEventPipeline.ApplyAndLog(@event, GetUserName(@event.BoardId));
             await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("NotesMoved", @event);
         }
 
         public async Task BroadcastNoteResized(NoteResizedEvent @event)
         {
-            _boardStateService.ApplyNoteResized(@event);
-            _boardEventLog.Append(@event.BoardId, @event, GetUserName(@event.BoardId));
+            _boardEventPipeline.ApplyAndLog(@event, GetUserName(@event.BoardId));
             await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("NoteResized", @event);
         }
 
         public async Task BroadcastNotesDeleted(NotesDeletedEvent @event)
         {
-            _boardStateService.ApplyNotesDeleted(@event);
-            _boardEventLog.Append(@event.BoardId, @event, GetUserName(@event.BoardId));
+            _boardEventPipeline.ApplyAndLog(@event, GetUserName(@event.BoardId));
             await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("NotesDeleted", @event);
         }
 
         public async Task BroadcastConnectionCreated(ConnectionCreatedEvent @event)
         {
-            _boardStateService.ApplyConnectionCreated(@event);
-            _boardEventLog.Append(@event.BoardId, @event, GetUserName(@event.BoardId));
+            _boardEventPipeline.ApplyAndLog(@event, GetUserName(@event.BoardId));
             await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("ConnectionCreated", @event);
         }
 
         public async Task BroadcastNoteTextEdited(NoteTextEditedEvent @event)
         {
-            _boardStateService.ApplyNoteTextEdited(@event);
-            _boardEventLog.Append(@event.BoardId, @event, GetUserName(@event.BoardId));
+            _boardEventPipeline.ApplyAndLog(@event, GetUserName(@event.BoardId));
             await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("NoteTextEdited", @event);
         }
 
         public async Task BroadcastPasted(PastedEvent @event)
         {
-            _boardStateService.ApplyPasted(@event);
-            _boardEventLog.Append(@event.BoardId, @event, GetUserName(@event.BoardId));
+            _boardEventPipeline.ApplyAndLog(@event, GetUserName(@event.BoardId));
             await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("Pasted", @event);
         }
 

@@ -13,7 +13,7 @@ marked.setOptions({ breaks: true, gfm: true });
 
 @Pipe({ name: 'markdown' })
 export class MarkdownPipe implements PipeTransform {
-  constructor(private sanitizer: DomSanitizer) {}
+  constructor(private sanitizer: DomSanitizer) { }
 
   transform(value: string): SafeHtml {
     const html = marked.parse(value, { async: false }) as string;
@@ -47,7 +47,7 @@ export class AiChatPanelComponent implements OnInit, OnDestroy {
   public input = '';
   public loading = false;
 
-  constructor(private signalRService: BoardsSignalRService) {}
+  constructor(private signalRService: BoardsSignalRService) { }
 
   ngOnInit(): void {
     // Load existing history from the service cache, or request from server
@@ -131,12 +131,14 @@ export class AiChatPanelComponent implements OnInit, OnDestroy {
     return msg.role === 'user' && msg.userName === this.userName;
   }
 
-  public aggregateToolCalls(toolCalls: { name: string; arguments: string }[]): { name: string; count: number }[] {
+  public aggregateToolCalls(toolCalls: { name: string; arguments: string }[]): { name: string; count: number, active: boolean }[] {
     const map = new Map<string, number>();
     for (const tc of toolCalls) {
       map.set(tc.name, (map.get(tc.name) ?? 0) + 1);
     }
-    return Array.from(map, ([name, count]) => ({ name, count }));
+    const aggregateToolCalls = Array.from(map, ([name, count]) => ({ name, count, active: false }));
+    aggregateToolCalls[aggregateToolCalls.length - 1].active = true;
+    return aggregateToolCalls;
   }
 
   private mapToDisplayMessage(msg: AgentChatMessage): ChatMessage {

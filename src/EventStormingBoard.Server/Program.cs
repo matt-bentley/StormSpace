@@ -20,6 +20,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddSingleton<IBoardsRepository, BoardsRepository>();
 builder.Services.AddSingleton<IBoardStateService, BoardStateService>();
 builder.Services.AddSingleton<IBoardEventLog, BoardEventLog>();
+builder.Services.AddSingleton<IBoardEventPipeline, BoardEventPipeline>();
 builder.Services.AddSingleton<IAgentService, AgentService>();
 builder.Services.AddSingleton<AgentToolCallFilter>();
 builder.Services.AddHttpClient("AgentService");
