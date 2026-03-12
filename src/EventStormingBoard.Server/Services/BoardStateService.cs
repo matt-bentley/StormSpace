@@ -44,6 +44,7 @@ namespace EventStormingBoard.Server.Services
                 board.Domain = @event.IsUndo ? @event.OldDomain : @event.NewDomain;
                 board.SessionScope = @event.IsUndo ? @event.OldSessionScope : @event.NewSessionScope;
                 board.AgentInstructions = @event.IsUndo ? @event.OldAgentInstructions : @event.NewAgentInstructions;
+                board.Phase = @event.IsUndo ? @event.OldPhase : @event.NewPhase;
             });
         }
 

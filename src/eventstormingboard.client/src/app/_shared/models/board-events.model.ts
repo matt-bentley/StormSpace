@@ -36,6 +36,8 @@ export interface BoardContextUpdatedEvent extends BoardEvent {
     oldSessionScope?: string;
     newAgentInstructions?: string;
     oldAgentInstructions?: string;
+    newPhase?: string;
+    oldPhase?: string;
 }
 
 export interface NoteCreatedEvent extends BoardEvent {

@@ -57,6 +57,52 @@ public class BoardStateServiceTests
         Assert.Equal("Test Board", _board.Name);
     }
 
+    // ── BoardContextUpdated (Phase) ─────────────────────────
+
+    [Fact]
+    public void ApplyBoardContextUpdated_SetsPhase()
+    {
+        var @event = new BoardContextUpdatedEvent
+        {
+            BoardId = _board.Id,
+            OldDomain = null,
+            NewDomain = null,
+            OldSessionScope = null,
+            NewSessionScope = null,
+            OldAgentInstructions = null,
+            NewAgentInstructions = null,
+            OldPhase = null,
+            NewPhase = EventStormingPhase.IdentifyEvents
+        };
+
+        _service.ApplyBoardContextUpdated(@event);
+
+        Assert.Equal(EventStormingPhase.IdentifyEvents, _board.Phase);
+    }
+
+    [Fact]
+    public void ApplyBoardContextUpdated_Undo_RevertsPhase()
+    {
+        _board.Phase = EventStormingPhase.AddCommandsAndPolicies;
+        var @event = new BoardContextUpdatedEvent
+        {
+            BoardId = _board.Id,
+            OldDomain = null,
+            NewDomain = null,
+            OldSessionScope = null,
+            NewSessionScope = null,
+            OldAgentInstructions = null,
+            NewAgentInstructions = null,
+            OldPhase = EventStormingPhase.IdentifyEvents,
+            NewPhase = EventStormingPhase.AddCommandsAndPolicies,
+            IsUndo = true
+        };
+
+        _service.ApplyBoardContextUpdated(@event);
+
+        Assert.Equal(EventStormingPhase.IdentifyEvents, _board.Phase);
+    }
+
     // ── NoteCreated ─────────────────────────────────────────
 
     [Fact]

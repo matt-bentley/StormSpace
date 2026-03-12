@@ -42,6 +42,8 @@ namespace EventStormingBoard.Server.Plugins
 
             var sb = new StringBuilder();
             sb.AppendLine($"Board: \"{board.Name}\"");
+            if (board.Phase.HasValue)
+                sb.AppendLine($"Phase: {board.Phase.Value}");
             if (!string.IsNullOrWhiteSpace(board.Domain))
                 sb.AppendLine($"Domain: {board.Domain}");
             if (!string.IsNullOrWhiteSpace(board.SessionScope))
@@ -95,7 +97,9 @@ namespace EventStormingBoard.Server.Plugins
                 OldSessionScope = board.SessionScope,
                 NewSessionScope = board.SessionScope,
                 OldAgentInstructions = board.AgentInstructions,
-                NewAgentInstructions = board.AgentInstructions
+                NewAgentInstructions = board.AgentInstructions,
+                OldPhase = board.Phase,
+                NewPhase = board.Phase
             };
 
             _boardEventPipeline.ApplyAndLog(@event, "AI Agent");
@@ -125,7 +129,9 @@ namespace EventStormingBoard.Server.Plugins
                 OldSessionScope = board.SessionScope,
                 NewSessionScope = normalizedSessionScope,
                 OldAgentInstructions = board.AgentInstructions,
-                NewAgentInstructions = board.AgentInstructions
+                NewAgentInstructions = board.AgentInstructions,
+                OldPhase = board.Phase,
+                NewPhase = board.Phase
             };
 
             _boardEventPipeline.ApplyAndLog(@event, "AI Agent");
@@ -134,6 +140,35 @@ namespace EventStormingBoard.Server.Plugins
             return string.IsNullOrWhiteSpace(normalizedSessionScope)
                 ? "Cleared board session scope."
                 : $"Set board session scope to \"{normalizedSessionScope}\".";
+        }
+
+        [KernelFunction, Description("Sets the current Event Storming workshop phase")]
+        public string SetPhase(
+            [Description("The phase to set")] EventStormingPhase phase)
+        {
+            var board = _repository.GetById(_boardId);
+            if (board == null) return "Board not found.";
+
+            if (board.Phase == phase)
+                return $"Phase is already set to {phase}.";
+
+            var @event = new BoardContextUpdatedEvent
+            {
+                BoardId = _boardId,
+                OldDomain = board.Domain,
+                NewDomain = board.Domain,
+                OldSessionScope = board.SessionScope,
+                NewSessionScope = board.SessionScope,
+                OldAgentInstructions = board.AgentInstructions,
+                NewAgentInstructions = board.AgentInstructions,
+                OldPhase = board.Phase,
+                NewPhase = phase
+            };
+
+            _boardEventPipeline.ApplyAndLog(@event, "AI Agent");
+            _hubContext.Clients.Group(_boardId.ToString()).SendAsync("BoardContextUpdated", @event);
+
+            return $"Set board phase to {phase}.";
         }
 
         [KernelFunction, Description("Creates a new sticky note on the board. Valid note types for Event Storming are: Event (something that happened, past tense), Command (an action/intent triggered by a user or system), Aggregate (a cluster of domain objects), User (an actor/persona), Policy (a business rule or automated reaction, 'when X then Y'), ReadModel (a view/projection of data), ExternalSystem (an outside dependency), Concern (a problem, risk, or question).")]

@@ -190,7 +190,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
 
   public onMouseUp(event: MouseEvent): void {
 
-    if (this.canvasService.isPanningMode) {
+    if (this.panning) {
       this.panning = false;
       return;
     }
@@ -992,7 +992,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
   } 
 
   private handlePanning(event: MouseEvent): boolean {
-    if (this.canvasService.isPanningMode && this.panning) {
+    if (this.panning) {
       const deltaX = event.clientX - this.lastPanX;
       const deltaY = event.clientY - this.lastPanY;
 

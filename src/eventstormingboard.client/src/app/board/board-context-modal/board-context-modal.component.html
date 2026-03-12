@@ -20,6 +20,16 @@
       <textarea matInput [(ngModel)]="data.agentInstructions" name="agentInstructions" rows="3"
         placeholder="How should the AI agent behave? E.g., 'Be critical of naming. Challenge vague events. Suggest missing aggregates. Focus on the happy path first.'"></textarea>
     </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Workshop Phase</mat-label>
+      <mat-select [(ngModel)]="data.phase" name="phase">
+        <mat-option [value]="''">None (unset)</mat-option>
+        @for (p of phases; track p.value) {
+          <mat-option [value]="p.value">{{ p.label }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
   </div>
   <div mat-dialog-actions align="end">
     <button mat-button type="button" (click)="onCancel()">Cancel</button>

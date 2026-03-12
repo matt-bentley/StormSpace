@@ -71,6 +71,7 @@ export class BoardComponent implements OnInit, OnDestroy {
       domain: this.canvasService.boardState.domain,
       sessionScope: this.canvasService.boardState.sessionScope,
       agentInstructions: this.canvasService.boardState.agentInstructions,
+      phase: this.canvasService.boardState.phase,
       notes: this.canvasService.boardState.notes,
       connections: this.canvasService.boardState.connections
     };
@@ -98,6 +99,7 @@ export class BoardComponent implements OnInit, OnDestroy {
         this.canvasService.boardState.domain = boardState.domain;
         this.canvasService.boardState.sessionScope = boardState.sessionScope;
         this.canvasService.boardState.agentInstructions = boardState.agentInstructions;
+        this.canvasService.boardState.phase = boardState.phase;
         this.canvasService.boardState.notes = boardState.notes || [];
         this.canvasService.boardState.connections = boardState.connections || [];
         this.canvasService.drawCanvas(); // Redraw the canvas with the imported state
@@ -153,7 +155,8 @@ export class BoardComponent implements OnInit, OnDestroy {
       data: {
         domain: this.canvasService.boardState.domain || '',
         sessionScope: this.canvasService.boardState.sessionScope || '',
-        agentInstructions: this.canvasService.boardState.agentInstructions || ''
+        agentInstructions: this.canvasService.boardState.agentInstructions || '',
+        phase: this.canvasService.boardState.phase || ''
       } as BoardContextData
     });
 
@@ -165,7 +168,9 @@ export class BoardComponent implements OnInit, OnDestroy {
           result.sessionScope || undefined,
           this.canvasService.boardState.sessionScope,
           result.agentInstructions || undefined,
-          this.canvasService.boardState.agentInstructions
+          this.canvasService.boardState.agentInstructions,
+          result.phase || undefined,
+          this.canvasService.boardState.phase
         );
         this.canvasService.executeCommand(command);
       }
@@ -218,6 +223,7 @@ export class BoardComponent implements OnInit, OnDestroy {
         this.canvasService.boardState.domain = board.domain;
         this.canvasService.boardState.sessionScope = board.sessionScope;
         this.canvasService.boardState.agentInstructions = board.agentInstructions;
+        this.canvasService.boardState.phase = board.phase;
         // Map NoteDto[] to Note[]
         this.canvasService.boardState.notes = board.notes.map(n => ({
           ...n,
@@ -289,7 +295,8 @@ export class BoardComponent implements OnInit, OnDestroy {
           new UpdateBoardContextCommand(
             event.newDomain, event.oldDomain,
             event.newSessionScope, event.oldSessionScope,
-            event.newAgentInstructions, event.oldAgentInstructions
+            event.newAgentInstructions, event.oldAgentInstructions,
+            event.newPhase, event.oldPhase
           ), true, event.isUndo);
       });
 

@@ -6,6 +6,7 @@ export interface BoardState {
     domain?: string;
     sessionScope?: string;
     agentInstructions?: string;
+    phase?: string;
     notes: Note[];
     connections: Connection[];
 }

@@ -1,9 +1,25 @@
+export type EventStormingPhase =
+  | 'setContext'
+  | 'identifyEvents'
+  | 'addCommandsAndPolicies'
+  | 'defineAggregates'
+  | 'breakItDown';
+
+export const EVENT_STORMING_PHASES: { value: EventStormingPhase; label: string }[] = [
+  { value: 'setContext', label: 'Set the Context' },
+  { value: 'identifyEvents', label: 'Identify Events' },
+  { value: 'addCommandsAndPolicies', label: 'Add Commands & Policies' },
+  { value: 'defineAggregates', label: 'Define Aggregates' },
+  { value: 'breakItDown', label: 'Break It Down' }
+];
+
 export interface BoardDto {
   id: string;
   name: string;
   domain?: string;
   sessionScope?: string;
   agentInstructions?: string;
+  phase?: EventStormingPhase;
   notes: NoteDto[];
   connections: ConnectionDto[];
 }
@@ -18,6 +34,7 @@ export interface BoardCreateDto {
   domain?: string;
   sessionScope?: string;
   agentInstructions?: string;
+  phase?: EventStormingPhase;
 }
 
 export interface NoteDto {
