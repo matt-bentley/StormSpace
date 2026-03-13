@@ -1,4 +1,5 @@
 .chat-panel {
+  position: relative;
   display: flex;
   flex-direction: column;
   width: 360px;
@@ -11,7 +12,28 @@
   border-radius: 16px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.5);
-  overflow: hidden;
+  overflow: visible; /* Changed from hidden to allow resize handle interaction */
+
+  &.is-resizing {
+    user-select: none;
+    transition: none;
+  }
+}
+
+.resize-handle {
+  position: absolute;
+  top: 0;
+  left: -2px;
+  bottom: 0;
+  width: 6px;
+  cursor: ew-resize;
+  z-index: 10;
+  background: transparent;
+
+  &:hover,
+  .is-resizing & {
+    background: rgba(63, 81, 181, 0.2);
+  }
 }
 
 @media (max-width: 900px) {
@@ -25,30 +47,53 @@
 
 .chat-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 8px;
   padding: 12px 12px 12px 16px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   background: rgba(63, 81, 181, 0.06);
+
+  .chat-header-main {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
 
   .chat-header-icon {
     color: #3f51b5;
     font-size: 22px;
     width: 22px;
     height: 22px;
+    margin-top: 2px;
+  }
+
+  .chat-header-title-area {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-start;
   }
 
   .chat-title {
-    flex: 1;
     font-weight: 600;
     font-size: 15px;
     color: #2c3e50;
+    line-height: 1.2;
+  }
+
+  .chat-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: -6px;
+    margin-right: -6px;
   }
 
   .autonomy-badge {
-    padding: 4px 10px;
+    padding: 2px 8px;
     border-radius: 999px;
-    font-size: 11px;
+    font-size: 10.5px;
     font-weight: 600;
     color: #64748b;
     background: rgba(100, 116, 139, 0.12);
@@ -169,7 +214,7 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
-    max-width: 260px;
+    max-width: 85%;
   }
 
   .sender-name {

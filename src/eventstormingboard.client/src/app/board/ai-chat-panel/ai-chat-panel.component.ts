@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, Pipe, PipeTransform, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, Pipe, PipeTransform, ViewChild, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -49,6 +49,11 @@ export class AiChatPanelComponent implements OnInit, OnDestroy {
   public activeToolCalls: { name: string; arguments: string }[] = [];
   public input = '';
   public loading = false;
+  
+  public panelWidth = 360;
+  public isResizing = false;
+  private startX = 0;
+  private startWidth = 0;
 
   constructor(private signalRService: BoardsSignalRService) { }
 
@@ -178,5 +183,25 @@ export class AiChatPanelComponent implements OnInit, OnDestroy {
       const el = this.messagesContainer?.nativeElement;
       if (el) el.scrollTop = el.scrollHeight;
     });
+  }
+
+  @HostListener('document:mousemove', ['$event'])
+  onMouseMove(event: MouseEvent) {
+    if (!this.isResizing) return;
+    const delta = this.startX - event.clientX;
+    const newWidth = this.startWidth + delta;
+    this.panelWidth = Math.max(300, Math.min(newWidth, 800));
+  }
+
+  @HostListener('document:mouseup')
+  onMouseUp() {
+    this.isResizing = false;
+  }
+
+  onResizeStart(event: MouseEvent) {
+    this.isResizing = true;
+    this.startX = event.clientX;
+    this.startWidth = this.panelWidth;
+    event.preventDefault();
   }
 }

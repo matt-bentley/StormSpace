@@ -1,21 +1,28 @@
-<div class="chat-panel">
+<div class="chat-panel" [style.width.px]="panelWidth" [class.is-resizing]="isResizing">
+  <div class="resize-handle" (mousedown)="onResizeStart($event)"></div>
   <div class="chat-header">
-    <mat-icon class="chat-header-icon" fontSet="material-icons-outlined">smart_toy</mat-icon>
-    <span class="chat-title">AI Assistant</span>
-    <span class="autonomy-badge" [class.active]="autonomousEnabled" [class.running]="autonomousStatus?.isRunning">
-      {{ autonomousStatusLabel }}
-    </span>
-    @if (autonomousEnabled) {
-    <button mat-icon-button (click)="disableAutonomousRequested.emit()" matTooltip="Stop autonomous facilitator">
-      <mat-icon>pause_circle</mat-icon>
-    </button>
-    }
-    <button mat-icon-button (click)="clearHistory()" matTooltip="Clear chat history">
-      <mat-icon>delete_outline</mat-icon>
-    </button>
-    <button mat-icon-button (click)="closed.emit()" matTooltip="Close">
-      <mat-icon>close</mat-icon>
-    </button>
+    <div class="chat-header-main">
+      <mat-icon class="chat-header-icon" fontSet="material-icons-outlined">smart_toy</mat-icon>
+      <div class="chat-header-title-area">
+        <span class="chat-title">AI Assistant</span>
+        <span class="autonomy-badge" [class.active]="autonomousEnabled" [class.running]="autonomousStatus?.isRunning">
+          {{ autonomousStatusLabel }}
+        </span>
+      </div>
+    </div>
+    <div class="chat-header-actions">
+      @if (autonomousEnabled) {
+      <button mat-icon-button (click)="disableAutonomousRequested.emit()" matTooltip="Stop autonomous facilitator">
+        <mat-icon>pause_circle</mat-icon>
+      </button>
+      }
+      <button mat-icon-button (click)="clearHistory()" matTooltip="Clear chat history">
+        <mat-icon>delete_outline</mat-icon>
+      </button>
+      <button mat-icon-button (click)="closed.emit()" matTooltip="Close">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
   </div>
 
   <div class="chat-messages" #messagesContainer>
