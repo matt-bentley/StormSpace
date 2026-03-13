@@ -23,6 +23,17 @@ export interface AgentToolCallStartedEvent {
   arguments?: Record<string, string>;
 }
 
+export interface AutonomousFacilitatorStatus {
+  boardId: string;
+  isEnabled: boolean;
+  isRunning: boolean;
+  state: string;
+  lastResultStatus?: string;
+  stopReason?: string;
+  triggerReason?: string;
+  updatedAt?: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class BoardsSignalRService {
   
@@ -49,8 +60,10 @@ export class BoardsSignalRService {
   public agentUserMessage$ = new Subject<AgentChatMessage>();
   public agentResponse$ = new Subject<AgentChatMessage>();
   public agentToolCallStarted$ = new Subject<AgentToolCallStartedEvent>();
+  public autonomousStatusChanged$ = new Subject<AutonomousFacilitatorStatus>();
   public agentHistoryCleared$ = new Subject<string>();
   public agentChatHistory: AgentChatMessage[] = [];
+  public autonomousStatuses = new Map<string, AutonomousFacilitatorStatus>();
 
   private startConnection(): Promise<void> {
     this.hubConnection = new signalR.HubConnectionBuilder()
@@ -117,6 +130,11 @@ export class BoardsSignalRService {
     this.hubConnection.on('AgentChatHistory', (event) => {
       const history = Array.isArray(event) ? event.map((message) => this.mapAgentChatMessage(message)) : [];
       this.agentChatHistory = history;
+    });
+    this.hubConnection.on('AutonomousFacilitatorStatusChanged', (event) => {
+      const status = this.mapAutonomousStatus(event);
+      this.autonomousStatuses.set(status.boardId, status);
+      this.autonomousStatusChanged$.next(status);
     });
     this.hubConnection.on('AgentHistoryCleared', (event) => {
       const boardId = this.pickValue<string>(event, 'boardId', 'BoardId') ?? '';
@@ -238,6 +256,21 @@ export class BoardsSignalRService {
             };
           })
         : undefined
+    };
+  }
+
+  private mapAutonomousStatus(raw: unknown): AutonomousFacilitatorStatus {
+    const event = (raw ?? {}) as Record<string, unknown>;
+
+    return {
+      boardId: this.pickValue<string>(event, 'boardId', 'BoardId') ?? '',
+      isEnabled: this.pickValue<boolean>(event, 'isEnabled', 'IsEnabled') ?? false,
+      isRunning: this.pickValue<boolean>(event, 'isRunning', 'IsRunning') ?? false,
+      state: this.pickValue<string>(event, 'state', 'State') ?? 'disabled',
+      lastResultStatus: this.pickValue<string>(event, 'lastResultStatus', 'LastResultStatus'),
+      stopReason: this.pickValue<string>(event, 'stopReason', 'StopReason'),
+      triggerReason: this.pickValue<string>(event, 'triggerReason', 'TriggerReason'),
+      updatedAt: this.pickValue<string>(event, 'updatedAt', 'UpdatedAt')
     };
   }
 

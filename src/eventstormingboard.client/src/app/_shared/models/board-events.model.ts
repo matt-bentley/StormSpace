@@ -38,6 +38,8 @@ export interface BoardContextUpdatedEvent extends BoardEvent {
     oldAgentInstructions?: string;
     newPhase?: string;
     oldPhase?: string;
+    newAutonomousEnabled: boolean;
+    oldAutonomousEnabled: boolean;
 }
 
 export interface NoteCreatedEvent extends BoardEvent {

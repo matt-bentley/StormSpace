@@ -99,7 +99,9 @@ namespace EventStormingBoard.Server.Plugins
                 OldAgentInstructions = board.AgentInstructions,
                 NewAgentInstructions = board.AgentInstructions,
                 OldPhase = board.Phase,
-                NewPhase = board.Phase
+                NewPhase = board.Phase,
+                OldAutonomousEnabled = board.AutonomousEnabled,
+                NewAutonomousEnabled = board.AutonomousEnabled
             };
 
             _boardEventPipeline.ApplyAndLog(@event, "AI Agent");
@@ -131,7 +133,9 @@ namespace EventStormingBoard.Server.Plugins
                 OldAgentInstructions = board.AgentInstructions,
                 NewAgentInstructions = board.AgentInstructions,
                 OldPhase = board.Phase,
-                NewPhase = board.Phase
+                NewPhase = board.Phase,
+                OldAutonomousEnabled = board.AutonomousEnabled,
+                NewAutonomousEnabled = board.AutonomousEnabled
             };
 
             _boardEventPipeline.ApplyAndLog(@event, "AI Agent");
@@ -162,13 +166,48 @@ namespace EventStormingBoard.Server.Plugins
                 OldAgentInstructions = board.AgentInstructions,
                 NewAgentInstructions = board.AgentInstructions,
                 OldPhase = board.Phase,
-                NewPhase = phase
+                NewPhase = phase,
+                OldAutonomousEnabled = board.AutonomousEnabled,
+                NewAutonomousEnabled = board.AutonomousEnabled
             };
 
             _boardEventPipeline.ApplyAndLog(@event, "AI Agent");
             _hubContext.Clients.Group(_boardId.ToString()).SendAsync("BoardContextUpdated", @event);
 
             return $"Set board phase to {phase}.";
+        }
+
+        [KernelFunction, Description("Marks the autonomous facilitation session as complete and disables autonomous mode for this board.")]
+        public string CompleteAutonomousSession(
+            [Description("A short summary of why the session is complete")] string? summary = null)
+        {
+            var board = _repository.GetById(_boardId);
+            if (board == null) return "Board not found.";
+
+            if (!board.AutonomousEnabled)
+                return "Autonomous mode is already disabled.";
+
+            var @event = new BoardContextUpdatedEvent
+            {
+                BoardId = _boardId,
+                OldDomain = board.Domain,
+                NewDomain = board.Domain,
+                OldSessionScope = board.SessionScope,
+                NewSessionScope = board.SessionScope,
+                OldAgentInstructions = board.AgentInstructions,
+                NewAgentInstructions = board.AgentInstructions,
+                OldPhase = board.Phase,
+                NewPhase = board.Phase,
+                OldAutonomousEnabled = board.AutonomousEnabled,
+                NewAutonomousEnabled = false
+            };
+
+            _boardEventPipeline.ApplyAndLog(@event, "AI Agent");
+            _hubContext.Clients.Group(_boardId.ToString()).SendAsync("BoardContextUpdated", @event);
+
+            return string.IsNullOrWhiteSpace(summary)
+                ? "Autonomous facilitation completed."
+                : $"Autonomous facilitation completed. {summary.Trim()}";
         }
 
         [KernelFunction, Description("Creates a new sticky note on the board. Valid note types for Event Storming are: Event (something that happened, past tense), Command (an action/intent triggered by a user or system), Aggregate (a cluster of domain objects), User (an actor/persona), Policy (a business rule or automated reaction, 'when X then Y'), ReadModel (a view/projection of data), ExternalSystem (an outside dependency), Concern (a problem, risk, or question).")]

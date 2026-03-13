@@ -60,6 +60,7 @@ namespace EventStormingBoard.Server.Repositories
                 board.SessionScope = boardUpdate.SessionScope;
                 board.AgentInstructions = boardUpdate.AgentInstructions;
                 board.Phase = boardUpdate.Phase;
+                board.AutonomousEnabled = boardUpdate.AutonomousEnabled;
                 board.Notes = boardUpdate.Notes;
                 board.Connections = boardUpdate.Connections;
                 _cache.Set(BoardsCacheKey, boards, _cacheOptions);

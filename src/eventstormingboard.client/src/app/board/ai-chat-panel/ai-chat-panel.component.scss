@@ -45,6 +45,25 @@
     color: #2c3e50;
   }
 
+  .autonomy-badge {
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+    background: rgba(100, 116, 139, 0.12);
+
+    &.active {
+      color: #1d4ed8;
+      background: rgba(59, 130, 246, 0.16);
+    }
+
+    &.running {
+      color: #166534;
+      background: rgba(34, 197, 94, 0.18);
+    }
+  }
+
   button {
     color: #888;
   }

@@ -138,6 +138,6 @@
 
 @if (isChatOpen) {
   <div class="ai-chat-container floating">
-    <app-ai-chat-panel [boardId]="canvasService.id" [userName]="userName" (closed)="isChatOpen = false; hasUnreadMessages = false"></app-ai-chat-panel>
+    <app-ai-chat-panel [boardId]="canvasService.id" [userName]="userName" [autonomousEnabled]="canvasService.boardState.autonomousEnabled" [autonomousStatus]="autonomousStatus" (disableAutonomousRequested)="disableAutonomousMode()" (closed)="isChatOpen = false; hasUnreadMessages = false"></app-ai-chat-panel>
   </div>
 }

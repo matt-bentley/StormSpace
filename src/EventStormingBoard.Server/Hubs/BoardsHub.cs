@@ -1,49 +1,51 @@
 ﻿using EventStormingBoard.Server.Entities;
 using EventStormingBoard.Server.Events;
 using EventStormingBoard.Server.Models;
+using EventStormingBoard.Server.Repositories;
 using EventStormingBoard.Server.Services;
 using Microsoft.AspNetCore.SignalR;
-using System.Collections.Concurrent;
 
 namespace EventStormingBoard.Server.Hubs
 {
     public sealed class BoardsHub : Hub
     {
-        private static readonly ConcurrentDictionary<Guid, ConcurrentDictionary<string, BoardUserDto>> BoardUsers = new();
-
         private readonly IBoardEventPipeline _boardEventPipeline;
         private readonly IAgentService _agentService;
+        private readonly IBoardPresenceService _boardPresenceService;
+        private readonly IAutonomousFacilitatorCoordinator _coordinator;
+        private readonly IBoardsRepository _boardsRepository;
 
-        public BoardsHub(IBoardEventPipeline boardEventPipeline, IAgentService agentService)
+        public BoardsHub(
+            IBoardEventPipeline boardEventPipeline,
+            IAgentService agentService,
+            IBoardPresenceService boardPresenceService,
+            IAutonomousFacilitatorCoordinator coordinator,
+            IBoardsRepository boardsRepository)
         {
             _boardEventPipeline = boardEventPipeline;
             _agentService = agentService;
+            _boardPresenceService = boardPresenceService;
+            _coordinator = coordinator;
+            _boardsRepository = boardsRepository;
         }
 
         private string? GetUserName(Guid boardId)
         {
-            if (BoardUsers.TryGetValue(boardId, out var boardConnections) &&
-                boardConnections.TryGetValue(Context.ConnectionId, out var user))
-            {
-                return user.UserName;
-            }
-            return null;
+            return _boardPresenceService.GetUserName(boardId, Context.ConnectionId);
         }
 
         public async Task JoinBoard(Guid boardId, string userName)
         {
             var connectionId = Context.ConnectionId;
-
-            var boardConnections = BoardUsers.GetOrAdd(boardId, _ => new ConcurrentDictionary<string, BoardUserDto>());
-            boardConnections[connectionId] = new BoardUserDto()
-            {
-                BoardId = boardId,
-                ConnectionId = connectionId,
-                UserName = userName
-            };
-
-            var connectedUsers = boardConnections.Values.ToList();
+            var connectedUsers = _boardPresenceService.JoinBoard(boardId, connectionId, userName);
             await Clients.Caller.SendAsync("ConnectedUsers", connectedUsers);
+
+            var board = _boardsRepository.GetById(boardId);
+            if (board != null)
+            {
+                _coordinator.SyncBoardSettings(boardId, board.AutonomousEnabled);
+                await Clients.Caller.SendAsync("AutonomousFacilitatorStatusChanged", _coordinator.GetStatus(boardId, board.AutonomousEnabled));
+            }
 
             await Clients.Group(boardId.ToString()).SendAsync("UserJoinedBoard", new UserJoinedBoardEvent()
             {
@@ -66,12 +68,9 @@ namespace EventStormingBoard.Server.Hubs
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
             var connectionId = Context.ConnectionId;
-            foreach (var board in BoardUsers.ToArray())
+            foreach (var boardId in _boardPresenceService.GetBoardsForConnection(connectionId))
             {
-                if (board.Value.ContainsKey(connectionId))
-                {
-                    await RemoveUserFromBoardAsync(board.Key, connectionId);
-                }
+                await RemoveUserFromBoardAsync(boardId, connectionId);
             }
 
             await base.OnDisconnectedAsync(exception);
@@ -79,15 +78,7 @@ namespace EventStormingBoard.Server.Hubs
 
         private async Task RemoveUserFromBoardAsync(Guid boardId, string connectionId)
         {
-            if (BoardUsers.TryGetValue(boardId, out var boardConnections))
-            {
-                boardConnections.TryRemove(connectionId, out _);
-
-                if (boardConnections.IsEmpty)
-                {
-                    BoardUsers.TryRemove(boardId, out _);
-                }
-            }
+            _boardPresenceService.LeaveBoard(boardId, connectionId);
             await Clients.Group(boardId.ToString()).SendAsync("UserLeftBoard", new UserLeftBoardEvent()
             {
                 BoardId = boardId,
@@ -98,54 +89,65 @@ namespace EventStormingBoard.Server.Hubs
         public async Task BroadcastBoardNameUpdated(BoardNameUpdatedEvent @event)
         {
             _boardEventPipeline.ApplyAndLog(@event, GetUserName(@event.BoardId));
+            _coordinator.RecordUserActivity(@event.BoardId);
             await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("BoardNameUpdated", @event);
         }
 
         public async Task BroadcastBoardContextUpdated(BoardContextUpdatedEvent @event)
         {
             _boardEventPipeline.ApplyAndLog(@event, GetUserName(@event.BoardId));
+            _coordinator.SyncBoardSettings(@event.BoardId, @event.NewAutonomousEnabled);
+            _coordinator.RecordUserActivity(@event.BoardId);
             await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("BoardContextUpdated", @event);
+            await Clients.Group(@event.BoardId.ToString()).SendAsync("AutonomousFacilitatorStatusChanged", _coordinator.GetStatus(@event.BoardId, @event.NewAutonomousEnabled));
         }
 
         public async Task BroadcastNoteCreated(NoteCreatedEvent @event)
         {
             _boardEventPipeline.ApplyAndLog(@event, GetUserName(@event.BoardId));
+            _coordinator.RecordUserActivity(@event.BoardId);
             await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("NoteCreated", @event);
         }
 
         public async Task BroadcastNotesMoved(NotesMovedEvent @event)
         {
             _boardEventPipeline.ApplyAndLog(@event, GetUserName(@event.BoardId));
+            _coordinator.RecordUserActivity(@event.BoardId);
             await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("NotesMoved", @event);
         }
 
         public async Task BroadcastNoteResized(NoteResizedEvent @event)
         {
             _boardEventPipeline.ApplyAndLog(@event, GetUserName(@event.BoardId));
+            _coordinator.RecordUserActivity(@event.BoardId);
             await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("NoteResized", @event);
         }
 
         public async Task BroadcastNotesDeleted(NotesDeletedEvent @event)
         {
             _boardEventPipeline.ApplyAndLog(@event, GetUserName(@event.BoardId));
+            _coordinator.RecordUserActivity(@event.BoardId);
             await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("NotesDeleted", @event);
         }
 
         public async Task BroadcastConnectionCreated(ConnectionCreatedEvent @event)
         {
             _boardEventPipeline.ApplyAndLog(@event, GetUserName(@event.BoardId));
+            _coordinator.RecordUserActivity(@event.BoardId);
             await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("ConnectionCreated", @event);
         }
 
         public async Task BroadcastNoteTextEdited(NoteTextEditedEvent @event)
         {
             _boardEventPipeline.ApplyAndLog(@event, GetUserName(@event.BoardId));
+            _coordinator.RecordUserActivity(@event.BoardId);
             await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("NoteTextEdited", @event);
         }
 
         public async Task BroadcastPasted(PastedEvent @event)
         {
             _boardEventPipeline.ApplyAndLog(@event, GetUserName(@event.BoardId));
+            _coordinator.RecordUserActivity(@event.BoardId);
             await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("Pasted", @event);
         }
 
@@ -157,11 +159,7 @@ namespace EventStormingBoard.Server.Hubs
             }
 
             @event.ConnectionId = Context.ConnectionId;
-            if (BoardUsers.TryGetValue(@event.BoardId, out var boardConnections) &&
-                boardConnections.TryGetValue(Context.ConnectionId, out var user))
-            {
-                @event.UserName = user.UserName;
-            }
+            @event.UserName = _boardPresenceService.GetUserName(@event.BoardId, Context.ConnectionId) ?? @event.UserName;
 
             await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("CursorPositionUpdated", @event);
         }
@@ -169,6 +167,8 @@ namespace EventStormingBoard.Server.Hubs
         public async Task SendAgentMessage(Guid boardId, string message)
         {
             var userName = GetUserName(boardId) ?? "Unknown";
+            _coordinator.RecordUserActivity(boardId);
+            _coordinator.BeginManualAgentResponse(boardId, DateTimeOffset.UtcNow);
 
             await Clients.Group(boardId.ToString()).SendAsync("AgentUserMessage", new AgentChatMessageDto
             {
@@ -179,6 +179,7 @@ namespace EventStormingBoard.Server.Hubs
             });
 
             var response = await _agentService.ChatAsync(boardId, message, userName);
+            _coordinator.AcknowledgeManualAgentResponse(boardId, DateTimeOffset.UtcNow);
             await Clients.Group(boardId.ToString()).SendAsync("AgentResponse", response);
         }
 

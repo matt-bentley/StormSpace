@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { BoardsSignalRService, AgentChatMessage, AgentToolCallStartedEvent } from '../../_shared/services/boards-signalr.service';
+import { BoardsSignalRService, AgentChatMessage, AgentToolCallStartedEvent, AutonomousFacilitatorStatus } from '../../_shared/services/boards-signalr.service';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Subject, takeUntil } from 'rxjs';
 import { marked } from 'marked';
@@ -37,7 +37,10 @@ export interface ChatMessage {
 export class AiChatPanelComponent implements OnInit, OnDestroy {
   @Input() boardId!: string;
   @Input() userName!: string;
+  @Input() autonomousEnabled = false;
+  @Input() autonomousStatus?: AutonomousFacilitatorStatus;
   @Output() closed = new EventEmitter<void>();
+  @Output() disableAutonomousRequested = new EventEmitter<void>();
   @ViewChild('messagesContainer') private messagesContainer!: ElementRef<HTMLDivElement>;
 
   private destroy$ = new Subject<void>();
@@ -139,6 +142,26 @@ export class AiChatPanelComponent implements OnInit, OnDestroy {
     const aggregateToolCalls = Array.from(map, ([name, count]) => ({ name, count, active: false }));
     aggregateToolCalls[aggregateToolCalls.length - 1].active = true;
     return aggregateToolCalls;
+  }
+
+  public get autonomousStatusLabel(): string {
+    if (!this.autonomousEnabled) {
+      return 'Autonomy off';
+    }
+
+    if (this.autonomousStatus?.isRunning) {
+      return 'Autonomy working';
+    }
+
+    if (this.autonomousStatus?.stopReason === 'noActiveUsers') {
+      return 'Paused: no users';
+    }
+
+    if (this.autonomousStatus?.stopReason === 'failureLimitExceeded') {
+      return 'Paused after errors';
+    }
+
+    return 'Autonomy on';
   }
 
   private mapToDisplayMessage(msg: AgentChatMessage): ChatMessage {

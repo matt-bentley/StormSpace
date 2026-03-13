@@ -2,6 +2,14 @@
   <div class="chat-header">
     <mat-icon class="chat-header-icon" fontSet="material-icons-outlined">smart_toy</mat-icon>
     <span class="chat-title">AI Assistant</span>
+    <span class="autonomy-badge" [class.active]="autonomousEnabled" [class.running]="autonomousStatus?.isRunning">
+      {{ autonomousStatusLabel }}
+    </span>
+    @if (autonomousEnabled) {
+    <button mat-icon-button (click)="disableAutonomousRequested.emit()" matTooltip="Stop autonomous facilitator">
+      <mat-icon>pause_circle</mat-icon>
+    </button>
+    }
     <button mat-icon-button (click)="clearHistory()" matTooltip="Clear chat history">
       <mat-icon>delete_outline</mat-icon>
     </button>

@@ -10,6 +10,7 @@ namespace EventStormingBoard.Server.Entities
         public string? SessionScope { get; set; }
         public string? AgentInstructions { get; set; }
         public EventStormingPhase? Phase { get; set; }
+        public bool AutonomousEnabled { get; set; }
         public List<Note> Notes { get; set; } = new();
         public List<Connection> Connections { get; set; } = new();
     }

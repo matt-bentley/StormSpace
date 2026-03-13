@@ -31,7 +31,9 @@ export class UpdateBoardContextCommand extends Command<BoardState> {
         private newAgentInstructions: string | undefined,
         private oldAgentInstructions: string | undefined,
         private newPhase: string | undefined,
-        private oldPhase: string | undefined
+        private oldPhase: string | undefined,
+        private newAutonomousEnabled: boolean,
+        private oldAutonomousEnabled: boolean
     ) {
         super();
     }
@@ -41,6 +43,7 @@ export class UpdateBoardContextCommand extends Command<BoardState> {
         this.state.sessionScope = this.newSessionScope;
         this.state.agentInstructions = this.newAgentInstructions;
         this.state.phase = this.newPhase;
+        this.state.autonomousEnabled = this.newAutonomousEnabled;
     }
 
     undo() {
@@ -48,6 +51,7 @@ export class UpdateBoardContextCommand extends Command<BoardState> {
         this.state.sessionScope = this.oldSessionScope;
         this.state.agentInstructions = this.oldAgentInstructions;
         this.state.phase = this.oldPhase;
+        this.state.autonomousEnabled = this.oldAutonomousEnabled;
     }
 }
 

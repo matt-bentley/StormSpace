@@ -12,5 +12,7 @@ namespace EventStormingBoard.Server.Events
         public string? OldAgentInstructions { get; set; }
         public EventStormingPhase? NewPhase { get; set; }
         public EventStormingPhase? OldPhase { get; set; }
+        public bool NewAutonomousEnabled { get; set; }
+        public bool OldAutonomousEnabled { get; set; }
     }
 }

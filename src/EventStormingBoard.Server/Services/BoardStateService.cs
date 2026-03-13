@@ -45,6 +45,7 @@ namespace EventStormingBoard.Server.Services
                 board.SessionScope = @event.IsUndo ? @event.OldSessionScope : @event.NewSessionScope;
                 board.AgentInstructions = @event.IsUndo ? @event.OldAgentInstructions : @event.NewAgentInstructions;
                 board.Phase = @event.IsUndo ? @event.OldPhase : @event.NewPhase;
+                board.AutonomousEnabled = @event.IsUndo ? @event.OldAutonomousEnabled : @event.NewAutonomousEnabled;
             });
         }
 

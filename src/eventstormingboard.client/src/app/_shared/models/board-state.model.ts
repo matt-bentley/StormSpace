@@ -7,6 +7,7 @@ export interface BoardState {
     sessionScope?: string;
     agentInstructions?: string;
     phase?: string;
+    autonomousEnabled: boolean;
     notes: Note[];
     connections: Connection[];
 }

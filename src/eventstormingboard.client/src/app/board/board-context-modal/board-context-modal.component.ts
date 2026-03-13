@@ -3,6 +3,7 @@ import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/materia
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { EVENT_STORMING_PHASES } from '../../_shared/models/board.model';
@@ -12,6 +13,7 @@ export interface BoardContextData {
   sessionScope: string;
   agentInstructions: string;
   phase: string;
+  autonomousEnabled: boolean;
 }
 
 @Component({
@@ -20,6 +22,7 @@ export interface BoardContextData {
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
+    MatSlideToggleModule,
     FormsModule,
     MatDialogModule,
     MatButtonModule

@@ -20,6 +20,7 @@ export interface BoardDto {
   sessionScope?: string;
   agentInstructions?: string;
   phase?: EventStormingPhase;
+  autonomousEnabled: boolean;
   notes: NoteDto[];
   connections: ConnectionDto[];
 }
@@ -35,6 +36,7 @@ export interface BoardCreateDto {
   sessionScope?: string;
   agentInstructions?: string;
   phase?: EventStormingPhase;
+  autonomousEnabled?: boolean;
 }
 
 export interface NoteDto {

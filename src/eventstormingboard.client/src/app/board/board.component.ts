@@ -2,7 +2,7 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import { Note, getNoteColor } from '../_shared/models/note.model';
 import { CreateConnectionCommand, CreateNoteCommand, DeleteNotesCommand, EditNoteTextCommand, MoveNotesCommand, PasteCommand, ResizeNoteCommand, UpdateBoardContextCommand, UpdateBoardNameCommand } from './board.commands';
 import { v4 as uuid } from 'uuid';
-import { BoardsSignalRService } from '../_shared/services/boards-signalr.service';
+import { AutonomousFacilitatorStatus, BoardsSignalRService } from '../_shared/services/boards-signalr.service';
 import { Subject, takeUntil } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
 import { CommonModule } from '@angular/common';
@@ -53,6 +53,7 @@ export class BoardComponent implements OnInit, OnDestroy {
   ) {
     this.canvasService.boardState = {
       name: '',
+      autonomousEnabled: false,
       connections: [],
       notes: []
     };
@@ -66,6 +67,7 @@ export class BoardComponent implements OnInit, OnDestroy {
   public isChatOpen = false;
   public hasUnreadMessages = false;
   public phases = EVENT_STORMING_PHASES;
+  public autonomousStatus?: AutonomousFacilitatorStatus;
 
   public isPhaseActive(phase: string): boolean {
     return this.canvasService.boardState.phase === phase;
@@ -78,6 +80,7 @@ export class BoardComponent implements OnInit, OnDestroy {
       sessionScope: this.canvasService.boardState.sessionScope,
       agentInstructions: this.canvasService.boardState.agentInstructions,
       phase: this.canvasService.boardState.phase,
+      autonomousEnabled: this.canvasService.boardState.autonomousEnabled,
       notes: this.canvasService.boardState.notes,
       connections: this.canvasService.boardState.connections
     };
@@ -106,6 +109,7 @@ export class BoardComponent implements OnInit, OnDestroy {
         this.canvasService.boardState.sessionScope = boardState.sessionScope;
         this.canvasService.boardState.agentInstructions = boardState.agentInstructions;
         this.canvasService.boardState.phase = boardState.phase;
+        this.canvasService.boardState.autonomousEnabled = !!boardState.autonomousEnabled;
         this.canvasService.boardState.notes = boardState.notes || [];
         this.canvasService.boardState.connections = boardState.connections || [];
         this.canvasService.drawCanvas(); // Redraw the canvas with the imported state
@@ -162,7 +166,8 @@ export class BoardComponent implements OnInit, OnDestroy {
         domain: this.canvasService.boardState.domain || '',
         sessionScope: this.canvasService.boardState.sessionScope || '',
         agentInstructions: this.canvasService.boardState.agentInstructions || '',
-        phase: this.canvasService.boardState.phase || ''
+        phase: this.canvasService.boardState.phase || '',
+        autonomousEnabled: this.canvasService.boardState.autonomousEnabled
       } as BoardContextData
     });
 
@@ -176,7 +181,9 @@ export class BoardComponent implements OnInit, OnDestroy {
           result.agentInstructions || undefined,
           this.canvasService.boardState.agentInstructions,
           result.phase || undefined,
-          this.canvasService.boardState.phase
+          this.canvasService.boardState.phase,
+          result.autonomousEnabled,
+          this.canvasService.boardState.autonomousEnabled
         );
         this.canvasService.executeCommand(command);
       }
@@ -216,6 +223,26 @@ export class BoardComponent implements OnInit, OnDestroy {
     this.canvasService.executeCommand(command);
   }
 
+  public disableAutonomousMode(): void {
+    if (!this.canvasService.boardState.autonomousEnabled) {
+      return;
+    }
+
+    const command = new UpdateBoardContextCommand(
+      this.canvasService.boardState.domain,
+      this.canvasService.boardState.domain,
+      this.canvasService.boardState.sessionScope,
+      this.canvasService.boardState.sessionScope,
+      this.canvasService.boardState.agentInstructions,
+      this.canvasService.boardState.agentInstructions,
+      this.canvasService.boardState.phase,
+      this.canvasService.boardState.phase,
+      false,
+      this.canvasService.boardState.autonomousEnabled
+    );
+    this.canvasService.executeCommand(command);
+  }
+
   public ngOnInit(): void {
 
     this.toggleSelectMode();
@@ -230,6 +257,7 @@ export class BoardComponent implements OnInit, OnDestroy {
         this.canvasService.boardState.sessionScope = board.sessionScope;
         this.canvasService.boardState.agentInstructions = board.agentInstructions;
         this.canvasService.boardState.phase = board.phase;
+        this.canvasService.boardState.autonomousEnabled = board.autonomousEnabled;
         // Map NoteDto[] to Note[]
         this.canvasService.boardState.notes = board.notes.map(n => ({
           ...n,
@@ -302,7 +330,8 @@ export class BoardComponent implements OnInit, OnDestroy {
             event.newDomain, event.oldDomain,
             event.newSessionScope, event.oldSessionScope,
             event.newAgentInstructions, event.oldAgentInstructions,
-            event.newPhase, event.oldPhase
+            event.newPhase, event.oldPhase,
+            event.newAutonomousEnabled, event.oldAutonomousEnabled
           ), true, event.isUndo);
       });
 
@@ -360,6 +389,14 @@ export class BoardComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
         if (!this.isChatOpen) this.hasUnreadMessages = true;
+      });
+
+    this.boardsHub.autonomousStatusChanged$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(status => {
+        if (status.boardId === this.id) {
+          this.autonomousStatus = status;
+        }
       });
   }
 

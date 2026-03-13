@@ -50,6 +50,7 @@ namespace EventStormingBoard.Server.Controllers
                 SessionScope = board.SessionScope,
                 AgentInstructions = board.AgentInstructions,
                 Phase = board.Phase,
+                AutonomousEnabled = board.AutonomousEnabled,
                 Notes = board.Notes.Select(n => new NoteDto
                 {
                     Id = n.Id,
@@ -88,6 +89,7 @@ namespace EventStormingBoard.Server.Controllers
                 SessionScope = NormalizeOptional(boardCreate.SessionScope),
                 AgentInstructions = NormalizeOptional(boardCreate.AgentInstructions),
                 Phase = boardCreate.Phase,
+                AutonomousEnabled = boardCreate.AutonomousEnabled,
                 Notes = new List<Note>(),
                 Connections = new List<Connection>()
             };
@@ -100,6 +102,7 @@ namespace EventStormingBoard.Server.Controllers
                 SessionScope = board.SessionScope,
                 AgentInstructions = board.AgentInstructions,
                 Phase = board.Phase,
+                AutonomousEnabled = board.AutonomousEnabled,
                 Notes = new List<NoteDto>(),
                 Connections = new List<ConnectionDto>()
             };

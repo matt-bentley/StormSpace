@@ -21,7 +21,8 @@ export class BoardCanvasService {
   public boardState: BoardState = {
     notes: [],
     connections: [],
-    name: 'Untitled Board'
+    name: 'Untitled Board',
+    autonomousEnabled: false
   };
 
   public remoteCursors = new Map<string, RemoteCursorState>();

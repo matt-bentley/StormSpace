@@ -7,5 +7,6 @@
         public string? SessionScope { get; set; }
         public string? AgentInstructions { get; set; }
         public EventStormingPhase? Phase { get; set; }
+        public bool AutonomousEnabled { get; set; }
     }
 }

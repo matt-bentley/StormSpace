@@ -72,18 +72,22 @@ public class BoardStateServiceTests
             OldAgentInstructions = null,
             NewAgentInstructions = null,
             OldPhase = null,
-            NewPhase = EventStormingPhase.IdentifyEvents
+            NewPhase = EventStormingPhase.IdentifyEvents,
+            OldAutonomousEnabled = false,
+            NewAutonomousEnabled = true
         };
 
         _service.ApplyBoardContextUpdated(@event);
 
         Assert.Equal(EventStormingPhase.IdentifyEvents, _board.Phase);
+        Assert.True(_board.AutonomousEnabled);
     }
 
     [Fact]
     public void ApplyBoardContextUpdated_Undo_RevertsPhase()
     {
         _board.Phase = EventStormingPhase.AddCommandsAndPolicies;
+        _board.AutonomousEnabled = true;
         var @event = new BoardContextUpdatedEvent
         {
             BoardId = _board.Id,
@@ -95,12 +99,15 @@ public class BoardStateServiceTests
             NewAgentInstructions = null,
             OldPhase = EventStormingPhase.IdentifyEvents,
             NewPhase = EventStormingPhase.AddCommandsAndPolicies,
+            OldAutonomousEnabled = false,
+            NewAutonomousEnabled = true,
             IsUndo = true
         };
 
         _service.ApplyBoardContextUpdated(@event);
 
         Assert.Equal(EventStormingPhase.IdentifyEvents, _board.Phase);
+        Assert.False(_board.AutonomousEnabled);
     }
 
     // ── NoteCreated ─────────────────────────────────────────
