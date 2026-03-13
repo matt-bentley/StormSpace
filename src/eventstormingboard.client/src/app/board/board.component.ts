@@ -19,6 +19,7 @@ import { KeyboardShortcutsModalComponent } from './keyboard-shortcuts-modal/keyb
 import { CursorPositionUpdatedEvent } from '../_shared/models/board-events.model';
 import { AiChatPanelComponent } from './ai-chat-panel/ai-chat-panel.component';
 import { BoardContextModalComponent, BoardContextData } from './board-context-modal/board-context-modal.component';
+import { EVENT_STORMING_PHASES } from '../_shared/models/board.model';
 
 @Component({
     selector: 'app-board',
@@ -64,6 +65,11 @@ export class BoardComponent implements OnInit, OnDestroy {
   public isConnectedUsersHovered = false;
   public isChatOpen = false;
   public hasUnreadMessages = false;
+  public phases = EVENT_STORMING_PHASES;
+
+  public isPhaseActive(phase: string): boolean {
+    return this.canvasService.boardState.phase === phase;
+  }
 
   public exportBoardAsJSON(): void {
     const boardState = {

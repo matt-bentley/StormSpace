@@ -248,6 +248,94 @@
     }
 }
 
+.phase-stepper-wrapper {
+  position: absolute;
+  bottom: 24px;
+  left: 24px;
+  display: flex;
+  pointer-events: none; /* Let clicks pass through the wrapper to the canvas */
+  z-index: 100;
+}
+
+.phase-stepper-container {
+  pointer-events: auto; /* Re-enable clicks on the actual stepper container */
+  padding: 12px 24px;
+  border-radius: 40px; /* More pill-shaped */
+  box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+
+  .stepper-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .step {
+    display: flex;
+    align-items: center;
+    gap: 0; /* Removing gap, relying on margin between circle and label */
+    opacity: 0.5;
+    transition: all 0.3s ease;
+    cursor: pointer;
+
+    &.active {
+      opacity: 1;
+      
+      .step-circle {
+        background: #3f51b5;
+        color: white;
+        box-shadow: 0 4px 12px rgba(63, 81, 181, 0.4);
+      }
+      
+      .step-label {
+        color: #2c387e;
+        font-weight: 600;
+      }
+    }
+
+    &:hover {
+      opacity: 1;
+      
+      .step-label {
+        max-width: 150px;
+        opacity: 1;
+        margin-left: 12px;
+      }
+    }
+  }
+
+  .step-circle {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.08);
+    font-weight: 600;
+    font-size: 13px;
+    color: #555;
+    transition: all 0.3s ease;
+  }
+
+  .step-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: #555;
+    white-space: nowrap;
+    max-width: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition: all 0.3s ease;
+  }
+
+  .step-connector {
+    flex: 0 0 16px;
+    height: 2px;
+    background: rgba(0, 0, 0, 0.1);
+    margin: 0 4px;
+  }
+}
+
 .bottom-right-controls {
     position: fixed;
     right: var(--board-gutter, 20px);

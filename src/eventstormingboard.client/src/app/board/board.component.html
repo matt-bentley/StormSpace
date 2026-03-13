@@ -120,6 +120,22 @@
   </div>
 </div>
 
+<div class="phase-stepper-wrapper">
+  <div class="phase-stepper-container floating">
+    <div class="stepper-content" role="progressbar" aria-label="Event Storming Phase">
+      @for (phase of phases; track phase.value; let i = $index) {
+        <div class="step" [class.active]="isPhaseActive(phase.value)">
+          <div class="step-circle">{{ i + 1 }}</div>
+          <span class="step-label">{{ phase.label }}</span>
+        </div>
+        @if (i < phases.length - 1) {
+          <div class="step-connector" [class.active]="isPhaseActive(phase.value)"></div>
+        }
+      }
+    </div>
+  </div>
+</div>
+
 @if (isChatOpen) {
   <div class="ai-chat-container floating">
     <app-ai-chat-panel [boardId]="canvasService.id" [userName]="userName" (closed)="isChatOpen = false; hasUnreadMessages = false"></app-ai-chat-panel>
