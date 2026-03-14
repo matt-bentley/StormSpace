@@ -1,12 +1,13 @@
 using EventStormingBoard.Server.Hubs;
 using EventStormingBoard.Server.Models;
+using Microsoft.Agents.AI;
 using Microsoft.AspNetCore.SignalR;
-using Microsoft.SemanticKernel;
+using Microsoft.Extensions.AI;
 using System.Collections.Concurrent;
 
 namespace EventStormingBoard.Server.Filters
 {
-    public sealed class AgentToolCallFilter : IAutoFunctionInvocationFilter
+    public sealed class AgentToolCallFilter
     {
         private readonly IHubContext<BoardsHub> _hubContext;
         private readonly ConcurrentDictionary<string, ConcurrentBag<AgentToolCallDto>> _pendingToolCalls = new();
@@ -30,41 +31,40 @@ namespace EventStormingBoard.Server.Filters
             return new List<AgentToolCallDto>();
         }
 
-        public async Task OnAutoFunctionInvocationAsync(AutoFunctionInvocationContext context, Func<AutoFunctionInvocationContext, Task> next)
+        public async ValueTask<object?> OnFunctionInvocationAsync(
+            Guid boardId,
+            AIAgent agent,
+            FunctionInvocationContext context,
+            Func<FunctionInvocationContext, CancellationToken, ValueTask<object?>> next,
+            CancellationToken cancellationToken)
         {
-            var boardId = context.Kernel.Data.TryGetValue("boardId", out var id) ? id?.ToString() : null;
             var functionName = context.Function.Name;
 
             var arguments = new Dictionary<string, string>();
-            if (context.Arguments is not null)
+            if (context.CallContent.Arguments is not null)
             {
-                foreach (var arg in context.Arguments)
+                foreach (var arg in context.CallContent.Arguments)
                 {
-                    if (arg.Key != "boardId")
-                    {
-                        arguments[arg.Key] = arg.Value?.ToString() ?? "";
-                    }
+                    arguments[arg.Key] = arg.Value?.ToString() ?? string.Empty;
                 }
             }
 
             var argsString = arguments.Count > 0
                 ? string.Join(", ", arguments.Select(a => $"{a.Key}: {a.Value}"))
-                : "";
+                : string.Empty;
 
-            if (boardId is not null)
+            var boardKey = boardId.ToString();
+            _pendingToolCalls.GetOrAdd(boardKey, _ => new ConcurrentBag<AgentToolCallDto>())
+                .Add(new AgentToolCallDto { Name = functionName, Arguments = argsString });
+
+            await _hubContext.Clients.Group(boardKey).SendAsync("AgentToolCallStarted", new
             {
-                _pendingToolCalls.GetOrAdd(boardId, _ => new ConcurrentBag<AgentToolCallDto>())
-                    .Add(new AgentToolCallDto { Name = functionName, Arguments = argsString });
+                BoardId = boardKey,
+                ToolName = functionName,
+                Arguments = arguments
+            }, cancellationToken);
 
-                await _hubContext.Clients.Group(boardId).SendAsync("AgentToolCallStarted", new
-                {
-                    BoardId = boardId,
-                    ToolName = functionName,
-                    Arguments = arguments
-                });
-            }
-
-            await next(context);
+            return await next(context, cancellationToken).ConfigureAwait(false);
         }
     }
 }

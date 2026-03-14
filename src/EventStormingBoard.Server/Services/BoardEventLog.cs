@@ -60,6 +60,7 @@ namespace EventStormingBoard.Server.Services
         {
             return @event switch
             {
+                BoardContextUpdatedEvent e => BuildBoardContextSummary(e),
                 NoteCreatedEvent e => $"Created {e.Note.Type} note \"{e.Note.Text}\"",
                 NotesMovedEvent e => $"Moved {e.To.Count} note(s)",
                 NoteResizedEvent e => $"Resized note {e.NoteId}",
@@ -70,6 +71,46 @@ namespace EventStormingBoard.Server.Services
                 BoardNameUpdatedEvent e => $"Renamed board to \"{e.NewName}\"",
                 _ => @event.GetType().Name
             };
+        }
+
+        private static string BuildBoardContextSummary(BoardContextUpdatedEvent @event)
+        {
+            if (@event.OldPhase != @event.NewPhase)
+            {
+                var oldPhase = @event.OldPhase?.ToString() ?? "none";
+                var newPhase = @event.NewPhase?.ToString() ?? "none";
+                return $"Changed phase from {oldPhase} to {newPhase}";
+            }
+
+            if (!string.Equals(@event.OldDomain, @event.NewDomain, StringComparison.Ordinal))
+            {
+                return string.IsNullOrWhiteSpace(@event.NewDomain)
+                    ? "Cleared domain context"
+                    : $"Updated domain context to \"{@event.NewDomain}\"";
+            }
+
+            if (!string.Equals(@event.OldSessionScope, @event.NewSessionScope, StringComparison.Ordinal))
+            {
+                return string.IsNullOrWhiteSpace(@event.NewSessionScope)
+                    ? "Cleared session scope"
+                    : $"Updated session scope to \"{@event.NewSessionScope}\"";
+            }
+
+            if (!string.Equals(@event.OldAgentInstructions, @event.NewAgentInstructions, StringComparison.Ordinal))
+            {
+                return string.IsNullOrWhiteSpace(@event.NewAgentInstructions)
+                    ? "Cleared facilitator instructions"
+                    : "Updated facilitator instructions";
+            }
+
+            if (@event.OldAutonomousEnabled != @event.NewAutonomousEnabled)
+            {
+                return @event.NewAutonomousEnabled
+                    ? "Enabled autonomous facilitation"
+                    : "Disabled autonomous facilitation";
+            }
+
+            return nameof(BoardContextUpdatedEvent);
         }
     }
 }

@@ -5,7 +5,6 @@ using EventStormingBoard.Server.Models;
 using EventStormingBoard.Server.Repositories;
 using EventStormingBoard.Server.Services;
 using Microsoft.AspNetCore.SignalR;
-using Microsoft.SemanticKernel;
 using System.ComponentModel;
 using System.Text;
 
@@ -33,7 +32,7 @@ namespace EventStormingBoard.Server.Plugins
             _boardId = boardId;
         }
 
-        [KernelFunction, Description("Gets the current board state including all notes and connections. Use this to understand what is currently on the board.")]
+        [Description("Gets the current board state including all notes and connections. Use this to understand what is currently on the board.")]
         public string GetBoardState()
         {
             var board = _repository.GetById(_boardId);
@@ -63,7 +62,7 @@ namespace EventStormingBoard.Server.Plugins
             return sb.ToString();
         }
 
-        [KernelFunction, Description("Gets recent board events showing what actions have been performed on the board recently.")]
+        [Description("Gets recent board events showing what actions have been performed on the board recently.")]
         public string GetRecentEvents([Description("Number of recent events to return, default 20")] int count = 20)
         {
             var entries = _boardEventLog.GetRecent(_boardId, count);
@@ -78,7 +77,7 @@ namespace EventStormingBoard.Server.Plugins
             return sb.ToString();
         }
 
-        [KernelFunction, Description("Sets the board Domain context used to guide the Event Storming facilitator. Pass an empty value to clear it.")]
+        [Description("Sets the board Domain context used to guide the Event Storming facilitator. Pass an empty value to clear it.")]
         public string SetDomain(
             [Description("The domain context for this board")] string? domain)
         {
@@ -112,7 +111,7 @@ namespace EventStormingBoard.Server.Plugins
                 : $"Set board domain context to \"{normalizedDomain}\".";
         }
 
-        [KernelFunction, Description("Sets the board Session Scope context used to constrain the Event Storming session. Pass an empty value to clear it.")]
+        [Description("Sets the board Session Scope context used to constrain the Event Storming session. Pass an empty value to clear it.")]
         public string SetSessionScope(
             [Description("The session scope for this board")] string? sessionScope)
         {
@@ -146,7 +145,7 @@ namespace EventStormingBoard.Server.Plugins
                 : $"Set board session scope to \"{normalizedSessionScope}\".";
         }
 
-        [KernelFunction, Description("Sets the current Event Storming workshop phase")]
+        [Description("Sets the current Event Storming workshop phase")]
         public string SetPhase(
             [Description("The phase to set")] EventStormingPhase phase)
         {
@@ -177,7 +176,7 @@ namespace EventStormingBoard.Server.Plugins
             return $"Set board phase to {phase}.";
         }
 
-        [KernelFunction, Description("Marks the autonomous facilitation session as complete and disables autonomous mode for this board.")]
+        [Description("Marks the autonomous facilitation session as complete and disables autonomous mode for this board.")]
         public string CompleteAutonomousSession(
             [Description("A short summary of why the session is complete")] string? summary = null)
         {
@@ -210,7 +209,7 @@ namespace EventStormingBoard.Server.Plugins
                 : $"Autonomous facilitation completed. {summary.Trim()}";
         }
 
-        [KernelFunction, Description("Creates a new sticky note on the board. Valid note types for Event Storming are: Event (something that happened, past tense), Command (an action/intent triggered by a user or system), Aggregate (a cluster of domain objects), User (an actor/persona), Policy (a business rule or automated reaction, 'when X then Y'), ReadModel (a view/projection of data), ExternalSystem (an outside dependency), Concern (a problem, risk, or question).")]
+        [Description("Creates a new sticky note on the board. Valid note types for Event Storming are: Event (something that happened, past tense), Command (an action/intent triggered by a user or system), Aggregate (a cluster of domain objects), User (an actor/persona), Policy (a business rule or automated reaction, 'when X then Y'), ReadModel (a view/projection of data), ExternalSystem (an outside dependency), Concern (a problem, risk, or question).")]
         public string CreateNote(
             [Description("The text label for the note")] string text,
             [Description("The note type: Event, Command, Aggregate, User, Policy, ReadModel, ExternalSystem, or Concern")] NoteType type,
@@ -244,7 +243,7 @@ namespace EventStormingBoard.Server.Plugins
             return $"Created {type} note \"{text}\" (id: {noteId})";
         }
 
-        [KernelFunction, Description("Creates a connection (arrow) between two existing notes on the board. Use note IDs from GetBoardState.")]
+        [Description("Creates a connection (arrow) between two existing notes on the board. Use note IDs from GetBoardState.")]
         public string CreateConnection(
             [Description("The ID of the source note (where the arrow starts)")] Guid fromNoteId,
             [Description("The ID of the target note (where the arrow ends)")] Guid toNoteId)
@@ -275,7 +274,7 @@ namespace EventStormingBoard.Server.Plugins
             return $"Connected \"{fromNote.Text}\" → \"{toNote.Text}\"";
         }
 
-        [KernelFunction, Description("Edits the text of an existing note. Use note IDs from GetBoardState.")]
+        [Description("Edits the text of an existing note. Use note IDs from GetBoardState.")]
         public string EditNoteText(
             [Description("The ID of the note to edit")] Guid noteId,
             [Description("The new text for the note")] string newText)
@@ -301,7 +300,7 @@ namespace EventStormingBoard.Server.Plugins
             return $"Updated note text from \"{oldText}\" to \"{newText}\"";
         }
 
-        [KernelFunction, Description("Moves one or more notes to new positions on the board. Use this to reorganise the board layout. Use note IDs from GetBoardState.")]
+        [Description("Moves one or more notes to new positions on the board. Use this to reorganise the board layout. Use note IDs from GetBoardState.")]
         public string MoveNotes(
             [Description("The list of note moves specifying each note's ID and target coordinates")] List<NoteMoveInput> moves)
         {
@@ -347,7 +346,7 @@ namespace EventStormingBoard.Server.Plugins
             return $"Moved {from.Count} note(s) to new positions.";
         }
 
-        [KernelFunction, Description("Creates multiple sticky notes on the board in a single call. Returns the generated IDs for each note so you can use them in CreateConnections. Prefer this over CreateNote when adding more than one note.")]
+        [Description("Creates multiple sticky notes on the board in a single call. Returns the generated IDs for each note so you can use them in CreateConnections. Prefer this over CreateNote when adding more than one note.")]
         public string CreateNotes(
             [Description("The list of notes to create")] List<CreateNoteInput> notes)
         {
@@ -397,7 +396,7 @@ namespace EventStormingBoard.Server.Plugins
             return results.ToString();
         }
 
-        [KernelFunction, Description("Creates multiple connections (arrows) between existing notes in a single call. Use note IDs from GetBoardState or from the IDs returned by CreateNotes. Prefer this over CreateConnection when adding more than one connection.")]
+        [Description("Creates multiple connections (arrows) between existing notes in a single call. Use note IDs from GetBoardState or from the IDs returned by CreateNotes. Prefer this over CreateConnection when adding more than one connection.")]
         public string CreateConnections(
             [Description("The list of connections to create")] List<CreateConnectionInput> connections)
         {
@@ -447,7 +446,7 @@ namespace EventStormingBoard.Server.Plugins
             return $"Created {created} connection(s):\n{results}";
         }
 
-        [KernelFunction, Description("Deletes one or more notes from the board and any connections involving those notes. Use note IDs from GetBoardState.")]
+        [Description("Deletes one or more notes from the board and any connections involving those notes. Use note IDs from GetBoardState.")]
         public string DeleteNotes(
             [Description("The list of note IDs to delete")] List<Guid> noteIds)
         {

@@ -1,16 +1,19 @@
+using Azure;
+using Azure.AI.OpenAI;
+using Azure.Identity;
+using EventStormingBoard.Server.Entities;
+using EventStormingBoard.Server.Events;
 using EventStormingBoard.Server.Filters;
 using EventStormingBoard.Server.Hubs;
-using EventStormingBoard.Server.Events;
 using EventStormingBoard.Server.Models;
 using EventStormingBoard.Server.Plugins;
 using EventStormingBoard.Server.Repositories;
+using Microsoft.Agents.AI;
 using Microsoft.AspNetCore.SignalR;
-using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.Agents;
-using Microsoft.SemanticKernel.ChatCompletion;
-using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
-using OpenAI.Chat;
+using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Options;
 using System.Collections.Concurrent;
+using System.ComponentModel;
 using System.Text;
 
 namespace EventStormingBoard.Server.Services
@@ -120,6 +123,10 @@ namespace EventStormingBoard.Server.Services
             16. At the beginning of a new session, introduce the Event Storming workshop before asking for detailed input. Explain the high-level process, the overall phases, and how participants should collaborate with you.
             17. At the beginning of a new session, explain the house rules clearly: use business language, keep notes focused to one idea each, work left-to-right in time order, challenge ambiguity with Concern notes, and avoid jumping ahead to later modeling steps too early.
             18. When introducing the session, explain why the team is working this way: Event Storming helps align people around behavior, exposes gaps and assumptions early, and prevents premature technical or data-model discussions.
+            19. In **Add Commands and Policies**, your first example must focus on exactly **one existing Event**, not a whole happy path or multiple neighboring Events.
+            20. In **Add Commands and Policies**, prefer the first starter example to be a **user-invoked Command** when the domain plausibly supports one. Add the matching **User** note attached to that Command so participants can see how manual triggers are represented.
+            21. When starting **Add Commands and Policies**, explicitly explain the difference between: a user-invoked Command with a User note, an automated Command without a User note, and a Policy that reacts after an Event.
+            22. After adding the first Commands/Policies starter example, stop and ask participants to model the remaining Events themselves using the same pattern.
 
             ## Facilitation Style — Do Less, Teach More
 
@@ -128,33 +135,39 @@ namespace EventStormingBoard.Server.Services
             - **At session start**: Before asking for domain or scope details, introduce the workshop briefly. Explain the high-level Event Storming process, the house rules for contributing, and why the team is working this way.
             - **At phase start**: First explain the purpose of the phase, the kinds of notes users should be adding, and how they should participate before or alongside your small starter example.
             - **Events phase**: Create at most **3 Events** at a time. Explain why you chose them, describe what other Events might follow, and ask the users to continue adding more themselves.
-            - **Commands & Policies phase**: Create only a **single cluster** at a time (e.g., one Command → Event → Policy chain). Explain the pattern you used and encourage the users to replicate it for the remaining Events.
+            - **Commands & Policies phase**: Create only a **single starter example for one Event** at a time. Do not fill in the whole happy path or multiple adjacent Events. Prefer a **user-invoked Command + User note** for the first example when plausible, explain how that differs from an automated Command or a Policy, then encourage the users to replicate the pattern for the remaining Events.
             - **Aggregates phase**: Add only a **single Aggregate** at a time. Explain what it represents and which Commands/Events it relates to, then ask the users to identify and place the next ones.
             - **General rule**: Unless the user explicitly asks you to "do it all", "fill in everything", or similar, always stop after a small increment, explain what you did and why, and ask the users what they'd like to tackle next.
             - When you stop, briefly mention what the logical next steps would be so the users know how to continue.
             """;
 
         private readonly IServiceProvider _serviceProvider;
-        private readonly IConfiguration _configuration;
-        private readonly ConcurrentDictionary<Guid, ChatHistory> _chatHistories = new();
+        private readonly AzureOpenAIOptions _options;
+        private readonly AgentToolCallFilter _toolCallFilter;
+        private readonly AzureOpenAIClient _azureOpenAIClient;
+        private readonly ConcurrentDictionary<Guid, List<ChatMessage>> _conversationHistories = new();
         private readonly ConcurrentDictionary<Guid, List<AgentChatMessageDto>> _displayHistories = new();
-        private readonly IHttpClientFactory _httpClientFactory;
 
-        public AgentService(IServiceProvider serviceProvider,
-            IConfiguration configuration,
-            IHttpClientFactory httpClientFactory)
+        public AgentService(
+            IServiceProvider serviceProvider,
+            IOptions<AzureOpenAIOptions> options,
+            AgentToolCallFilter toolCallFilter)
         {
             _serviceProvider = serviceProvider;
-            _configuration = configuration;
-            _httpClientFactory = httpClientFactory;
+            _options = options.Value;
+            _toolCallFilter = toolCallFilter;
+            _azureOpenAIClient = CreateAzureOpenAIClient(_options);
         }
 
         public async Task<AgentChatMessageDto> ChatAsync(Guid boardId, string userMessage, string userName)
         {
-            var chatHistory = _chatHistories.GetOrAdd(boardId, _ => new ChatHistory());
-            var displayHistory = _displayHistories.GetOrAdd(boardId, _ => new List<AgentChatMessageDto>());
+            var conversationHistory = _conversationHistories.GetOrAdd(boardId, static _ => new List<ChatMessage>());
+            var displayHistory = _displayHistories.GetOrAdd(boardId, static _ => new List<AgentChatMessageDto>());
 
-            chatHistory.AddUserMessage(userMessage);
+            lock (conversationHistory)
+            {
+                conversationHistory.Add(new ChatMessage(ChatRole.User, userMessage));
+            }
 
             var displayUserMessage = new AgentChatMessageDto
             {
@@ -163,43 +176,33 @@ namespace EventStormingBoard.Server.Services
                 Content = userMessage,
                 Timestamp = DateTime.UtcNow
             };
-            lock (displayHistory) { displayHistory.Add(displayUserMessage); }
-
-            var deploymentName = _configuration["AzureOpenAI:DeploymentName"]!;
-            var isReasoningModel = !deploymentName.Contains("gpt-4", StringComparison.OrdinalIgnoreCase);
-            var (reply, toolCalls) = await InvokeAgentAsync(boardId, chatHistory, isReasoningModel, CancellationToken.None);
-
-            chatHistory.AddAssistantMessage(reply);
-
-            var displayAssistantMessage = new AgentChatMessageDto
+            lock (displayHistory)
             {
-                Role = "assistant",
-                Content = reply,
-                ToolCalls = toolCalls.Count > 0 ? toolCalls : null,
-                Timestamp = DateTime.UtcNow
-            };
-            lock (displayHistory) { displayHistory.Add(displayAssistantMessage); }
+                displayHistory.Add(displayUserMessage);
+            }
 
-            return displayAssistantMessage;
+            var (reply, toolCalls) = await InvokeAgentAsync(boardId, allowDestructiveChanges: true, CancellationToken.None).ConfigureAwait(false);
+            var assistantMessage = AppendAssistantMessage(boardId, reply, toolCalls);
+            return assistantMessage;
         }
 
         public async Task<AutonomousAgentResult> RunAutonomousTurnAsync(Guid boardId, string triggerReason, CancellationToken cancellationToken)
         {
             EnsureInitialAutonomousPhase(boardId);
 
-            var chatHistory = _chatHistories.GetOrAdd(boardId, _ => new ChatHistory());
-            chatHistory.AddUserMessage(BuildAutonomousPrompt(boardId, triggerReason));
-
-            var deploymentName = _configuration["AzureOpenAI:DeploymentName"]!;
-            var isReasoningModel = !deploymentName.Contains("gpt-4", StringComparison.OrdinalIgnoreCase);
+            var conversationHistory = _conversationHistories.GetOrAdd(boardId, static _ => new List<ChatMessage>());
+            lock (conversationHistory)
+            {
+                conversationHistory.Add(new ChatMessage(ChatRole.User, BuildAutonomousPrompt(boardId, triggerReason)));
+            }
 
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeoutCts.CancelAfter(TimeSpan.FromSeconds(45));
 
-            var (reply, toolCalls) = await InvokeAgentAsync(boardId, chatHistory, isReasoningModel, timeoutCts.Token);
+            var (reply, toolCalls) = await InvokeAgentAsync(boardId, allowDestructiveChanges: false, timeoutCts.Token).ConfigureAwait(false);
             var board = _serviceProvider.GetRequiredService<IBoardsRepository>().GetById(boardId);
             var trimmedReply = reply.Trim();
-            var usedCompletionTool = toolCalls.Any(call => string.Equals(call.Name, "CompleteAutonomousSession", StringComparison.Ordinal));
+            var usedCompletionTool = toolCalls.Any(call => string.Equals(call.Name, nameof(BoardPlugin.CompleteAutonomousSession), StringComparison.Ordinal));
 
             if (board?.AutonomousEnabled == false && usedCompletionTool)
             {
@@ -249,94 +252,188 @@ namespace EventStormingBoard.Server.Services
         {
             if (_displayHistories.TryGetValue(boardId, out var history))
             {
-                lock (history) { return new List<AgentChatMessageDto>(history); }
+                lock (history)
+                {
+                    return new List<AgentChatMessageDto>(history);
+                }
             }
+
             return new List<AgentChatMessageDto>();
         }
 
         public void ClearHistory(Guid boardId)
         {
-            _chatHistories.TryRemove(boardId, out _);
-            if (_displayHistories.TryGetValue(boardId, out var history))
-            {
-                lock (history) { history.Clear(); }
-            }
+            _conversationHistories.TryRemove(boardId, out _);
+            _displayHistories.TryRemove(boardId, out _);
         }
 
-        private Kernel BuildKernel(Guid boardId)
+        private static AzureOpenAIClient CreateAzureOpenAIClient(AzureOpenAIOptions options)
         {
-            var endpoint = _configuration["AzureOpenAI:Endpoint"]!;
-            var deploymentName = _configuration["AzureOpenAI:DeploymentName"]!;
-            var apiKey = _configuration["AzureOpenAI:ApiKey"]!;
+            if (!string.IsNullOrWhiteSpace(options.ApiKey))
+            {
+                return new AzureOpenAIClient(new Uri(options.Endpoint), new AzureKeyCredential(options.ApiKey));
+            }
 
-            var builder = Kernel.CreateBuilder()
-                .AddAzureOpenAIChatCompletion(deploymentName, endpoint, apiKey, httpClient: _httpClientFactory.CreateClient("AgentService"));
+            return new AzureOpenAIClient(new Uri(options.Endpoint), new DefaultAzureCredential());
+        }
 
-            builder.Services.AddSingleton(_serviceProvider.GetRequiredService<AgentToolCallFilter>());
-            builder.Services.AddSingleton<IAutoFunctionInvocationFilter>(sp => sp.GetRequiredService<AgentToolCallFilter>());
-
-            var kernel = builder.Build();
-            kernel.Data["boardId"] = boardId.ToString();
-
-            var plugin = new BoardPlugin(
+        private AIAgent BuildAgent(Guid boardId, bool allowDestructiveChanges)
+        {
+            var board = _serviceProvider.GetRequiredService<IBoardsRepository>().GetById(boardId);
+            var boardPlugin = new BoardPlugin(
                 _serviceProvider.GetRequiredService<IBoardsRepository>(),
                 _serviceProvider.GetRequiredService<IBoardEventPipeline>(),
                 _serviceProvider.GetRequiredService<IBoardEventLog>(),
                 _serviceProvider.GetRequiredService<IHubContext<BoardsHub>>(),
                 boardId);
 
-            kernel.Plugins.AddFromObject(plugin, "Board");
+            var baseAgent = _azureOpenAIClient
+                .GetChatClient(_options.DeploymentName)
+                .AsIChatClient()
+                .AsAIAgent(new ChatClientAgentOptions
+                {
+                    Name = "EventStormingAgent",
+                    Description = "Facilitates collaborative Event Storming sessions in StormSpace.",
+                    ChatOptions = BuildChatOptions(board, boardPlugin, allowDestructiveChanges)
+                }, services: _serviceProvider);
 
-            return kernel;
+            return baseAgent
+                .AsBuilder()
+                .Use((agent, context, next, ct) => _toolCallFilter.OnFunctionInvocationAsync(boardId, agent, context, next, ct))
+                .Build();
         }
 
-        private async Task<(string Reply, List<AgentToolCallDto> ToolCalls)> InvokeAgentAsync(
-            Guid boardId,
-            ChatHistory chatHistory,
-            bool isReasoningModel,
-            CancellationToken cancellationToken)
+        private ChatOptions BuildChatOptions(Board? board, BoardPlugin boardPlugin, bool allowDestructiveChanges)
         {
-            var kernel = BuildKernel(boardId);
-            var settings = new AzureOpenAIPromptExecutionSettings
+            var options = new ChatOptions
             {
-                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(),
+                Instructions = BuildSystemPrompt(board),
+                Tools = CreateTools(boardPlugin, allowDestructiveChanges),
+                AllowMultipleToolCalls = true
             };
 
-            if (isReasoningModel)
+            if (IsReasoningModel())
             {
-                var effort = _configuration["AzureOpenAI:ReasoningEffort"] ?? "low";
-                settings.ReasoningEffort = new ChatReasoningEffortLevel(effort);
+                options.Reasoning = new Microsoft.Extensions.AI.ReasoningOptions
+                {
+                    Effort = ParseReasoningEffort(_options.ReasoningEffort)
+                };
             }
 
-            var board = _serviceProvider.GetRequiredService<IBoardsRepository>().GetById(boardId);
-            var systemPrompt = BuildSystemPrompt(board);
-
-            var agent = new ChatCompletionAgent
-            {
-                Name = "EventStormingAgent",
-                Instructions = systemPrompt,
-                Kernel = kernel,
-                Arguments = new KernelArguments(settings)
-            };
-
-            var toolCallFilter = _serviceProvider.GetRequiredService<AgentToolCallFilter>();
-            toolCallFilter.BeginCapture(boardId.ToString());
-
-            var response = new StringBuilder();
-            await foreach (var message in agent.InvokeAsync(chatHistory, cancellationToken: cancellationToken))
-            {
-                response.Append(message.Message.Content);
-            }
-
-            return (response.ToString(), toolCallFilter.EndCapture(boardId.ToString()));
+            return options;
         }
 
-        private void AppendAssistantMessage(Guid boardId, string reply, List<AgentToolCallDto> toolCalls)
+        private IList<AITool> CreateTools(BoardPlugin boardPlugin, bool allowDestructiveChanges)
         {
-            var chatHistory = _chatHistories.GetOrAdd(boardId, _ => new ChatHistory());
-            var displayHistory = _displayHistories.GetOrAdd(boardId, _ => new List<AgentChatMessageDto>());
+            return GetToolMethodNames(allowDestructiveChanges)
+                .Select(methodName => CreateTool(boardPlugin, methodName))
+                .Cast<AITool>()
+                .ToList();
 
-            chatHistory.AddAssistantMessage(reply);
+            static AIFunction CreateTool(BoardPlugin plugin, string methodName)
+            {
+                var methodInfo = typeof(BoardPlugin).GetMethod(methodName)!;
+                var description = methodInfo.GetCustomAttributes(typeof(DescriptionAttribute), inherit: false)
+                    .OfType<DescriptionAttribute>()
+                    .FirstOrDefault()
+                    ?.Description;
+
+                Delegate method = methodName switch
+                {
+                    nameof(BoardPlugin.GetBoardState) => plugin.GetBoardState,
+                    nameof(BoardPlugin.GetRecentEvents) => plugin.GetRecentEvents,
+                    nameof(BoardPlugin.SetDomain) => plugin.SetDomain,
+                    nameof(BoardPlugin.SetSessionScope) => plugin.SetSessionScope,
+                    nameof(BoardPlugin.SetPhase) => plugin.SetPhase,
+                    nameof(BoardPlugin.CompleteAutonomousSession) => plugin.CompleteAutonomousSession,
+                    nameof(BoardPlugin.CreateNote) => plugin.CreateNote,
+                    nameof(BoardPlugin.CreateConnection) => plugin.CreateConnection,
+                    nameof(BoardPlugin.EditNoteText) => plugin.EditNoteText,
+                    nameof(BoardPlugin.MoveNotes) => plugin.MoveNotes,
+                    nameof(BoardPlugin.CreateNotes) => plugin.CreateNotes,
+                    nameof(BoardPlugin.CreateConnections) => plugin.CreateConnections,
+                    nameof(BoardPlugin.DeleteNotes) => plugin.DeleteNotes,
+                    _ => throw new InvalidOperationException($"Unsupported board tool method '{methodName}'.")
+                };
+
+                return AIFunctionFactory.Create(method, new AIFunctionFactoryOptions
+                {
+                    Name = methodName,
+                    Description = description
+                });
+            }
+        }
+
+        private static IReadOnlyList<string> GetToolMethodNames(bool allowDestructiveChanges)
+        {
+            var toolNames = new List<string>
+            {
+                nameof(BoardPlugin.GetBoardState),
+                nameof(BoardPlugin.GetRecentEvents),
+                nameof(BoardPlugin.SetDomain),
+                nameof(BoardPlugin.SetSessionScope),
+                nameof(BoardPlugin.SetPhase),
+                nameof(BoardPlugin.CompleteAutonomousSession),
+                nameof(BoardPlugin.CreateNote),
+                nameof(BoardPlugin.CreateConnection),
+                nameof(BoardPlugin.EditNoteText),
+                nameof(BoardPlugin.MoveNotes),
+                nameof(BoardPlugin.CreateNotes),
+                nameof(BoardPlugin.CreateConnections)
+            };
+
+            if (allowDestructiveChanges)
+            {
+                toolNames.Add(nameof(BoardPlugin.DeleteNotes));
+            }
+
+            return toolNames;
+        }
+
+        private bool IsReasoningModel() => !_options.DeploymentName.Contains("gpt-4", StringComparison.OrdinalIgnoreCase);
+
+        private static ReasoningEffort ParseReasoningEffort(string? effort)
+        {
+            return effort?.Trim().ToLowerInvariant() switch
+            {
+                "high" => ReasoningEffort.High,
+                "xhigh" => ReasoningEffort.ExtraHigh,
+                "medium" => ReasoningEffort.Medium,
+                _ => ReasoningEffort.Low
+            };
+        }
+
+        private async Task<(string Reply, List<AgentToolCallDto> ToolCalls)> InvokeAgentAsync(Guid boardId, bool allowDestructiveChanges, CancellationToken cancellationToken)
+        {
+            var agent = BuildAgent(boardId, allowDestructiveChanges);
+            List<ChatMessage> messages;
+
+            if (_conversationHistories.TryGetValue(boardId, out var history))
+            {
+                lock (history)
+                {
+                    messages = new List<ChatMessage>(history);
+                }
+            }
+            else
+            {
+                messages = new List<ChatMessage>();
+            }
+
+            _toolCallFilter.BeginCapture(boardId.ToString());
+            var response = await agent.RunAsync(messages, cancellationToken: cancellationToken).ConfigureAwait(false);
+            return (response.Text ?? string.Empty, _toolCallFilter.EndCapture(boardId.ToString()));
+        }
+
+        private AgentChatMessageDto AppendAssistantMessage(Guid boardId, string reply, List<AgentToolCallDto> toolCalls)
+        {
+            var conversationHistory = _conversationHistories.GetOrAdd(boardId, static _ => new List<ChatMessage>());
+            var displayHistory = _displayHistories.GetOrAdd(boardId, static _ => new List<AgentChatMessageDto>());
+
+            lock (conversationHistory)
+            {
+                conversationHistory.Add(new ChatMessage(ChatRole.Assistant, reply));
+            }
 
             var displayAssistantMessage = new AgentChatMessageDto
             {
@@ -350,25 +447,27 @@ namespace EventStormingBoard.Server.Services
             {
                 displayHistory.Add(displayAssistantMessage);
             }
+
+            return displayAssistantMessage;
         }
 
         private string BuildAutonomousPrompt(Guid boardId, string triggerReason)
         {
             var board = _serviceProvider.GetRequiredService<IBoardsRepository>().GetById(boardId);
-            var isEarlyFlowLayoutPhase = board?.Phase is Models.EventStormingPhase.IdentifyEvents or Models.EventStormingPhase.AddCommandsAndPolicies;
+            var isEarlyFlowLayoutPhase = board?.Phase is EventStormingPhase.IdentifyEvents or EventStormingPhase.AddCommandsAndPolicies;
             var needsSessionIntroduction = board is not null &&
                 string.IsNullOrWhiteSpace(board.Domain) &&
                 string.IsNullOrWhiteSpace(board.SessionScope) &&
                 board.Notes.Count == 0 &&
                 board.Connections.Count == 0 &&
-                board.Phase is null or Models.EventStormingPhase.SetContext;
+                board.Phase is null or EventStormingPhase.SetContext;
             var phaseGuidance = board?.Phase switch
             {
-                Models.EventStormingPhase.SetContext => "If this phase has just started, explain that participants should clarify the domain boundary, business goal, actors, and scope before modeling the flow.",
-                Models.EventStormingPhase.IdentifyEvents => "If this phase has just started, explain that participants should brainstorm domain events in past tense, place them chronologically, and keep adding more events themselves after your starter example (max 3). They should think of as many events as possible before moving on to adding commands or policies.",
-                Models.EventStormingPhase.AddCommandsAndPolicies => "If this phase has just started, explain that participants should connect each key event back to what triggered it using Commands or Policies, and that they should repeat the same pattern after your example cluster.",
-                Models.EventStormingPhase.DefineAggregates => "If this phase has just started, explain that participants should identify the core aggregates that own behavior around existing commands and events. Do not add ReadModels unless someone explicitly asks for them.",
-                Models.EventStormingPhase.BreakItDown => "If this phase has just started, explain that participants should identify bounded contexts, subdomains, and integration boundaries rather than adding lots of new notes.",
+                EventStormingPhase.SetContext => "If this phase has just started, explain that participants should clarify the domain boundary, business goal, actors, and scope before modeling the flow.",
+                EventStormingPhase.IdentifyEvents => "If this phase has just started, explain that participants should brainstorm domain events in past tense, place them chronologically, and keep adding more events themselves after your starter example (max 3). They should think of as many events as possible before moving on to adding commands or policies.",
+                EventStormingPhase.AddCommandsAndPolicies => "If this phase has just started, explain that participants should pick one existing Event at a time and connect it back to what triggered it using a Command or Policy. Your first starter example must cover exactly one Event, not the whole happy path. Prefer a user-invoked Command with a User note when the domain plausibly supports one, and explain the difference between a user-invoked Command, an automated Command, and a Policy before asking participants to continue the rest themselves.",
+                EventStormingPhase.DefineAggregates => "If this phase has just started, explain that participants should identify the core aggregates that own behavior around existing commands and events. Do not add ReadModels unless someone explicitly asks for them.",
+                EventStormingPhase.BreakItDown => "If this phase has just started, explain that participants should identify bounded contexts, subdomains, and integration boundaries rather than adding lots of new notes.",
                 _ => "If the current phase has just started, explain the phase goal and what participants should do before or alongside your first example."
             };
 
@@ -389,6 +488,11 @@ namespace EventStormingBoard.Server.Services
                 {sessionBootstrap}
                 {layoutGuidance}
                 Ask at most one concise question or make one small facilitation move unless users have explicitly asked for broader changes.
+                By default, autonomous facilitation should prefer spreading out existing events to make collaboration easier, asking questions that get participants thinking, suggesting improvements, or suggesting that the group moves to the next phase if the current phase looks complete.
+                When a phase has just started (or you have started it), or when the users have asked for help with the phase, you may create a very small starter example to teach how the phase works. Keep that example intentionally small, then stop and hand back to the users.
+                In AddCommandsAndPolicies, one small facilitation move means one Event starter example only. Do not continue into neighboring Events after that example.
+                Autonomous facilitation must not delete existing notes or connections. If something looks wrong, mention it, add a Concern, or ask the users before making destructive changes.
+                Avoid rewriting existing work unless the users explicitly ask you to; prefer suggestions over large unsolicited changes.
                 Do not create ReadModel notes unless a user explicitly asks for them or the facilitator instructions clearly require them.
                 If there is nothing meaningful to add right now, do not call any tools and return an empty response.
                 If the workshop is clearly complete, use the CompleteAutonomousSession tool.
@@ -416,7 +520,7 @@ namespace EventStormingBoard.Server.Services
                 OldAgentInstructions = board.AgentInstructions,
                 NewAgentInstructions = board.AgentInstructions,
                 OldPhase = board.Phase,
-                NewPhase = Models.EventStormingPhase.SetContext,
+                NewPhase = EventStormingPhase.SetContext,
                 OldAutonomousEnabled = board.AutonomousEnabled,
                 NewAutonomousEnabled = board.AutonomousEnabled
             };
@@ -427,18 +531,20 @@ namespace EventStormingBoard.Server.Services
                 .SendAsync("BoardContextUpdated", @event);
         }
 
-        private static string BuildSystemPrompt(Entities.Board? board)
+        private static string BuildSystemPrompt(Board? board)
         {
             if (board == null)
+            {
                 return BaseSystemPrompt;
+            }
 
-            var sb = new System.Text.StringBuilder(BaseSystemPrompt);
+            var sb = new StringBuilder(BaseSystemPrompt);
 
             if (!string.IsNullOrWhiteSpace(board.Domain))
             {
                 sb.AppendLine();
                 sb.AppendLine("--- DOMAIN CONTEXT ---");
-                sb.AppendLine($"You are facilitating an Event Storming session for the following domain:");
+                sb.AppendLine("You are facilitating an Event Storming session for the following domain:");
                 sb.AppendLine(board.Domain);
             }
 
@@ -446,7 +552,7 @@ namespace EventStormingBoard.Server.Services
             {
                 sb.AppendLine();
                 sb.AppendLine("--- SESSION SCOPE ---");
-                sb.AppendLine($"This session is focused on:");
+                sb.AppendLine("This session is focused on:");
                 sb.AppendLine(board.SessionScope);
             }
 
@@ -454,7 +560,7 @@ namespace EventStormingBoard.Server.Services
             {
                 sb.AppendLine();
                 sb.AppendLine("--- FACILITATOR INSTRUCTIONS ---");
-                sb.AppendLine($"Additional instructions from the facilitator:");
+                sb.AppendLine("Additional instructions from the facilitator:");
                 sb.AppendLine(board.AgentInstructions);
             }
 
@@ -465,12 +571,12 @@ namespace EventStormingBoard.Server.Services
                 sb.AppendLine($"The board is currently in the **{board.Phase.Value}** phase.");
                 sb.AppendLine(board.Phase.Value switch
                 {
-                    Models.EventStormingPhase.SetContext => "Focus on understanding the domain and session scope. Ask clarifying questions about boundaries, actors, and processes before adding notes.",
-                    Models.EventStormingPhase.IdentifyEvents => "Focus on brainstorming domain Events. Start by explaining that participants should add past-tense events in chronological order and keep building on your example. Order events left to right, leave enough space for future Commands and Policies, and use MoveNotes if the timeline is getting cramped. Add Concern notes for open questions. Do not add Commands, Policies, or Aggregates yet.",
-                    Models.EventStormingPhase.AddCommandsAndPolicies => "Focus on adding Commands and Policies for each Event. Start by explaining that participants should identify what triggered each event and repeat the Command/Event/Policy pattern after your example. Leave enough space around each cluster and use MoveNotes if the board is getting crowded. Do not add Aggregates or ReadModels unless the user explicitly asks for them.",
-                    Models.EventStormingPhase.DefineAggregates => "Focus on defining Aggregates. Start by explaining that participants should identify which aggregate owns the behavior around existing commands and events. Place Aggregates between Commands and Events. Do not add ReadModels unless the user explicitly asks for them or the facilitator instructions clearly require them.",
-                    Models.EventStormingPhase.BreakItDown => "Focus on grouping related flows into Bounded Contexts and Subdomains. Identify Integration Events that flow between contexts.",
-                    _ => ""
+                    EventStormingPhase.SetContext => "Focus on understanding the domain and session scope. Ask clarifying questions about boundaries, actors, and processes before adding notes.",
+                    EventStormingPhase.IdentifyEvents => "Focus on brainstorming domain Events. Start by explaining that participants should add past-tense events in chronological order and keep building on your example. Order events left to right, leave enough space for future Commands and Policies, and use MoveNotes if the timeline is getting cramped. Add Concern notes for open questions. Do not add Commands, Policies, or Aggregates yet.",
+                    EventStormingPhase.AddCommandsAndPolicies => "Focus on adding Commands and Policies for each Event. Start by explaining that participants should identify what triggered one Event at a time and repeat the same pattern after your example. Your first example in this phase should cover exactly one Event, preferably with a user-invoked Command and a User note if that makes sense in the domain. Explicitly explain how a user-invoked Command differs from an automated Command and how a Policy reacts after an Event. Stop after that one example and ask participants to continue the remaining Events. Leave enough space around the cluster and use MoveNotes if the board is getting crowded. Do not add Aggregates or ReadModels unless the user explicitly asks for them.",
+                    EventStormingPhase.DefineAggregates => "Focus on defining Aggregates. Start by explaining that participants should identify which aggregate owns the behavior around existing commands and events. Place Aggregates between Commands and Events. Do not add ReadModels unless the user explicitly asks for them or the facilitator instructions clearly require them.",
+                    EventStormingPhase.BreakItDown => "Focus on grouping related flows into Bounded Contexts and Subdomains. Identify Integration Events that flow between contexts.",
+                    _ => string.Empty
                 });
             }
 
