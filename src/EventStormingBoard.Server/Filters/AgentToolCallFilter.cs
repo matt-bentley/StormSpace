@@ -10,7 +10,7 @@ namespace EventStormingBoard.Server.Filters
     public sealed class AgentToolCallFilter
     {
         private readonly IHubContext<BoardsHub> _hubContext;
-        private readonly ConcurrentDictionary<string, ConcurrentBag<AgentToolCallDto>> _pendingToolCalls = new();
+        private readonly ConcurrentDictionary<string, ConcurrentQueue<AgentToolCallDto>> _pendingToolCalls = new();
 
         public AgentToolCallFilter(IHubContext<BoardsHub> hubContext)
         {
@@ -19,14 +19,36 @@ namespace EventStormingBoard.Server.Filters
 
         public void BeginCapture(string boardId)
         {
-            _pendingToolCalls[boardId] = new ConcurrentBag<AgentToolCallDto>();
+            _pendingToolCalls[boardId] = new ConcurrentQueue<AgentToolCallDto>();
         }
 
         public List<AgentToolCallDto> EndCapture(string boardId)
         {
-            if (_pendingToolCalls.TryRemove(boardId, out var bag))
+            if (_pendingToolCalls.TryRemove(boardId, out var queue))
             {
-                return bag.Reverse().ToList();
+                return queue.ToList();
+            }
+            return new List<AgentToolCallDto>();
+        }
+
+        public int PeekCaptureCount(string boardId)
+        {
+            if (_pendingToolCalls.TryGetValue(boardId, out var queue))
+            {
+                return queue.Count;
+            }
+            return 0;
+        }
+
+        public List<AgentToolCallDto> PeekCaptureSlice(string boardId, int fromIndex)
+        {
+            if (_pendingToolCalls.TryGetValue(boardId, out var queue))
+            {
+                var all = queue.ToList();
+                if (fromIndex < all.Count)
+                {
+                    return all.GetRange(fromIndex, all.Count - fromIndex);
+                }
             }
             return new List<AgentToolCallDto>();
         }
@@ -54,8 +76,8 @@ namespace EventStormingBoard.Server.Filters
                 : string.Empty;
 
             var boardKey = boardId.ToString();
-            _pendingToolCalls.GetOrAdd(boardKey, _ => new ConcurrentBag<AgentToolCallDto>())
-                .Add(new AgentToolCallDto { Name = functionName, Arguments = argsString });
+            _pendingToolCalls.GetOrAdd(boardKey, _ => new ConcurrentQueue<AgentToolCallDto>())
+                .Enqueue(new AgentToolCallDto { Name = functionName, Arguments = argsString });
 
             await _hubContext.Clients.Group(boardKey).SendAsync("AgentToolCallStarted", new
             {

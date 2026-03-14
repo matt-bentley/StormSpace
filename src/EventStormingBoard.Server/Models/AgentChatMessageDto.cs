@@ -4,6 +4,7 @@ namespace EventStormingBoard.Server.Models
     {
         public required string Role { get; set; }
         public string? UserName { get; set; }
+        public string? AgentName { get; set; }
         public string? Content { get; set; }
         public List<AgentToolCallDto>? ToolCalls { get; set; }
         public DateTime Timestamp { get; set; }

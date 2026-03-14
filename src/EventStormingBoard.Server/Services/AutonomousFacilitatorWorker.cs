@@ -86,14 +86,26 @@ namespace EventStormingBoard.Server.Services
 
                     if (!string.IsNullOrWhiteSpace(result.VisibleMessage) && result.Status != AutonomousAgentStatus.Idle)
                     {
-                        await _hubContext.Clients.Group(board.Id.ToString()).SendAsync("AgentResponse", new AgentChatMessageDto
+                        if (result.AgentMessages.Count > 0)
                         {
-                            Role = "assistant",
-                            UserName = "AI Facilitator",
-                            Content = result.VisibleMessage,
-                            ToolCalls = result.ToolCalls.Count > 0 ? result.ToolCalls : null,
-                            Timestamp = DateTime.UtcNow
-                        }, stoppingToken);
+                            foreach (var agentMsg in result.AgentMessages)
+                            {
+                                await _hubContext.Clients.Group(board.Id.ToString())
+                                    .SendAsync("AgentResponse", agentMsg, stoppingToken);
+                            }
+                        }
+                        else
+                        {
+                            await _hubContext.Clients.Group(board.Id.ToString()).SendAsync("AgentResponse", new AgentChatMessageDto
+                            {
+                                Role = "assistant",
+                                AgentName = "Facilitator",
+                                UserName = "AI Facilitator",
+                                Content = result.VisibleMessage,
+                                ToolCalls = result.ToolCalls.Count > 0 ? result.ToolCalls : null,
+                                Timestamp = DateTime.UtcNow
+                            }, stoppingToken);
+                        }
                     }
 
                     await BroadcastStatusAsync(completedStatus, stoppingToken);

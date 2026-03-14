@@ -201,6 +201,34 @@
     }
   }
 
+  // Per-agent color themes
+  &.agent-facilitator .avatar { color: #3f51b5; }
+  &.agent-facilitator .agent-label { color: #3f51b5; }
+  &.agent-facilitator .bubble { border-left: 3px solid #3f51b5; }
+
+  &.agent-event-explorer .avatar { color: #e65100; }
+  &.agent-event-explorer .agent-label { color: #e65100; }
+  &.agent-event-explorer .bubble { border-left: 3px solid #e65100; }
+
+  &.agent-trigger-mapper .avatar { color: #00897b; }
+  &.agent-trigger-mapper .agent-label { color: #00897b; }
+  &.agent-trigger-mapper .bubble { border-left: 3px solid #00897b; }
+
+  &.agent-domain-designer .avatar { color: #7b1fa2; }
+  &.agent-domain-designer .agent-label { color: #7b1fa2; }
+  &.agent-domain-designer .bubble { border-left: 3px solid #7b1fa2; }
+
+  &.agent-wall-scribe .avatar { color: #2e7d32; }
+  &.agent-wall-scribe .agent-label { color: #2e7d32; }
+  &.agent-wall-scribe .bubble { border-left: 3px solid #2e7d32; }
+
+  &.agent-challenger .avatar { color: #c62828; }
+  &.agent-challenger .agent-label { color: #c62828; }
+  &.agent-challenger .bubble { border-left: 3px solid #c62828; }
+
+  &.agent-default .avatar { color: #3f51b5; }
+  &.agent-default .agent-label { color: #3f51b5; }
+
   .avatar {
     flex-shrink: 0;
     width: 28px;
@@ -222,6 +250,12 @@
     font-weight: 600;
     color: #888;
     padding: 0 4px;
+
+    &.agent-label {
+      font-size: 10.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
   }
 
   .bubble {

@@ -12,6 +12,7 @@ export interface AgentToolCall {
 export interface AgentChatMessage {
   role: string;
   userName?: string;
+  agentName?: string;
   content?: string;
   toolCalls?: AgentToolCall[];
   timestamp?: string;
@@ -245,6 +246,7 @@ export class BoardsSignalRService {
     return {
       role: this.pickValue<string>(event, 'role', 'Role') ?? '',
       userName: this.pickValue<string>(event, 'userName', 'UserName'),
+      agentName: this.pickValue<string>(event, 'agentName', 'AgentName'),
       content: this.pickValue<string>(event, 'content', 'Content'),
       timestamp: this.pickValue<string>(event, 'timestamp', 'Timestamp'),
       toolCalls: Array.isArray(toolCalls)

@@ -14,6 +14,7 @@ namespace EventStormingBoard.Server.Models
         public string TriggerReason { get; set; } = string.Empty;
         public string? VisibleMessage { get; set; }
         public List<AgentToolCallDto> ToolCalls { get; set; } = new();
+        public List<AgentChatMessageDto> AgentMessages { get; set; } = new();
         public string? StopReason { get; set; }
         public string? Diagnostics { get; set; }
     }

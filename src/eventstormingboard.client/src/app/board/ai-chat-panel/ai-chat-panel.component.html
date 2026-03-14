@@ -36,13 +36,17 @@
 
     @for (msg of messages; track $index) {
     <div class="message" [class.user]="msg.role === 'user'" [class.own-user]="isOwnMessage(msg)"
-      [class.other-user]="msg.role === 'user' && !isOwnMessage(msg)" [class.assistant]="msg.role === 'assistant'">
+      [class.other-user]="msg.role === 'user' && !isOwnMessage(msg)" [class.assistant]="msg.role === 'assistant'"
+      [ngClass]="msg.role === 'assistant' ? agentInfo(msg).cssClass : ''">
       @if (msg.role === 'assistant') {
-      <mat-icon class="avatar" fontSet="material-icons-outlined">smart_toy</mat-icon>
+      <mat-icon class="avatar" fontSet="material-icons-outlined">{{ agentInfo(msg).icon }}</mat-icon>
       }
       <div class="message-content">
         @if (msg.role === 'user' && msg.userName) {
         <span class="sender-name">{{ isOwnMessage(msg) ? 'You' : msg.userName }}</span>
+        }
+        @if (msg.role === 'assistant') {
+        <span class="sender-name agent-label">{{ agentInfo(msg).label }}</span>
         }
         @if (msg.toolCalls && msg.toolCalls.length > 0) {
         <details class="tool-calls-details">

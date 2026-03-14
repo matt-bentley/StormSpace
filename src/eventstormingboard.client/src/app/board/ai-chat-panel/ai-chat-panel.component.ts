@@ -24,9 +24,27 @@ export class MarkdownPipe implements PipeTransform {
 export interface ChatMessage {
   role: 'user' | 'assistant';
   userName?: string;
+  agentName?: string;
   text: string;
   toolCalls?: { name: string; arguments: string }[];
 }
+
+export interface AgentDisplayInfo {
+  label: string;
+  icon: string;
+  cssClass: string;
+}
+
+const AGENT_DISPLAY: Record<string, AgentDisplayInfo> = {
+  Facilitator: { label: 'Facilitator', icon: 'psychology', cssClass: 'agent-facilitator' },
+  EventExplorer: { label: 'Event Explorer', icon: 'explore', cssClass: 'agent-event-explorer' },
+  TriggerMapper: { label: 'Trigger Mapper', icon: 'account_tree', cssClass: 'agent-trigger-mapper' },
+  DomainDesigner: { label: 'Domain Designer', icon: 'architecture', cssClass: 'agent-domain-designer' },
+  WallScribe: { label: 'Wall Scribe', icon: 'edit_note', cssClass: 'agent-wall-scribe' },
+  Challenger: { label: 'Challenger', icon: 'gavel', cssClass: 'agent-challenger' },
+};
+
+const DEFAULT_AGENT: AgentDisplayInfo = { label: 'AI Assistant', icon: 'smart_toy', cssClass: 'agent-default' };
 
 @Component({
   selector: 'app-ai-chat-panel',
@@ -173,9 +191,14 @@ export class AiChatPanelComponent implements OnInit, OnDestroy {
     return {
       role: msg.role as 'user' | 'assistant',
       userName: msg.userName ?? undefined,
+      agentName: msg.agentName ?? undefined,
       text: msg.content ?? '',
       toolCalls: msg.toolCalls?.map(tc => ({ name: tc.name, arguments: tc.arguments }))
     };
+  }
+
+  agentInfo(msg: ChatMessage): AgentDisplayInfo {
+    return (msg.agentName && AGENT_DISPLAY[msg.agentName]) || DEFAULT_AGENT;
   }
 
   private scrollToBottom(): void {
