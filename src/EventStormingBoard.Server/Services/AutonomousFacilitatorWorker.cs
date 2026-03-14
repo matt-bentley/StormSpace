@@ -84,18 +84,6 @@ namespace EventStormingBoard.Server.Services
                         completedStatus = _coordinator.GetStatus(board.Id, false);
                     }
 
-                    if (!string.IsNullOrWhiteSpace(result.VisibleMessage) && result.Status != AutonomousAgentStatus.Idle)
-                    {
-                        await _hubContext.Clients.Group(board.Id.ToString()).SendAsync("AgentResponse", new AgentChatMessageDto
-                        {
-                            Role = "assistant",
-                            UserName = "AI Facilitator",
-                            Content = result.VisibleMessage,
-                            ToolCalls = result.ToolCalls.Count > 0 ? result.ToolCalls : null,
-                            Timestamp = DateTime.UtcNow
-                        }, stoppingToken);
-                    }
-
                     await BroadcastStatusAsync(completedStatus, stoppingToken);
                 }
             }

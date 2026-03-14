@@ -4,7 +4,7 @@
     <div class="chat-header-main">
       <mat-icon class="chat-header-icon" fontSet="material-icons-outlined">smart_toy</mat-icon>
       <div class="chat-header-title-area">
-        <span class="chat-title">AI Assistant</span>
+        <span class="chat-title">AI Facilitators</span>
         <span class="autonomy-badge" [class.active]="autonomousEnabled" [class.running]="autonomousStatus?.isRunning">
           {{ autonomousStatusLabel }}
         </span>
@@ -36,13 +36,25 @@
 
     @for (msg of messages; track $index) {
     <div class="message" [class.user]="msg.role === 'user'" [class.own-user]="isOwnMessage(msg)"
-      [class.other-user]="msg.role === 'user' && !isOwnMessage(msg)" [class.assistant]="msg.role === 'assistant'">
+      [class.other-user]="msg.role === 'user' && !isOwnMessage(msg)" [class.assistant]="msg.role === 'assistant'"
+      [class.plan-message]="msg.messageKind === 'plan'" [class.handoff-message]="msg.messageKind === 'handoff'">
       @if (msg.role === 'assistant') {
-      <mat-icon class="avatar" fontSet="material-icons-outlined">smart_toy</mat-icon>
+      <mat-icon class="avatar" [ngClass]="getAgentToneClass(msg.agentId)" fontSet="material-icons-outlined">{{ getAgentIcon(msg.agentId) }}</mat-icon>
       }
       <div class="message-content">
         @if (msg.role === 'user' && msg.userName) {
         <span class="sender-name">{{ isOwnMessage(msg) ? 'You' : msg.userName }}</span>
+        }
+        @if (msg.role === 'assistant') {
+        <div class="assistant-meta">
+          <span class="agent-badge" [ngClass]="getAgentToneClass(msg.agentId)">{{ getAgentLabel(msg) }}</span>
+          @if (msg.messageKind === 'plan') {
+          <span class="message-kind">Plan</span>
+          }
+          @if (msg.messageKind === 'handoff') {
+          <span class="message-kind handoff">Handoff</span>
+          }
+        </div>
         }
         @if (msg.toolCalls && msg.toolCalls.length > 0) {
         <details class="tool-calls-details">
@@ -64,7 +76,7 @@
         </details>
         }
         @if (msg.role === 'assistant') {
-        <div class="bubble markdown-body" [innerHTML]="msg.text | markdown"></div>
+        <div class="bubble markdown-body" [class.plan]="msg.messageKind === 'plan'" [class.handoff]="msg.messageKind === 'handoff'" [innerHTML]="msg.text | markdown"></div>
         } @else {
         <div class="bubble">{{ msg.text }}</div>
         }
@@ -72,13 +84,17 @@
     </div>
     }
 
-    @if (loading) {
-    <div class="message assistant">
-      <mat-icon class="avatar" fontSet="material-icons-outlined">smart_toy</mat-icon>
+    @for (pending of pendingMessages; track pending.executionId + ':' + pending.agentId) {
+    <div class="message assistant pending-agent-message" [class.plan-message]="pending.messageKind === 'plan'">
+      <mat-icon class="avatar" [ngClass]="getAgentToneClass(pending.agentId)" fontSet="material-icons-outlined">{{ getAgentIcon(pending.agentId) }}</mat-icon>
       <div class="message-content">
-        @if (activeToolCalls.length > 0) {
+        <div class="assistant-meta">
+          <span class="agent-badge" [ngClass]="getAgentToneClass(pending.agentId)">{{ getAgentLabel(pending) }}</span>
+          <span class="message-kind working">Working</span>
+        </div>
+        @if (pending.toolCalls.length > 0) {
         <div class="tool-calls active">
-          @for (tc of aggregateToolCalls(activeToolCalls); track tc.name) {
+          @for (tc of aggregateToolCalls(pending.toolCalls); track tc.name) {
           <div class="tool-call-chip active">
             <mat-icon class="tool-icon" [ngClass]="{spinning: tc.active}">build</mat-icon>
             <span class="tool-name">{{ tc.name }}</span>
@@ -90,6 +106,7 @@
         </div>
         }
         <div class="bubble thinking">
+          <span class="thinking-label">{{ getPendingText(pending) }}</span>
           <span class="dot"></span>
           <span class="dot"></span>
           <span class="dot"></span>
@@ -100,7 +117,7 @@
   </div>
 
   <div class="chat-input-area">
-    <textarea [(ngModel)]="input" (keydown)="onKeydown($event)" placeholder="Ask the AI assistant..." rows="1"
+    <textarea [(ngModel)]="input" (keydown)="onKeydown($event)" placeholder="Ask the AI team..." rows="1"
       [disabled]="loading">
     </textarea>
     <button mat-icon-button (click)="send()" [disabled]="loading || !input.trim()" matTooltip="Send">

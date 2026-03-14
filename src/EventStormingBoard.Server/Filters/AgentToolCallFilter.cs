@@ -17,22 +17,46 @@ namespace EventStormingBoard.Server.Filters
             _hubContext = hubContext;
         }
 
-        public void BeginCapture(string boardId)
+        public void BeginCapture(AgentExecutionScope scope)
         {
-            _pendingToolCalls[boardId] = new ConcurrentBag<AgentToolCallDto>();
+            _pendingToolCalls[scope.ExecutionId] = new ConcurrentBag<AgentToolCallDto>();
         }
 
-        public List<AgentToolCallDto> EndCapture(string boardId)
+        public List<AgentToolCallDto> EndCapture(string executionId)
         {
-            if (_pendingToolCalls.TryRemove(boardId, out var bag))
+            if (_pendingToolCalls.TryRemove(executionId, out var bag))
             {
                 return bag.Reverse().ToList();
             }
             return new List<AgentToolCallDto>();
         }
 
+        public async Task CaptureToolCallAsync(
+            AgentExecutionScope scope,
+            string functionName,
+            IReadOnlyDictionary<string, string> arguments,
+            CancellationToken cancellationToken)
+        {
+            var argsString = arguments.Count > 0
+                ? string.Join(", ", arguments.Select(a => $"{a.Key}: {a.Value}"))
+                : string.Empty;
+
+            _pendingToolCalls.GetOrAdd(scope.ExecutionId, _ => new ConcurrentBag<AgentToolCallDto>())
+                .Add(new AgentToolCallDto { Name = functionName, Arguments = argsString });
+
+            await _hubContext.Clients.Group(scope.BoardId.ToString()).SendAsync("AgentToolCallStarted", new AgentToolCallStartedDto
+            {
+                BoardId = scope.BoardId.ToString(),
+                ExecutionId = scope.ExecutionId,
+                AgentId = scope.AgentId,
+                AgentName = scope.AgentName,
+                ToolName = functionName,
+                Arguments = new Dictionary<string, string>(arguments, StringComparer.Ordinal)
+            }, cancellationToken);
+        }
+
         public async ValueTask<object?> OnFunctionInvocationAsync(
-            Guid boardId,
+            AgentExecutionScope scope,
             AIAgent agent,
             FunctionInvocationContext context,
             Func<FunctionInvocationContext, CancellationToken, ValueTask<object?>> next,
@@ -49,20 +73,7 @@ namespace EventStormingBoard.Server.Filters
                 }
             }
 
-            var argsString = arguments.Count > 0
-                ? string.Join(", ", arguments.Select(a => $"{a.Key}: {a.Value}"))
-                : string.Empty;
-
-            var boardKey = boardId.ToString();
-            _pendingToolCalls.GetOrAdd(boardKey, _ => new ConcurrentBag<AgentToolCallDto>())
-                .Add(new AgentToolCallDto { Name = functionName, Arguments = argsString });
-
-            await _hubContext.Clients.Group(boardKey).SendAsync("AgentToolCallStarted", new
-            {
-                BoardId = boardKey,
-                ToolName = functionName,
-                Arguments = arguments
-            }, cancellationToken);
+            await CaptureToolCallAsync(scope, functionName, arguments, cancellationToken).ConfigureAwait(false);
 
             return await next(context, cancellationToken).ConfigureAwait(false);
         }

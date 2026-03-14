@@ -201,6 +201,16 @@
     }
   }
 
+  &.plan-message .bubble {
+    background: linear-gradient(135deg, #eef4ff 0%, #f6f9ff 100%);
+    border: 1px solid rgba(59, 130, 246, 0.16);
+  }
+
+  &.handoff-message .bubble {
+    background: linear-gradient(135deg, #fff8e8 0%, #fffdf5 100%);
+    border: 1px solid rgba(217, 119, 6, 0.18);
+  }
+
   .avatar {
     flex-shrink: 0;
     width: 28px;
@@ -208,6 +218,22 @@
     font-size: 28px;
     color: #3f51b5;
     margin-top: 2px;
+
+    &.agent-planner {
+      color: #2563eb;
+    }
+
+    &.agent-analyst {
+      color: #0f766e;
+    }
+
+    &.agent-coach {
+      color: #b45309;
+    }
+
+    &.agent-editor {
+      color: #7c3aed;
+    }
   }
 
   .message-content {
@@ -224,12 +250,73 @@
     padding: 0 4px;
   }
 
+  .assistant-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 2px;
+    flex-wrap: wrap;
+  }
+
+  .agent-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    background: rgba(71, 85, 105, 0.12);
+    color: #475569;
+
+    &.agent-planner {
+      background: rgba(37, 99, 235, 0.14);
+      color: #1d4ed8;
+    }
+
+    &.agent-analyst {
+      background: rgba(15, 118, 110, 0.14);
+      color: #0f766e;
+    }
+
+    &.agent-coach {
+      background: rgba(180, 83, 9, 0.14);
+      color: #b45309;
+    }
+
+    &.agent-editor {
+      background: rgba(124, 58, 237, 0.14);
+      color: #7c3aed;
+    }
+  }
+
+  .message-kind {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #64748b;
+
+    &.handoff {
+      color: #b45309;
+    }
+
+    &.working {
+      color: #2563eb;
+    }
+  }
+
   .bubble {
     padding: 10px 14px;
     font-size: 13.5px;
     line-height: 1.5;
     word-wrap: break-word;
     white-space: pre-wrap;
+
+    &.handoff {
+      font-style: italic;
+    }
 
     &.markdown-body {
       white-space: normal;
@@ -311,6 +398,15 @@
   gap: 4px;
   padding: 12px 18px !important;
   align-items: center;
+  flex-wrap: wrap;
+
+  .thinking-label {
+    width: 100%;
+    font-size: 12px;
+    font-weight: 600;
+    color: #475569;
+    margin-bottom: 2px;
+  }
 
   .dot {
     width: 7px;
@@ -323,6 +419,11 @@
     &:nth-child(2) { animation-delay: 0.2s; }
     &:nth-child(3) { animation-delay: 0.4s; }
   }
+}
+
+.pending-agent-message .bubble {
+  background: linear-gradient(135deg, #eff6ff 0%, #f8fbff 100%);
+  border: 1px solid rgba(59, 130, 246, 0.12);
 }
 
 @keyframes bounce {

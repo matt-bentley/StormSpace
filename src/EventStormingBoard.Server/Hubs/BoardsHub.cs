@@ -11,6 +11,7 @@ namespace EventStormingBoard.Server.Hubs
     {
         private readonly IBoardEventPipeline _boardEventPipeline;
         private readonly IAgentService _agentService;
+        private readonly IAgentChatBroadcaster _agentChatBroadcaster;
         private readonly IBoardPresenceService _boardPresenceService;
         private readonly IAutonomousFacilitatorCoordinator _coordinator;
         private readonly IBoardsRepository _boardsRepository;
@@ -18,12 +19,14 @@ namespace EventStormingBoard.Server.Hubs
         public BoardsHub(
             IBoardEventPipeline boardEventPipeline,
             IAgentService agentService,
+            IAgentChatBroadcaster agentChatBroadcaster,
             IBoardPresenceService boardPresenceService,
             IAutonomousFacilitatorCoordinator coordinator,
             IBoardsRepository boardsRepository)
         {
             _boardEventPipeline = boardEventPipeline;
             _agentService = agentService;
+            _agentChatBroadcaster = agentChatBroadcaster;
             _boardPresenceService = boardPresenceService;
             _coordinator = coordinator;
             _boardsRepository = boardsRepository;
@@ -170,17 +173,16 @@ namespace EventStormingBoard.Server.Hubs
             _coordinator.RecordUserActivity(boardId);
             _coordinator.BeginManualAgentResponse(boardId, DateTimeOffset.UtcNow);
 
-            await Clients.Group(boardId.ToString()).SendAsync("AgentUserMessage", new AgentChatMessageDto
-            {
-                Role = "user",
-                UserName = userName,
-                Content = message,
-                Timestamp = DateTime.UtcNow
-            });
+            await _agentChatBroadcaster.BroadcastUserMessageAsync(boardId, userName, message);
 
-            var response = await _agentService.ChatAsync(boardId, message, userName);
-            _coordinator.AcknowledgeManualAgentResponse(boardId, DateTimeOffset.UtcNow);
-            await Clients.Group(boardId.ToString()).SendAsync("AgentResponse", response);
+            try
+            {
+                await _agentService.ChatAsync(boardId, message, userName);
+            }
+            finally
+            {
+                _coordinator.AcknowledgeManualAgentResponse(boardId, DateTimeOffset.UtcNow);
+            }
         }
 
         public async Task GetAgentHistory(Guid boardId)

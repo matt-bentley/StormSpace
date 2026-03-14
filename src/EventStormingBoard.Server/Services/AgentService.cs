@@ -1,26 +1,19 @@
-using Azure;
-using Azure.AI.OpenAI;
-using Azure.Identity;
 using EventStormingBoard.Server.Entities;
 using EventStormingBoard.Server.Events;
-using EventStormingBoard.Server.Filters;
 using EventStormingBoard.Server.Hubs;
 using EventStormingBoard.Server.Models;
-using EventStormingBoard.Server.Plugins;
 using EventStormingBoard.Server.Repositories;
-using Microsoft.Agents.AI;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.AI;
-using Microsoft.Extensions.Options;
 using System.Collections.Concurrent;
-using System.ComponentModel;
 using System.Text;
+using System.Text.Json;
 
 namespace EventStormingBoard.Server.Services
 {
     public interface IAgentService
     {
-        Task<AgentChatMessageDto> ChatAsync(Guid boardId, string userMessage, string userName);
+        Task ChatAsync(Guid boardId, string userMessage, string userName);
         Task<AutonomousAgentResult> RunAutonomousTurnAsync(Guid boardId, string triggerReason, CancellationToken cancellationToken);
         List<AgentChatMessageDto> GetHistory(Guid boardId);
         void ClearHistory(Guid boardId);
@@ -141,49 +134,40 @@ namespace EventStormingBoard.Server.Services
             - When you stop, briefly mention what the logical next steps would be so the users know how to continue.
             """;
 
+        private static readonly JsonSerializerOptions JsonOptions = new()
+        {
+            PropertyNameCaseInsensitive = true
+        };
+
         private readonly IServiceProvider _serviceProvider;
-        private readonly AzureOpenAIOptions _options;
-        private readonly AgentToolCallFilter _toolCallFilter;
-        private readonly AzureOpenAIClient _azureOpenAIClient;
+        private readonly IAgentExecutor _agentExecutor;
+        private readonly IAgentChatBroadcaster _chatBroadcaster;
         private readonly ConcurrentDictionary<Guid, List<ChatMessage>> _conversationHistories = new();
-        private readonly ConcurrentDictionary<Guid, List<AgentChatMessageDto>> _displayHistories = new();
 
         public AgentService(
             IServiceProvider serviceProvider,
-            IOptions<AzureOpenAIOptions> options,
-            AgentToolCallFilter toolCallFilter)
+            IAgentExecutor agentExecutor,
+            IAgentChatBroadcaster chatBroadcaster)
         {
             _serviceProvider = serviceProvider;
-            _options = options.Value;
-            _toolCallFilter = toolCallFilter;
-            _azureOpenAIClient = CreateAzureOpenAIClient(_options);
+            _agentExecutor = agentExecutor;
+            _chatBroadcaster = chatBroadcaster;
         }
 
-        public async Task<AgentChatMessageDto> ChatAsync(Guid boardId, string userMessage, string userName)
+        public async Task ChatAsync(Guid boardId, string userMessage, string userName)
         {
             var conversationHistory = _conversationHistories.GetOrAdd(boardId, static _ => new List<ChatMessage>());
-            var displayHistory = _displayHistories.GetOrAdd(boardId, static _ => new List<AgentChatMessageDto>());
 
             lock (conversationHistory)
             {
                 conversationHistory.Add(new ChatMessage(ChatRole.User, userMessage));
             }
 
-            var displayUserMessage = new AgentChatMessageDto
-            {
-                Role = "user",
-                UserName = userName,
-                Content = userMessage,
-                Timestamp = DateTime.UtcNow
-            };
-            lock (displayHistory)
-            {
-                displayHistory.Add(displayUserMessage);
-            }
-
-            var (reply, toolCalls) = await InvokeAgentAsync(boardId, allowDestructiveChanges: true, CancellationToken.None).ConfigureAwait(false);
-            var assistantMessage = AppendAssistantMessage(boardId, reply, toolCalls);
-            return assistantMessage;
+            await RunOrchestratedTurnAsync(new OrchestrationTurnRequest(
+                boardId,
+                AllowDestructiveChanges: true,
+                IsAutonomous: false,
+                TriggerReason: null), CancellationToken.None).ConfigureAwait(false);
         }
 
         public async Task<AutonomousAgentResult> RunAutonomousTurnAsync(Guid boardId, string triggerReason, CancellationToken cancellationToken)
@@ -199,10 +183,14 @@ namespace EventStormingBoard.Server.Services
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeoutCts.CancelAfter(TimeSpan.FromSeconds(45));
 
-            var (reply, toolCalls) = await InvokeAgentAsync(boardId, allowDestructiveChanges: false, timeoutCts.Token).ConfigureAwait(false);
+            var turnResult = await RunOrchestratedTurnAsync(new OrchestrationTurnRequest(
+                boardId,
+                AllowDestructiveChanges: false,
+                IsAutonomous: true,
+                TriggerReason: triggerReason), timeoutCts.Token).ConfigureAwait(false);
             var board = _serviceProvider.GetRequiredService<IBoardsRepository>().GetById(boardId);
-            var trimmedReply = reply.Trim();
-            var usedCompletionTool = toolCalls.Any(call => string.Equals(call.Name, nameof(BoardPlugin.CompleteAutonomousSession), StringComparison.Ordinal));
+            var trimmedReply = turnResult.LastVisibleMessage?.Trim() ?? string.Empty;
+            var usedCompletionTool = turnResult.ToolCalls.Any(call => string.Equals(call.Name, nameof(Plugins.BoardPlugin.CompleteAutonomousSession), StringComparison.Ordinal));
 
             if (board?.AutonomousEnabled == false && usedCompletionTool)
             {
@@ -210,25 +198,23 @@ namespace EventStormingBoard.Server.Services
                     ? "The session looks complete, so I’m pausing autonomous facilitation here."
                     : trimmedReply;
 
-                AppendAssistantMessage(boardId, visibleMessage, toolCalls);
-
                 return new AutonomousAgentResult
                 {
                     Status = AutonomousAgentStatus.Complete,
                     TriggerReason = triggerReason,
                     VisibleMessage = visibleMessage,
-                    ToolCalls = toolCalls,
+                    ToolCalls = turnResult.ToolCalls,
                     StopReason = "sessionComplete"
                 };
             }
 
-            if (string.IsNullOrWhiteSpace(trimmedReply) && toolCalls.Count == 0)
+            if (string.IsNullOrWhiteSpace(trimmedReply) && turnResult.ToolCalls.Count == 0)
             {
                 return new AutonomousAgentResult
                 {
                     Status = AutonomousAgentStatus.Idle,
                     TriggerReason = triggerReason,
-                    ToolCalls = toolCalls,
+                    ToolCalls = turnResult.ToolCalls,
                     Diagnostics = "No visible reply and no tool activity."
                 };
             }
@@ -237,218 +223,414 @@ namespace EventStormingBoard.Server.Services
                 ? "I made a small facilitation update to keep the session moving."
                 : trimmedReply;
 
-            AppendAssistantMessage(boardId, visibleActedMessage, toolCalls);
-
             return new AutonomousAgentResult
             {
                 Status = AutonomousAgentStatus.Acted,
                 TriggerReason = triggerReason,
                 VisibleMessage = visibleActedMessage,
-                ToolCalls = toolCalls
+                ToolCalls = turnResult.ToolCalls
             };
         }
 
-        public List<AgentChatMessageDto> GetHistory(Guid boardId)
-        {
-            if (_displayHistories.TryGetValue(boardId, out var history))
-            {
-                lock (history)
-                {
-                    return new List<AgentChatMessageDto>(history);
-                }
-            }
-
-            return new List<AgentChatMessageDto>();
-        }
+        public List<AgentChatMessageDto> GetHistory(Guid boardId) => _chatBroadcaster.GetHistory(boardId);
 
         public void ClearHistory(Guid boardId)
         {
             _conversationHistories.TryRemove(boardId, out _);
-            _displayHistories.TryRemove(boardId, out _);
+            _chatBroadcaster.ClearHistory(boardId);
         }
 
-        private static AzureOpenAIClient CreateAzureOpenAIClient(AzureOpenAIOptions options)
+        private sealed record OrchestrationTurnRequest(Guid BoardId, bool AllowDestructiveChanges, bool IsAutonomous, string? TriggerReason);
+
+        private sealed class OrchestratedTurnResult
         {
-            if (!string.IsNullOrWhiteSpace(options.ApiKey))
+            public string? LastVisibleMessage { get; set; }
+            public List<AgentToolCallDto> ToolCalls { get; } = new();
+            public List<string> ConversationSummaries { get; } = new();
+        }
+
+        private async Task<OrchestratedTurnResult> RunOrchestratedTurnAsync(OrchestrationTurnRequest request, CancellationToken cancellationToken)
+        {
+            var result = new OrchestratedTurnResult();
+            var board = _serviceProvider.GetRequiredService<IBoardsRepository>().GetById(request.BoardId);
+            var planner = FacilitatorAgentCatalog.Planner;
+            var plannerExecution = await ExecuteAgentAsync(
+                request.BoardId,
+                planner,
+                BuildPlannerInstructions(board, request),
+                AgentToolPolicy.GetToolMethodNames(planner.Id, allowDestructiveChanges: false),
+                cancellationToken).ConfigureAwait(false);
+
+            result.ToolCalls.AddRange(plannerExecution.ToolCalls);
+
+            var plannerDecision = NormalizePlannerDecision(ParsePlannerDecision(plannerExecution.Text));
+            if (!string.IsNullOrWhiteSpace(plannerDecision.VisibleMessage) || plannerExecution.ToolCalls.Count > 0)
             {
-                return new AzureOpenAIClient(new Uri(options.Endpoint), new AzureKeyCredential(options.ApiKey));
+                var plannerMessage = CreateAgentMessage(
+                    plannerExecution.Scope,
+                    plannerDecision.Steps.Count > 0 ? AgentMessageKinds.Plan : AgentMessageKinds.Response,
+                    EnsureVisibleMessage(planner.Id, plannerDecision.VisibleMessage, plannerExecution.ToolCalls),
+                    plannerExecution.ToolCalls);
+
+                await _chatBroadcaster.BroadcastAgentMessageAsync(request.BoardId, plannerMessage, cancellationToken).ConfigureAwait(false);
+                result.LastVisibleMessage = plannerMessage.Content;
             }
 
-            return new AzureOpenAIClient(new Uri(options.Endpoint), new DefaultAzureCredential());
-        }
-
-        private AIAgent BuildAgent(Guid boardId, bool allowDestructiveChanges)
-        {
-            var board = _serviceProvider.GetRequiredService<IBoardsRepository>().GetById(boardId);
-            var boardPlugin = new BoardPlugin(
-                _serviceProvider.GetRequiredService<IBoardsRepository>(),
-                _serviceProvider.GetRequiredService<IBoardEventPipeline>(),
-                _serviceProvider.GetRequiredService<IBoardEventLog>(),
-                _serviceProvider.GetRequiredService<IHubContext<BoardsHub>>(),
-                boardId);
-
-            var baseAgent = _azureOpenAIClient
-                .GetChatClient(_options.DeploymentName)
-                .AsIChatClient()
-                .AsAIAgent(new ChatClientAgentOptions
-                {
-                    Name = "EventStormingAgent",
-                    Description = "Facilitates collaborative Event Storming sessions in StormSpace.",
-                    ChatOptions = BuildChatOptions(board, boardPlugin, allowDestructiveChanges)
-                }, services: _serviceProvider);
-
-            return baseAgent
-                .AsBuilder()
-                .Use((agent, context, next, ct) => _toolCallFilter.OnFunctionInvocationAsync(boardId, agent, context, next, ct))
-                .Build();
-        }
-
-        private ChatOptions BuildChatOptions(Board? board, BoardPlugin boardPlugin, bool allowDestructiveChanges)
-        {
-            var options = new ChatOptions
+            if (!string.IsNullOrWhiteSpace(plannerDecision.Summary))
             {
-                Instructions = BuildSystemPrompt(board),
-                Tools = CreateTools(boardPlugin, allowDestructiveChanges),
-                AllowMultipleToolCalls = true
-            };
-
-            if (IsReasoningModel())
-            {
-                options.Reasoning = new Microsoft.Extensions.AI.ReasoningOptions
-                {
-                    Effort = ParseReasoningEffort(_options.ReasoningEffort)
-                };
+                result.ConversationSummaries.Add($"{planner.Name}: {plannerDecision.Summary.Trim()}");
             }
 
-            return options;
-        }
-
-        private IList<AITool> CreateTools(BoardPlugin boardPlugin, bool allowDestructiveChanges)
-        {
-            return GetToolMethodNames(allowDestructiveChanges)
-                .Select(methodName => CreateTool(boardPlugin, methodName))
-                .Cast<AITool>()
-                .ToList();
-
-            static AIFunction CreateTool(BoardPlugin plugin, string methodName)
+            foreach (var step in NormalizeSteps(plannerDecision.Steps))
             {
-                var methodInfo = typeof(BoardPlugin).GetMethod(methodName)!;
-                var description = methodInfo.GetCustomAttributes(typeof(DescriptionAttribute), inherit: false)
-                    .OfType<DescriptionAttribute>()
-                    .FirstOrDefault()
-                    ?.Description;
-
-                Delegate method = methodName switch
+                if (!string.IsNullOrWhiteSpace(step.HandoffMessage))
                 {
-                    nameof(BoardPlugin.GetBoardState) => plugin.GetBoardState,
-                    nameof(BoardPlugin.GetRecentEvents) => plugin.GetRecentEvents,
-                    nameof(BoardPlugin.SetDomain) => plugin.SetDomain,
-                    nameof(BoardPlugin.SetSessionScope) => plugin.SetSessionScope,
-                    nameof(BoardPlugin.SetPhase) => plugin.SetPhase,
-                    nameof(BoardPlugin.CompleteAutonomousSession) => plugin.CompleteAutonomousSession,
-                    nameof(BoardPlugin.CreateNote) => plugin.CreateNote,
-                    nameof(BoardPlugin.CreateConnection) => plugin.CreateConnection,
-                    nameof(BoardPlugin.EditNoteText) => plugin.EditNoteText,
-                    nameof(BoardPlugin.MoveNotes) => plugin.MoveNotes,
-                    nameof(BoardPlugin.CreateNotes) => plugin.CreateNotes,
-                    nameof(BoardPlugin.CreateConnections) => plugin.CreateConnections,
-                    nameof(BoardPlugin.DeleteNotes) => plugin.DeleteNotes,
-                    _ => throw new InvalidOperationException($"Unsupported board tool method '{methodName}'.")
-                };
+                    await _chatBroadcaster.BroadcastAgentMessageAsync(request.BoardId, CreateAgentMessage(
+                        plannerExecution.Scope,
+                        AgentMessageKinds.Handoff,
+                        step.HandoffMessage.Trim(),
+                        toolCalls: null), cancellationToken).ConfigureAwait(false);
+                }
 
-                return AIFunctionFactory.Create(method, new AIFunctionFactoryOptions
+                var specialist = FacilitatorAgentCatalog.Get(step.AgentId);
+                var specialistExecution = await ExecuteAgentAsync(
+                    request.BoardId,
+                    specialist,
+                    BuildSpecialistInstructions(board, request, specialist, step, result.ConversationSummaries),
+                    AgentToolPolicy.GetToolMethodNames(specialist.Id, request.AllowDestructiveChanges),
+                    cancellationToken).ConfigureAwait(false);
+
+                result.ToolCalls.AddRange(specialistExecution.ToolCalls);
+
+                var specialistResponse = NormalizeSpecialistResponse(ParseSpecialistResponse(specialistExecution.Text));
+                if (!string.IsNullOrWhiteSpace(specialistResponse.VisibleMessage) || specialistExecution.ToolCalls.Count > 0)
                 {
-                    Name = methodName,
-                    Description = description
-                });
-            }
-        }
+                    var specialistMessage = CreateAgentMessage(
+                        specialistExecution.Scope,
+                        AgentMessageKinds.Response,
+                        EnsureVisibleMessage(specialist.Id, specialistResponse.VisibleMessage, specialistExecution.ToolCalls),
+                        specialistExecution.ToolCalls);
 
-        private static IReadOnlyList<string> GetToolMethodNames(bool allowDestructiveChanges)
-        {
-            var toolNames = new List<string>
-            {
-                nameof(BoardPlugin.GetBoardState),
-                nameof(BoardPlugin.GetRecentEvents),
-                nameof(BoardPlugin.SetDomain),
-                nameof(BoardPlugin.SetSessionScope),
-                nameof(BoardPlugin.SetPhase),
-                nameof(BoardPlugin.CompleteAutonomousSession),
-                nameof(BoardPlugin.CreateNote),
-                nameof(BoardPlugin.CreateConnection),
-                nameof(BoardPlugin.EditNoteText),
-                nameof(BoardPlugin.MoveNotes),
-                nameof(BoardPlugin.CreateNotes),
-                nameof(BoardPlugin.CreateConnections)
-            };
+                    await _chatBroadcaster.BroadcastAgentMessageAsync(request.BoardId, specialistMessage, cancellationToken).ConfigureAwait(false);
+                    result.LastVisibleMessage = specialistMessage.Content;
+                }
 
-            if (allowDestructiveChanges)
-            {
-                toolNames.Add(nameof(BoardPlugin.DeleteNotes));
+                var summary = string.IsNullOrWhiteSpace(specialistResponse.Summary)
+                    ? EnsureVisibleMessage(specialist.Id, specialistResponse.VisibleMessage, specialistExecution.ToolCalls)
+                    : specialistResponse.Summary.Trim();
+
+                result.ConversationSummaries.Add($"{specialist.Name}: {summary}");
             }
 
-            return toolNames;
+            AppendAssistantSummaryToConversation(request.BoardId, result.ConversationSummaries);
+            return result;
         }
 
-        private bool IsReasoningModel() => !_options.DeploymentName.Contains("gpt-4", StringComparison.OrdinalIgnoreCase);
-
-        private static ReasoningEffort ParseReasoningEffort(string? effort)
+        private async Task<AgentExecutionResult> ExecuteAgentAsync(
+            Guid boardId,
+            FacilitatorAgentDescriptor definition,
+            string instructions,
+            IReadOnlyList<string> toolNames,
+            CancellationToken cancellationToken)
         {
-            return effort?.Trim().ToLowerInvariant() switch
+            return await _agentExecutor.ExecuteAsync(new AgentExecutionRequest
             {
-                "high" => ReasoningEffort.High,
-                "xhigh" => ReasoningEffort.ExtraHigh,
-                "medium" => ReasoningEffort.Medium,
-                _ => ReasoningEffort.Low
-            };
+                BoardId = boardId,
+                Definition = definition,
+                Instructions = instructions,
+                ToolNames = toolNames,
+                Messages = GetConversationSnapshot(boardId),
+                Scope = CreateExecutionScope(boardId, definition)
+            }, cancellationToken).ConfigureAwait(false);
         }
 
-        private async Task<(string Reply, List<AgentToolCallDto> ToolCalls)> InvokeAgentAsync(Guid boardId, bool allowDestructiveChanges, CancellationToken cancellationToken)
+        private List<ChatMessage> GetConversationSnapshot(Guid boardId)
         {
-            var agent = BuildAgent(boardId, allowDestructiveChanges);
-            List<ChatMessage> messages;
-
             if (_conversationHistories.TryGetValue(boardId, out var history))
             {
                 lock (history)
                 {
-                    messages = new List<ChatMessage>(history);
+                    return new List<ChatMessage>(history);
                 }
             }
-            else
-            {
-                messages = new List<ChatMessage>();
-            }
 
-            _toolCallFilter.BeginCapture(boardId.ToString());
-            var response = await agent.RunAsync(messages, cancellationToken: cancellationToken).ConfigureAwait(false);
-            return (response.Text ?? string.Empty, _toolCallFilter.EndCapture(boardId.ToString()));
+            return new List<ChatMessage>();
         }
 
-        private AgentChatMessageDto AppendAssistantMessage(Guid boardId, string reply, List<AgentToolCallDto> toolCalls)
+        private void AppendAssistantSummaryToConversation(Guid boardId, IReadOnlyList<string> summaries)
         {
-            var conversationHistory = _conversationHistories.GetOrAdd(boardId, static _ => new List<ChatMessage>());
-            var displayHistory = _displayHistories.GetOrAdd(boardId, static _ => new List<AgentChatMessageDto>());
-
-            lock (conversationHistory)
+            if (summaries.Count == 0)
             {
-                conversationHistory.Add(new ChatMessage(ChatRole.Assistant, reply));
+                return;
             }
 
-            var displayAssistantMessage = new AgentChatMessageDto
+            var history = _conversationHistories.GetOrAdd(boardId, static _ => new List<ChatMessage>());
+            var summaryText = string.Join(Environment.NewLine, summaries);
+
+            lock (history)
+            {
+                history.Add(new ChatMessage(ChatRole.Assistant, summaryText));
+            }
+        }
+
+        private static AgentExecutionScope CreateExecutionScope(Guid boardId, FacilitatorAgentDescriptor definition)
+        {
+            return new AgentExecutionScope(boardId, Guid.NewGuid().ToString("N"), definition.Id, definition.Name);
+        }
+
+        private static AgentChatMessageDto CreateAgentMessage(
+            AgentExecutionScope scope,
+            string messageKind,
+            string content,
+            List<AgentToolCallDto>? toolCalls)
+        {
+            return new AgentChatMessageDto
             {
                 Role = "assistant",
-                Content = reply,
-                ToolCalls = toolCalls.Count > 0 ? toolCalls : null,
+                AgentId = scope.AgentId,
+                AgentName = scope.AgentName,
+                MessageKind = messageKind,
+                ExecutionId = scope.ExecutionId,
+                Content = content,
+                ToolCalls = toolCalls is { Count: > 0 } ? toolCalls : null,
                 Timestamp = DateTime.UtcNow
             };
+        }
 
-            lock (displayHistory)
+        private string BuildPlannerInstructions(Board? board, OrchestrationTurnRequest request)
+        {
+            var sb = new StringBuilder(BuildSystemPrompt(board));
+            sb.AppendLine();
+            sb.AppendLine("--- PLANNER AGENT ROLE ---");
+            sb.AppendLine("You are PlannerAgent. Inspect the board, decide the next specialist steps for this turn, and emit visible handoffs.");
+            sb.AppendLine("You are read-only. Do not edit the board directly. Use tools only to inspect the board state and recent events.");
+            sb.AppendLine("Choose zero or more specialists, in order, from these exact agent IDs:");
+            sb.AppendLine($"- {FacilitatorAgentIds.BoardAnalyst}: inspect board structure, gaps, and modeling issues.");
+            sb.AppendLine($"- {FacilitatorAgentIds.FacilitationCoach}: explain the current phase and coach participants on what to do next.");
+            sb.AppendLine($"- {FacilitatorAgentIds.BoardEditor}: make note, connection, movement, domain, scope, phase, or autonomous-completion changes.");
+            sb.AppendLine("Only choose BoardEditor when the turn requires an actual board mutation or explicit board-context update.");
+            sb.AppendLine("Prefer short sequences. Most turns should use zero, one, or two specialists.");
+            sb.AppendLine("If you can answer directly without a specialist, return no steps.");
+
+            if (request.IsAutonomous)
             {
-                displayHistory.Add(displayAssistantMessage);
+                sb.AppendLine();
+                sb.AppendLine("--- AUTONOMOUS TURN ---");
+                sb.AppendLine($"This is an autonomous facilitation turn triggered by: {request.TriggerReason ?? "timer"}.");
+                sb.AppendLine("Autonomous turns must stay small, safe, and incremental.");
+                sb.AppendLine("Do not plan destructive cleanup. Prefer one small facilitation move, one concise question, or one targeted board update.");
             }
 
-            return displayAssistantMessage;
+            sb.AppendLine();
+            sb.AppendLine("Return JSON only. Do not wrap it in markdown fences.");
+            sb.AppendLine("Schema:");
+            sb.AppendLine("{");
+            sb.AppendLine("  \"visibleMessage\": \"string\",");
+            sb.AppendLine("  \"summary\": \"short summary for future context\",");
+            sb.AppendLine("  \"steps\": [");
+            sb.AppendLine("    {");
+            sb.AppendLine("      \"agentId\": \"board-analyst|facilitation-coach|board-editor\",");
+            sb.AppendLine("      \"goal\": \"specific instruction for the specialist\",");
+            sb.AppendLine("      \"handoffMessage\": \"visible handoff message shown in chat\",");
+            sb.AppendLine("      \"contextSummary\": \"compact context summary for the specialist\"");
+            sb.AppendLine("    }");
+            sb.AppendLine("  ]");
+            sb.AppendLine("}");
+            return sb.ToString();
+        }
+
+        private string BuildSpecialistInstructions(
+            Board? board,
+            OrchestrationTurnRequest request,
+            FacilitatorAgentDescriptor specialist,
+            PlannerStepDecision step,
+            IReadOnlyList<string> priorSummaries)
+        {
+            var sb = new StringBuilder(BuildSystemPrompt(board));
+            sb.AppendLine();
+            sb.AppendLine($"--- {specialist.Name.ToUpperInvariant()} ROLE ---");
+
+            switch (specialist.Id)
+            {
+                case FacilitatorAgentIds.BoardAnalyst:
+                    sb.AppendLine("You are BoardAnalystAgent. Inspect the board and recent events, identify gaps or risks, and stay read-only.");
+                    sb.AppendLine("Do not propose unrelated changes. Focus on the planner goal.");
+                    break;
+                case FacilitatorAgentIds.FacilitationCoach:
+                    sb.AppendLine("You are FacilitationCoachAgent. Explain the current workshop phase, what good contributions look like, and the next step participants should take.");
+                    sb.AppendLine("Stay participant-facing and concise.");
+                    break;
+                case FacilitatorAgentIds.BoardEditor:
+                    sb.AppendLine("You are BoardEditorAgent. Make only the targeted board changes needed for this step, then explain what changed and why.");
+                    sb.AppendLine(request.AllowDestructiveChanges
+                        ? "Interactive mode allows destructive changes when clearly requested."
+                        : "Destructive tools are unavailable in this run. Do not delete notes.");
+                    break;
+            }
+
+            sb.AppendLine();
+            sb.AppendLine("Planner goal for this step:");
+            sb.AppendLine(string.IsNullOrWhiteSpace(step.Goal) ? "Follow the planner's latest context and help advance the board safely." : step.Goal.Trim());
+
+            if (!string.IsNullOrWhiteSpace(step.ContextSummary))
+            {
+                sb.AppendLine();
+                sb.AppendLine("Planner context summary:");
+                sb.AppendLine(step.ContextSummary.Trim());
+            }
+
+            if (priorSummaries.Count > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine("Compact summaries from earlier steps in this turn:");
+                foreach (var summary in priorSummaries)
+                {
+                    sb.AppendLine($"- {summary}");
+                }
+            }
+
+            if (request.IsAutonomous)
+            {
+                sb.AppendLine();
+                sb.AppendLine("Autonomous run constraints: stay incremental, avoid destructive cleanup, and prefer one small move over a broad rewrite.");
+            }
+
+            sb.AppendLine();
+            sb.AppendLine("Return JSON only. Do not wrap it in markdown fences.");
+            sb.AppendLine("Schema:");
+            sb.AppendLine("{");
+            sb.AppendLine("  \"visibleMessage\": \"assistant message shown in the chat\",");
+            sb.AppendLine("  \"summary\": \"short summary for future agent context\"");
+            sb.AppendLine("}");
+            return sb.ToString();
+        }
+
+        private static PlannerDecision ParsePlannerDecision(string responseText)
+        {
+            if (TryDeserialize(responseText, out PlannerDecision? decision) && decision is not null)
+            {
+                decision.Steps ??= new List<PlannerStepDecision>();
+                return decision;
+            }
+
+            var trimmed = responseText.Trim();
+            return new PlannerDecision
+            {
+                VisibleMessage = trimmed,
+                Summary = trimmed,
+                Steps = new List<PlannerStepDecision>()
+            };
+        }
+
+        private static SpecialistResponse ParseSpecialistResponse(string responseText)
+        {
+            if (TryDeserialize(responseText, out SpecialistResponse? response) && response is not null)
+            {
+                return response;
+            }
+
+            var trimmed = responseText.Trim();
+            return new SpecialistResponse
+            {
+                VisibleMessage = trimmed,
+                Summary = trimmed
+            };
+        }
+
+        private static bool TryDeserialize<T>(string responseText, out T? value)
+        {
+            try
+            {
+                value = JsonSerializer.Deserialize<T>(StripCodeFences(responseText), JsonOptions);
+                return value is not null;
+            }
+            catch (JsonException)
+            {
+                value = default;
+                return false;
+            }
+        }
+
+        private static string StripCodeFences(string value)
+        {
+            var trimmed = value.Trim();
+            if (!trimmed.StartsWith("```", StringComparison.Ordinal) || !trimmed.EndsWith("```", StringComparison.Ordinal))
+            {
+                return trimmed;
+            }
+
+            var lines = trimmed.Split('\n').ToList();
+            if (lines.Count >= 2)
+            {
+                lines.RemoveAt(0);
+                lines.RemoveAt(lines.Count - 1);
+            }
+
+            return string.Join('\n', lines).Trim();
+        }
+
+        private static PlannerDecision NormalizePlannerDecision(PlannerDecision decision)
+        {
+            decision.VisibleMessage = NormalizeText(decision.VisibleMessage);
+            decision.Summary = NormalizeText(decision.Summary) ?? decision.VisibleMessage;
+            decision.Steps ??= new List<PlannerStepDecision>();
+            return decision;
+        }
+
+        private static SpecialistResponse NormalizeSpecialistResponse(SpecialistResponse response)
+        {
+            response.VisibleMessage = NormalizeText(response.VisibleMessage);
+            response.Summary = NormalizeText(response.Summary) ?? response.VisibleMessage;
+            return response;
+        }
+
+        private static List<PlannerStepDecision> NormalizeSteps(IEnumerable<PlannerStepDecision>? steps)
+        {
+            return (steps ?? Enumerable.Empty<PlannerStepDecision>())
+                .Where(step => FacilitatorAgentCatalog.IsKnown(step.AgentId) && !string.Equals(step.AgentId, FacilitatorAgentIds.Planner, StringComparison.OrdinalIgnoreCase))
+                .Take(4)
+                .Select(step => new PlannerStepDecision
+                {
+                    AgentId = step.AgentId.Trim().ToLowerInvariant(),
+                    Goal = NormalizeText(step.Goal),
+                    HandoffMessage = NormalizeText(step.HandoffMessage),
+                    ContextSummary = NormalizeText(step.ContextSummary)
+                })
+                .ToList();
+        }
+
+        private static string EnsureVisibleMessage(string agentId, string? message, IReadOnlyCollection<AgentToolCallDto> toolCalls)
+        {
+            var normalized = NormalizeText(message);
+            if (!string.IsNullOrWhiteSpace(normalized))
+            {
+                return normalized;
+            }
+
+            if (toolCalls.Count == 0)
+            {
+                return agentId switch
+                {
+                    FacilitatorAgentIds.Planner => "I reviewed the board and mapped the next step.",
+                    FacilitatorAgentIds.BoardAnalyst => "I reviewed the board and noted the current structure.",
+                    FacilitatorAgentIds.FacilitationCoach => "I reviewed the current phase and the next facilitation step.",
+                    FacilitatorAgentIds.BoardEditor => "I checked the board and there was nothing to change.",
+                    _ => "I completed this step."
+                };
+            }
+
+            return agentId switch
+            {
+                FacilitatorAgentIds.BoardEditor => "I made the requested board updates.",
+                FacilitatorAgentIds.BoardAnalyst => "I inspected the board and captured the main findings.",
+                FacilitatorAgentIds.FacilitationCoach => "I reviewed the phase and prepared the next facilitation guidance.",
+                _ => "I completed this step."
+            };
+        }
+
+        private static string? NormalizeText(string? value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
         }
 
         private string BuildAutonomousPrompt(Guid boardId, string triggerReason)

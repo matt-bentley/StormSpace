@@ -29,6 +29,8 @@ builder.Services.AddSingleton<IBoardEventLog, BoardEventLog>();
 builder.Services.AddSingleton<IBoardEventPipeline, BoardEventPipeline>();
 builder.Services.AddSingleton<IBoardPresenceService, BoardPresenceService>();
 builder.Services.AddSingleton<IAutonomousFacilitatorCoordinator, AutonomousFacilitatorCoordinator>();
+builder.Services.AddSingleton<IAgentChatBroadcaster, AgentChatBroadcaster>();
+builder.Services.AddSingleton<IAgentExecutor, AgentExecutor>();
 builder.Services.AddSingleton<IAgentService, AgentService>();
 builder.Services.AddSingleton<AgentToolCallFilter>();
 builder.Services.AddHostedService<AutonomousFacilitatorWorker>();

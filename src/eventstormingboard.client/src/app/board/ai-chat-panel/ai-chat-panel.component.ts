@@ -24,8 +24,20 @@ export class MarkdownPipe implements PipeTransform {
 export interface ChatMessage {
   role: 'user' | 'assistant';
   userName?: string;
+  agentId?: string;
+  agentName?: string;
+  messageKind?: string;
+  executionId?: string;
   text: string;
   toolCalls?: { name: string; arguments: string }[];
+}
+
+interface PendingAgentMessage {
+  executionId: string;
+  agentId: string;
+  agentName: string;
+  messageKind: string;
+  toolCalls: { name: string; arguments: string }[];
 }
 
 @Component({
@@ -46,7 +58,7 @@ export class AiChatPanelComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   public messages: ChatMessage[] = [];
-  public activeToolCalls: { name: string; arguments: string }[] = [];
+  public pendingMessages: PendingAgentMessage[] = [];
   public input = '';
   public loading = false;
   
@@ -82,8 +94,10 @@ export class AiChatPanelComponent implements OnInit, OnDestroy {
     this.signalRService.agentResponse$
       .pipe(takeUntil(this.destroy$))
       .subscribe(msg => {
-        this.loading = false;
-        this.activeToolCalls = [];
+        this.removePendingMessage(msg.executionId, msg.agentId);
+        if (msg.agentId === 'planner') {
+          this.removeAnonymousPlannerPlaceholder();
+        }
         this.messages.push(this.mapToDisplayMessage(msg));
         this.scrollToBottom();
       });
@@ -91,20 +105,28 @@ export class AiChatPanelComponent implements OnInit, OnDestroy {
     this.signalRService.agentToolCallStarted$
       .pipe(takeUntil(this.destroy$))
       .subscribe(event => {
-        if (this.loading) {
-          const args = Object.entries(event.arguments ?? {})
-            .map(([k, v]) => `${k}: ${v}`)
-            .join(', ');
-          this.activeToolCalls.push({ name: event.toolName, arguments: args });
-          this.scrollToBottom();
+        if (event.boardId && event.boardId !== this.boardId) {
+          return;
         }
+
+        const pendingMessage = this.upsertPendingMessage(event);
+        const args = Object.entries(event.arguments ?? {})
+          .map(([k, v]) => `${k}: ${v}`)
+          .join(', ');
+
+        pendingMessage.toolCalls.push({ name: event.toolName, arguments: args });
+        this.scrollToBottom();
       });
 
     this.signalRService.agentHistoryCleared$
       .pipe(takeUntil(this.destroy$))
-      .subscribe(() => {
+      .subscribe((boardId) => {
+        if (boardId && boardId !== this.boardId) {
+          return;
+        }
+
         this.messages = [];
-        this.activeToolCalls = [];
+        this.pendingMessages = [];
         this.loading = false;
       });
   }
@@ -114,14 +136,21 @@ export class AiChatPanelComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  public send(): void {
+  public async send(): Promise<void> {
     const text = this.input.trim();
     if (!text || this.loading) return;
 
     this.input = '';
     this.loading = true;
-    this.activeToolCalls = [];
-    this.signalRService.sendAgentMessage(this.boardId, text);
+    this.removeAnonymousPlannerPlaceholder();
+    this.pendingMessages.push(this.createPendingMessage('', 'planner', 'Planner Agent', 'plan'));
+
+    try {
+      await this.signalRService.sendAgentMessage(this.boardId, text);
+    } finally {
+      this.loading = false;
+      this.removeAnonymousPlannerPlaceholder();
+    }
   }
 
   public clearHistory(): void {
@@ -149,6 +178,48 @@ export class AiChatPanelComponent implements OnInit, OnDestroy {
     return aggregateToolCalls;
   }
 
+  public getAgentLabel(message: Pick<ChatMessage, 'agentName' | 'agentId'> | PendingAgentMessage): string {
+    return message.agentName || this.getDefaultAgentName(message.agentId);
+  }
+
+  public getAgentIcon(agentId?: string): string {
+    switch (agentId) {
+      case 'planner':
+        return 'route';
+      case 'board-analyst':
+        return 'query_stats';
+      case 'facilitation-coach':
+        return 'co_present';
+      case 'board-editor':
+        return 'edit_note';
+      default:
+        return 'smart_toy';
+    }
+  }
+
+  public getAgentToneClass(agentId?: string): string {
+    switch (agentId) {
+      case 'planner':
+        return 'agent-planner';
+      case 'board-analyst':
+        return 'agent-analyst';
+      case 'facilitation-coach':
+        return 'agent-coach';
+      case 'board-editor':
+        return 'agent-editor';
+      default:
+        return 'agent-default';
+    }
+  }
+
+  public getPendingText(message: PendingAgentMessage): string {
+    if (message.toolCalls.length > 0) {
+      return `${this.getAgentLabel(message)} is using tools for this step.`;
+    }
+
+    return `${this.getAgentLabel(message)} is working on this step.`;
+  }
+
   public get autonomousStatusLabel(): string {
     if (!this.autonomousEnabled) {
       return 'Autonomy off';
@@ -173,9 +244,74 @@ export class AiChatPanelComponent implements OnInit, OnDestroy {
     return {
       role: msg.role as 'user' | 'assistant',
       userName: msg.userName ?? undefined,
+      agentId: msg.agentId ?? undefined,
+      agentName: msg.agentName ?? undefined,
+      messageKind: msg.messageKind ?? undefined,
+      executionId: msg.executionId ?? undefined,
       text: msg.content ?? '',
       toolCalls: msg.toolCalls?.map(tc => ({ name: tc.name, arguments: tc.arguments }))
     };
+  }
+
+  private upsertPendingMessage(event: AgentToolCallStartedEvent): PendingAgentMessage {
+    const anonymousPlanner = this.pendingMessages.find(message => message.agentId === event.agentId && !message.executionId);
+    if (anonymousPlanner) {
+      anonymousPlanner.executionId = event.executionId;
+      anonymousPlanner.agentName = event.agentName;
+      anonymousPlanner.messageKind = event.agentId === 'planner' ? 'plan' : 'response';
+      return anonymousPlanner;
+    }
+
+    let message = this.pendingMessages.find(existing => existing.executionId === event.executionId && existing.agentId === event.agentId);
+    if (!message) {
+      message = this.createPendingMessage(event.executionId, event.agentId, event.agentName, event.agentId === 'planner' ? 'plan' : 'response');
+      this.pendingMessages.push(message);
+    }
+
+    return message;
+  }
+
+  private createPendingMessage(executionId: string, agentId: string, agentName: string, messageKind: string): PendingAgentMessage {
+    return {
+      executionId,
+      agentId,
+      agentName,
+      messageKind,
+      toolCalls: []
+    };
+  }
+
+  private removePendingMessage(executionId?: string, agentId?: string): void {
+    this.pendingMessages = this.pendingMessages.filter(message => {
+      if (executionId && agentId) {
+        return !(message.executionId === executionId && message.agentId === agentId);
+      }
+
+      if (agentId === 'planner' && !message.executionId) {
+        return false;
+      }
+
+      return true;
+    });
+  }
+
+  private removeAnonymousPlannerPlaceholder(): void {
+    this.pendingMessages = this.pendingMessages.filter(message => !(message.agentId === 'planner' && !message.executionId));
+  }
+
+  private getDefaultAgentName(agentId?: string): string {
+    switch (agentId) {
+      case 'planner':
+        return 'Planner Agent';
+      case 'board-analyst':
+        return 'Board Analyst';
+      case 'facilitation-coach':
+        return 'Facilitation Coach';
+      case 'board-editor':
+        return 'Board Editor';
+      default:
+        return 'AI Facilitator';
+    }
   }
 
   private scrollToBottom(): void {
