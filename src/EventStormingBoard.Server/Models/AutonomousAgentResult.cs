@@ -16,6 +16,7 @@ namespace EventStormingBoard.Server.Models
         public List<AgentToolCallDto> ToolCalls { get; set; } = new();
         public string? StopReason { get; set; }
         public string? Diagnostics { get; set; }
+        public List<AgentChatMessageDto> AgentResponses { get; set; } = new();
     }
 
     public sealed class AutonomousFacilitatorStatusDto

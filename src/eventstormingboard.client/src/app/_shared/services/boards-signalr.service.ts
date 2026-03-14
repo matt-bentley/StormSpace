@@ -12,6 +12,7 @@ export interface AgentToolCall {
 export interface AgentChatMessage {
   role: string;
   userName?: string;
+  agentName?: string;
   content?: string;
   toolCalls?: AgentToolCall[];
   timestamp?: string;
@@ -19,6 +20,7 @@ export interface AgentChatMessage {
 
 export interface AgentToolCallStartedEvent {
   boardId: string;
+  agentName?: string;
   toolName: string;
   arguments?: Record<string, string>;
 }
@@ -123,6 +125,7 @@ export class BoardsSignalRService {
     this.hubConnection.on('AgentToolCallStarted', (event) => {
       this.agentToolCallStarted$.next({
         boardId: this.pickValue<string>(event, 'boardId', 'BoardId') ?? '',
+        agentName: this.pickValue<string>(event, 'agentName', 'AgentName'),
         toolName: this.pickValue<string>(event, 'toolName', 'ToolName') ?? '',
         arguments: this.pickValue<Record<string, string>>(event, 'arguments', 'Arguments')
       });
@@ -245,6 +248,7 @@ export class BoardsSignalRService {
     return {
       role: this.pickValue<string>(event, 'role', 'Role') ?? '',
       userName: this.pickValue<string>(event, 'userName', 'UserName'),
+      agentName: this.pickValue<string>(event, 'agentName', 'AgentName'),
       content: this.pickValue<string>(event, 'content', 'Content'),
       timestamp: this.pickValue<string>(event, 'timestamp', 'Timestamp'),
       toolCalls: Array.isArray(toolCalls)

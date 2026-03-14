@@ -1,45 +1,108 @@
+using EventStormingBoard.Server.Models;
 using EventStormingBoard.Server.Plugins;
-using EventStormingBoard.Server.Events;
 using EventStormingBoard.Server.Services;
-using System.Reflection;
 
 namespace EventStormingBoard.Server.Tests;
 
 public class AgentServiceToolPolicyTests
 {
-    [Fact]
-    public void GetToolMethodNames_ForAutonomousRun_ExcludesDeleteNotesOnly()
-    {
-        var toolNames = GetToolMethodNames(allowDestructiveChanges: false);
+    // --- Facilitator tool policy ---
 
+    [Fact]
+    public void Facilitator_HasBoardStateAndContextTools()
+    {
+        var toolNames = AgentService.GetToolMethodNames(AgentType.Facilitator, allowDestructiveChanges: true);
+
+        Assert.Contains(nameof(BoardPlugin.GetBoardState), toolNames);
+        Assert.Contains(nameof(BoardPlugin.GetRecentEvents), toolNames);
+        Assert.Contains(nameof(BoardPlugin.SetDomain), toolNames);
+        Assert.Contains(nameof(BoardPlugin.SetSessionScope), toolNames);
+        Assert.Contains(nameof(BoardPlugin.SetPhase), toolNames);
+        Assert.Contains(nameof(BoardPlugin.CompleteAutonomousSession), toolNames);
+    }
+
+    [Fact]
+    public void Facilitator_DoesNotHaveBoardMutationTools()
+    {
+        var toolNames = AgentService.GetToolMethodNames(AgentType.Facilitator, allowDestructiveChanges: true);
+
+        Assert.DoesNotContain(nameof(BoardPlugin.CreateNote), toolNames);
+        Assert.DoesNotContain(nameof(BoardPlugin.CreateNotes), toolNames);
+        Assert.DoesNotContain(nameof(BoardPlugin.CreateConnection), toolNames);
+        Assert.DoesNotContain(nameof(BoardPlugin.CreateConnections), toolNames);
+        Assert.DoesNotContain(nameof(BoardPlugin.EditNoteText), toolNames);
+        Assert.DoesNotContain(nameof(BoardPlugin.MoveNotes), toolNames);
         Assert.DoesNotContain(nameof(BoardPlugin.DeleteNotes), toolNames);
+    }
+
+    // --- Board Builder tool policy ---
+
+    [Fact]
+    public void BoardBuilder_HasBoardMutationTools()
+    {
+        var toolNames = AgentService.GetToolMethodNames(AgentType.BoardBuilder, allowDestructiveChanges: true);
+
+        Assert.Contains(nameof(BoardPlugin.GetBoardState), toolNames);
         Assert.Contains(nameof(BoardPlugin.CreateNote), toolNames);
         Assert.Contains(nameof(BoardPlugin.CreateNotes), toolNames);
         Assert.Contains(nameof(BoardPlugin.CreateConnection), toolNames);
         Assert.Contains(nameof(BoardPlugin.CreateConnections), toolNames);
         Assert.Contains(nameof(BoardPlugin.EditNoteText), toolNames);
-        Assert.Contains(nameof(BoardPlugin.SetPhase), toolNames);
         Assert.Contains(nameof(BoardPlugin.MoveNotes), toolNames);
     }
 
     [Fact]
-    public void GetToolMethodNames_ForInteractiveRun_IncludesDeleteNotes()
+    public void BoardBuilder_Interactive_IncludesDeleteNotes()
     {
-        var toolNames = GetToolMethodNames(allowDestructiveChanges: true);
+        var toolNames = AgentService.GetToolMethodNames(AgentType.BoardBuilder, allowDestructiveChanges: true);
 
         Assert.Contains(nameof(BoardPlugin.DeleteNotes), toolNames);
-        Assert.Contains(nameof(BoardPlugin.CreateNotes), toolNames);
-        Assert.Contains(nameof(BoardPlugin.EditNoteText), toolNames);
-        Assert.Contains(nameof(BoardPlugin.SetPhase), toolNames);
     }
 
-    private static IReadOnlyList<string> GetToolMethodNames(bool allowDestructiveChanges)
+    [Fact]
+    public void BoardBuilder_Autonomous_ExcludesDeleteNotes()
     {
-        var method = typeof(AgentService).GetMethod("GetToolMethodNames", BindingFlags.NonPublic | BindingFlags.Static);
-        Assert.NotNull(method);
+        var toolNames = AgentService.GetToolMethodNames(AgentType.BoardBuilder, allowDestructiveChanges: false);
 
-        var result = method!.Invoke(null, [allowDestructiveChanges]);
+        Assert.DoesNotContain(nameof(BoardPlugin.DeleteNotes), toolNames);
+    }
 
-        return Assert.IsAssignableFrom<IReadOnlyList<string>>(result);
+    [Fact]
+    public void BoardBuilder_DoesNotHaveContextOrDelegationTools()
+    {
+        var toolNames = AgentService.GetToolMethodNames(AgentType.BoardBuilder, allowDestructiveChanges: true);
+
+        Assert.DoesNotContain(nameof(BoardPlugin.SetDomain), toolNames);
+        Assert.DoesNotContain(nameof(BoardPlugin.SetSessionScope), toolNames);
+        Assert.DoesNotContain(nameof(BoardPlugin.SetPhase), toolNames);
+        Assert.DoesNotContain(nameof(BoardPlugin.CompleteAutonomousSession), toolNames);
+        Assert.DoesNotContain(nameof(BoardPlugin.GetRecentEvents), toolNames);
+    }
+
+    // --- Board Reviewer tool policy ---
+
+    [Fact]
+    public void BoardReviewer_HasReadAndConcernTools()
+    {
+        var toolNames = AgentService.GetToolMethodNames(AgentType.BoardReviewer, allowDestructiveChanges: true);
+
+        Assert.Contains(nameof(BoardPlugin.GetBoardState), toolNames);
+        Assert.Contains(nameof(BoardPlugin.GetRecentEvents), toolNames);
+        Assert.Contains(nameof(BoardPlugin.CreateNote), toolNames);
+        Assert.Contains(nameof(BoardPlugin.CreateNotes), toolNames);
+    }
+
+    [Fact]
+    public void BoardReviewer_DoesNotHaveMutationOrContextTools()
+    {
+        var toolNames = AgentService.GetToolMethodNames(AgentType.BoardReviewer, allowDestructiveChanges: true);
+
+        Assert.DoesNotContain(nameof(BoardPlugin.CreateConnection), toolNames);
+        Assert.DoesNotContain(nameof(BoardPlugin.CreateConnections), toolNames);
+        Assert.DoesNotContain(nameof(BoardPlugin.EditNoteText), toolNames);
+        Assert.DoesNotContain(nameof(BoardPlugin.MoveNotes), toolNames);
+        Assert.DoesNotContain(nameof(BoardPlugin.DeleteNotes), toolNames);
+        Assert.DoesNotContain(nameof(BoardPlugin.SetDomain), toolNames);
+        Assert.DoesNotContain(nameof(BoardPlugin.SetPhase), toolNames);
     }
 }

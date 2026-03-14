@@ -36,13 +36,18 @@
 
     @for (msg of messages; track $index) {
     <div class="message" [class.user]="msg.role === 'user'" [class.own-user]="isOwnMessage(msg)"
-      [class.other-user]="msg.role === 'user' && !isOwnMessage(msg)" [class.assistant]="msg.role === 'assistant'">
+      [class.other-user]="msg.role === 'user' && !isOwnMessage(msg)" [class.assistant]="msg.role === 'assistant'"
+      [ngClass]="msg.role === 'assistant' ? getAgentConfig(msg.agentName).cssClass : ''">
       @if (msg.role === 'assistant') {
-      <mat-icon class="avatar" fontSet="material-icons-outlined">smart_toy</mat-icon>
+      <mat-icon class="avatar" fontSet="material-icons-outlined"
+        [style.color]="getAgentConfig(msg.agentName).color">{{ getAgentConfig(msg.agentName).icon }}</mat-icon>
       }
       <div class="message-content">
         @if (msg.role === 'user' && msg.userName) {
         <span class="sender-name">{{ isOwnMessage(msg) ? 'You' : msg.userName }}</span>
+        }
+        @if (msg.role === 'assistant' && msg.agentName) {
+        <span class="agent-name" [style.color]="getAgentConfig(msg.agentName).color">{{ msg.agentName }}</span>
         }
         @if (msg.toolCalls && msg.toolCalls.length > 0) {
         <details class="tool-calls-details">
@@ -73,9 +78,13 @@
     }
 
     @if (loading) {
-    <div class="message assistant">
-      <mat-icon class="avatar" fontSet="material-icons-outlined">smart_toy</mat-icon>
+    <div class="message assistant" [ngClass]="getAgentConfig(activeAgentName).cssClass">
+      <mat-icon class="avatar" fontSet="material-icons-outlined"
+        [style.color]="getAgentConfig(activeAgentName).color">{{ getAgentConfig(activeAgentName).icon }}</mat-icon>
       <div class="message-content">
+        @if (activeAgentName) {
+        <span class="agent-name" [style.color]="getAgentConfig(activeAgentName).color">{{ activeAgentName }}</span>
+        }
         @if (activeToolCalls.length > 0) {
         <div class="tool-calls active">
           @for (tc of aggregateToolCalls(activeToolCalls); track tc.name) {

@@ -178,9 +178,13 @@ namespace EventStormingBoard.Server.Hubs
                 Timestamp = DateTime.UtcNow
             });
 
-            var response = await _agentService.ChatAsync(boardId, message, userName);
+            var responses = await _agentService.ChatAsync(boardId, message, userName);
             _coordinator.AcknowledgeManualAgentResponse(boardId, DateTimeOffset.UtcNow);
-            await Clients.Group(boardId.ToString()).SendAsync("AgentResponse", response);
+
+            foreach (var response in responses)
+            {
+                await Clients.Group(boardId.ToString()).SendAsync("AgentResponse", response);
+            }
         }
 
         public async Task GetAgentHistory(Guid boardId)

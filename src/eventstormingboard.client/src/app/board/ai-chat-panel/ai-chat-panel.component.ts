@@ -24,9 +24,16 @@ export class MarkdownPipe implements PipeTransform {
 export interface ChatMessage {
   role: 'user' | 'assistant';
   userName?: string;
+  agentName?: string;
   text: string;
   toolCalls?: { name: string; arguments: string }[];
 }
+
+const AGENT_CONFIG: Record<string, { icon: string; color: string; cssClass: string }> = {
+  'Facilitator': { icon: 'school', color: '#3f51b5', cssClass: 'agent-facilitator' },
+  'Board Builder': { icon: 'construction', color: '#009688', cssClass: 'agent-builder' },
+  'Board Reviewer': { icon: 'checklist', color: '#ff8f00', cssClass: 'agent-reviewer' },
+};
 
 @Component({
   selector: 'app-ai-chat-panel',
@@ -47,6 +54,7 @@ export class AiChatPanelComponent implements OnInit, OnDestroy {
 
   public messages: ChatMessage[] = [];
   public activeToolCalls: { name: string; arguments: string }[] = [];
+  public activeAgentName?: string;
   public input = '';
   public loading = false;
   
@@ -92,6 +100,7 @@ export class AiChatPanelComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(event => {
         if (this.loading) {
+          this.activeAgentName = event.agentName;
           const args = Object.entries(event.arguments ?? {})
             .map(([k, v]) => `${k}: ${v}`)
             .join(', ');
@@ -121,6 +130,7 @@ export class AiChatPanelComponent implements OnInit, OnDestroy {
     this.input = '';
     this.loading = true;
     this.activeToolCalls = [];
+    this.activeAgentName = undefined;
     this.signalRService.sendAgentMessage(this.boardId, text);
   }
 
@@ -169,10 +179,15 @@ export class AiChatPanelComponent implements OnInit, OnDestroy {
     return 'Autonomy on';
   }
 
+  public getAgentConfig(agentName?: string): { icon: string; color: string; cssClass: string } {
+    return AGENT_CONFIG[agentName ?? ''] ?? AGENT_CONFIG['Facilitator'];
+  }
+
   private mapToDisplayMessage(msg: AgentChatMessage): ChatMessage {
     return {
       role: msg.role as 'user' | 'assistant',
       userName: msg.userName ?? undefined,
+      agentName: msg.agentName ?? undefined,
       text: msg.content ?? '',
       toolCalls: msg.toolCalls?.map(tc => ({ name: tc.name, arguments: tc.arguments }))
     };
