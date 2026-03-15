@@ -1,5 +1,4 @@
 using EventStormingBoard.Server.Agents;
-using EventStormingBoard.Server.Entities;
 using EventStormingBoard.Server.Events;
 using EventStormingBoard.Server.Filters;
 using EventStormingBoard.Server.Hubs;
@@ -285,9 +284,9 @@ namespace EventStormingBoard.Server.Services
             var phaseGuidance = board?.Phase switch
             {
                 EventStormingPhase.SetContext => "If this phase has just started, explain that participants should clarify the domain boundary, business goal, actors, and scope before modeling the flow.",
-                EventStormingPhase.IdentifyEvents => "If this phase has just started, explain that participants should brainstorm domain events in past tense, place them chronologically, and keep adding more events themselves after your starter example (max 3). They should think of as many events as possible before moving on to adding commands or policies.",
-                EventStormingPhase.AddCommandsAndPolicies => "If this phase has just started, explain that participants should pick one existing Event at a time and connect it back to what triggered it using a Command or Policy. Your first starter example must cover exactly one Event, not the whole happy path. Prefer a user-invoked Command with a User note when the domain plausibly supports one, and explain the difference between a user-invoked Command, an automated Command, and a Policy before asking participants to continue the rest themselves.",
-                EventStormingPhase.DefineAggregates => "If this phase has just started, explain that participants should identify the core aggregates that own behavior around existing commands and events. Do not add ReadModels unless someone explicitly asks for them.",
+                EventStormingPhase.IdentifyEvents => "If this phase has just started, explain that participants should brainstorm domain events in past tense, place them chronologically, and keep adding more events themselves after you delegate a starter example (max 3). They should think of as many events as possible before moving on to adding commands or policies. If the phase didn't just start, ask if there are any important events missing or if the flow looks complete enough to move on - also delegate reviewing the board and re-arranging notes to make more space if it is needed.",
+                EventStormingPhase.AddCommandsAndPolicies => "If this phase has just started, explain that participants should pick one existing Event at a time and connect it back to what triggered it using a Command, Policy and optionally an ExternalSystem - delegate a starter example for one Event. The starter example must cover exactly one Event, not the whole happy path. Prefer a user-invoked Command with a User note when the domain plausibly supports one, and explain the difference between a user-invoked Command, an automated Command, and a Policy before asking participants to continue the rest themselves. If the phase didn't just start, delegate reviewing the board and re-arranging notes to make more space if it is needed",
+                EventStormingPhase.DefineAggregates => "If this phase has just started, explain that participants should identify the core aggregates that own behavior around existing commands and events - delegate adding one example aggregate. Do not add ReadModels unless someone explicitly asks for them.",
                 EventStormingPhase.BreakItDown => "If this phase has just started, explain that participants should identify bounded contexts, subdomains, and integration boundaries rather than adding lots of new notes.",
                 _ => "If the current phase has just started, explain the phase goal and what participants should do before or alongside your first example."
             };
@@ -308,7 +307,7 @@ namespace EventStormingBoard.Server.Services
                 {phaseGuidance}
                 {sessionBootstrap}
                 {layoutGuidance}
-                Ask at most one concise question or make one small facilitation move unless users have explicitly asked for broader changes.
+                Ask at most one concise question or delegate one small facilitation move unless users have explicitly asked for broader changes.
                 By default, autonomous facilitation should prefer spreading out existing events to make collaboration easier, asking questions that get participants thinking, suggesting improvements, or suggesting that the group moves to the next phase if the current phase looks complete.
                 When a phase has just started (or you have started it), or when the users have asked for help with the phase, you may delegate a very small starter example via RequestSpecialistProposal to teach how the phase works. Keep that example intentionally small, then stop and hand back to the users.
                 In AddCommandsAndPolicies, one small facilitation move means one Event starter example only. Do not continue into neighboring Events after that example.

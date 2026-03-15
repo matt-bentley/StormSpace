@@ -385,7 +385,7 @@ export class BoardComponent implements OnInit, OnDestroy {
         }
       });
 
-    this.boardsHub.agentResponse$
+    this.boardsHub.agentStepUpdate$
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
         if (!this.isChatOpen) this.hasUnreadMessages = true;
