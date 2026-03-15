@@ -167,6 +167,26 @@ namespace EventStormingBoard.Server.Services
                 _azureOpenAIClient, _options, _toolCallFilter, _serviceProvider);
             var groupChat = new FacilitatorGroupChat(factory, _toolCallFilter);
 
+            var hubContext = _serviceProvider.GetRequiredService<IHubContext<BoardsHub>>();
+            var boardGroup = boardId.ToString();
+
+            async Task BroadcastStep(AgentStep step)
+            {
+                if (string.IsNullOrWhiteSpace(step.Content) && step.ToolCalls.Count == 0)
+                    return;
+
+                var dto = new AgentChatMessageDto
+                {
+                    Role = "assistant",
+                    AgentName = step.AgentName,
+                    Content = step.Content,
+                    ToolCalls = step.ToolCalls.Count > 0 ? step.ToolCalls : null,
+                    Timestamp = DateTime.UtcNow
+                };
+                await hubContext.Clients.Group(boardGroup)
+                    .SendAsync("AgentStepUpdate", dto).ConfigureAwait(false);
+            }
+
             List<ChatMessage> messages;
             if (_conversationHistories.TryGetValue(boardId, out var history))
             {
@@ -182,7 +202,8 @@ namespace EventStormingBoard.Server.Services
 
             return await groupChat.RunAsync(
                 boardId, board, boardPlugin, messages,
-                allowDestructiveChanges, cancellationToken).ConfigureAwait(false);
+                allowDestructiveChanges, cancellationToken,
+                onStepCompleted: BroadcastStep).ConfigureAwait(false);
         }
 
         private static void PatchFacilitatorContent(List<AgentStep> steps, string content)

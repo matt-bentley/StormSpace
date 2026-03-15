@@ -106,6 +106,20 @@ export class AiChatPanelComponent implements OnInit, OnDestroy {
         this.scrollToBottom();
       });
 
+    this.signalRService.agentStepUpdate$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(msg => {
+        this.messages.push(this.mapToDisplayMessage(msg));
+        this.scrollToBottom();
+      });
+
+    this.signalRService.agentChatComplete$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        this.loading = false;
+        this.activeToolCalls = [];
+      });
+
     this.signalRService.agentToolCallStarted$
       .pipe(takeUntil(this.destroy$))
       .subscribe(event => {

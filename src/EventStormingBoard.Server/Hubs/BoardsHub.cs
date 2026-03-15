@@ -178,11 +178,16 @@ namespace EventStormingBoard.Server.Hubs
                 Timestamp = DateTime.UtcNow
             });
 
-            var responses = await _agentService.ChatAsync(boardId, message, userName);
-            _coordinator.AcknowledgeManualAgentResponse(boardId, DateTimeOffset.UtcNow);
-            foreach (var response in responses)
+            try
             {
-                await Clients.Group(boardId.ToString()).SendAsync("AgentResponse", response);
+                var responses = await _agentService.ChatAsync(boardId, message, userName);
+                _coordinator.AcknowledgeManualAgentResponse(boardId, DateTimeOffset.UtcNow);
+            }
+            finally
+            {
+                // Steps were broadcast in real-time via AgentStepUpdate during pipeline execution.
+                // Signal completion so the client clears the loading state.
+                await Clients.Group(boardId.ToString()).SendAsync("AgentChatComplete");
             }
         }
 

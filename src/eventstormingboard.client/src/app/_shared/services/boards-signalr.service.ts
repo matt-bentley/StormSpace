@@ -60,6 +60,8 @@ export class BoardsSignalRService {
   public pasted$ = new Subject<PastedEvent>();
   public agentUserMessage$ = new Subject<AgentChatMessage>();
   public agentResponse$ = new Subject<AgentChatMessage>();
+  public agentStepUpdate$ = new Subject<AgentChatMessage>();
+  public agentChatComplete$ = new Subject<void>();
   public agentToolCallStarted$ = new Subject<AgentToolCallStartedEvent>();
   public autonomousStatusChanged$ = new Subject<AutonomousFacilitatorStatus>();
   public agentHistoryCleared$ = new Subject<string>();
@@ -120,6 +122,15 @@ export class BoardsSignalRService {
       const message = this.mapAgentChatMessage(event);
       this.agentChatHistory.push(message);
       this.agentResponse$.next(message);
+    });
+    this.hubConnection.on('AgentStepUpdate', (event) => {
+      const message = this.mapAgentChatMessage(event);
+      // Don't push to agentChatHistory — server-side AppendAgentSteps handles persistence.
+      // History is loaded via GetAgentHistory; pushing here would cause duplicates on reload.
+      this.agentStepUpdate$.next(message);
+    });
+    this.hubConnection.on('AgentChatComplete', () => {
+      this.agentChatComplete$.next();
     });
     this.hubConnection.on('AgentToolCallStarted', (event) => {
       this.agentToolCallStarted$.next({

@@ -84,29 +84,11 @@ namespace EventStormingBoard.Server.Services
                         completedStatus = _coordinator.GetStatus(board.Id, false);
                     }
 
-                    if (!string.IsNullOrWhiteSpace(result.VisibleMessage) && result.Status != AutonomousAgentStatus.Idle)
-                    {
-                        if (result.AgentMessages.Count > 0)
-                        {
-                            foreach (var agentMsg in result.AgentMessages)
-                            {
-                                await _hubContext.Clients.Group(board.Id.ToString())
-                                    .SendAsync("AgentResponse", agentMsg, stoppingToken);
-                            }
-                        }
-                        else
-                        {
-                            await _hubContext.Clients.Group(board.Id.ToString()).SendAsync("AgentResponse", new AgentChatMessageDto
-                            {
-                                Role = "assistant",
-                                AgentName = "Facilitator",
-                                UserName = "AI Facilitator",
-                                Content = result.VisibleMessage,
-                                ToolCalls = result.ToolCalls.Count > 0 ? result.ToolCalls : null,
-                                Timestamp = DateTime.UtcNow
-                            }, stoppingToken);
-                        }
-                    }
+                    // Always signal completion so clients know the autonomous turn finished,
+                    // even if no steps were broadcast (e.g. Idle, Failed, or exception during pipeline).
+                    // Agent steps were already broadcast in real-time via AgentStepUpdate during pipeline.
+                    await _hubContext.Clients.Group(board.Id.ToString())
+                        .SendAsync("AgentChatComplete", stoppingToken);
 
                     await BroadcastStatusAsync(completedStatus, stoppingToken);
                 }

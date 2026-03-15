@@ -42,7 +42,8 @@ namespace EventStormingBoard.Server.Agents
             BoardPlugin boardPlugin,
             List<ChatMessage> conversationHistory,
             bool allowDestructiveChanges,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            Func<AgentStep, Task>? onStepCompleted = null)
         {
             var steps = new List<AgentStep>();
 
@@ -60,7 +61,7 @@ namespace EventStormingBoard.Server.Agents
                     delegationStartIndex = _toolCallFilter.PeekCaptureCount(boardId.ToString());
                     var pipelineResult = await RunSpecialistPipelineAsync(
                         boardId, board, boardPlugin, specialist, instructions,
-                        allowDestructiveChanges, steps, cancellationToken).ConfigureAwait(false);
+                        allowDestructiveChanges, steps, onStepCompleted, cancellationToken).ConfigureAwait(false);
                     delegationEndIndex = _toolCallFilter.PeekCaptureCount(boardId.ToString());
                     return pipelineResult;
                 }
@@ -89,24 +90,31 @@ namespace EventStormingBoard.Server.Agents
                 }
 
                 var facilitatorText = response.Text ?? string.Empty;
+                AgentStep? facilitatorStep = null;
                 if (!string.IsNullOrWhiteSpace(facilitatorText))
                 {
-                    steps.Add(new AgentStep
+                    facilitatorStep = new AgentStep
                     {
                         AgentName = "Facilitator",
                         Content = facilitatorText,
                         ToolCalls = facilitatorToolCalls
-                    });
+                    };
                 }
                 else if (facilitatorToolCalls.Count > 0)
                 {
-                    // Facilitator made tool calls but no visible reply
-                    steps.Add(new AgentStep
+                    facilitatorStep = new AgentStep
                     {
                         AgentName = "Facilitator",
                         Content = string.Empty,
                         ToolCalls = facilitatorToolCalls
-                    });
+                    };
+                }
+
+                if (facilitatorStep != null)
+                {
+                    steps.Add(facilitatorStep);
+                    if (onStepCompleted != null)
+                        await onStepCompleted(facilitatorStep).ConfigureAwait(false);
                 }
 
                 return steps;
@@ -126,6 +134,7 @@ namespace EventStormingBoard.Server.Agents
             string instructions,
             bool allowDestructiveChanges,
             List<AgentStep> steps,
+            Func<AgentStep, Task>? onStepCompleted,
             CancellationToken cancellationToken)
         {
             var sb = new StringBuilder();
@@ -155,12 +164,15 @@ namespace EventStormingBoard.Server.Agents
             var proposal = specialistResponse.Text ?? string.Empty;
             var specialistToolCalls = SliceCapturedToolCalls(boardKey, preSpecialistCount);
 
-            steps.Add(new AgentStep
+            var specialistStep = new AgentStep
             {
                 AgentName = specialistName,
                 Content = proposal,
                 ToolCalls = specialistToolCalls
-            });
+            };
+            steps.Add(specialistStep);
+            if (onStepCompleted != null)
+                await onStepCompleted(specialistStep).ConfigureAwait(false);
 
             sb.AppendLine($"## {specialistName} Proposal");
             sb.AppendLine(proposal);
@@ -178,12 +190,15 @@ namespace EventStormingBoard.Server.Agents
             var review = challengerResponse.Text ?? string.Empty;
             var challengerToolCalls = SliceCapturedToolCalls(boardKey, preChallengerCount);
 
-            steps.Add(new AgentStep
+            var challengerStep = new AgentStep
             {
                 AgentName = "Challenger",
                 Content = review,
                 ToolCalls = challengerToolCalls
-            });
+            };
+            steps.Add(challengerStep);
+            if (onStepCompleted != null)
+                await onStepCompleted(challengerStep).ConfigureAwait(false);
 
             sb.AppendLine();
             sb.AppendLine("## Challenger Review");
@@ -206,12 +221,15 @@ namespace EventStormingBoard.Server.Agents
                 var scribeText = scribeResponse.Text ?? "Changes applied.";
                 var scribeToolCalls = SliceCapturedToolCalls(boardKey, preScribeCount);
 
-                steps.Add(new AgentStep
+                var scribeStep = new AgentStep
                 {
                     AgentName = "WallScribe",
                     Content = scribeText,
                     ToolCalls = scribeToolCalls
-                });
+                };
+                steps.Add(scribeStep);
+                if (onStepCompleted != null)
+                    await onStepCompleted(scribeStep).ConfigureAwait(false);
 
                 sb.AppendLine();
                 sb.AppendLine("## Execution Result");
