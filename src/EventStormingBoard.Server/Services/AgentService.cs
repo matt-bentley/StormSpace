@@ -71,10 +71,15 @@ namespace EventStormingBoard.Server.Services
         {
             EnsureInitialAutonomousPhase(boardId);
 
+            var coordinator = _serviceProvider.GetRequiredService<IAutonomousFacilitatorCoordinator>();
+            var preRunBoard = _serviceProvider.GetRequiredService<IBoardsRepository>().GetById(boardId);
+            coordinator.RecordPhaseAtRun(boardId, preRunBoard?.Phase?.ToString());
+            var turnsInPhase = coordinator.GetTurnsInCurrentPhase(boardId);
+
             var conversationHistory = _conversationHistories.GetOrAdd(boardId, static _ => new List<ChatMessage>());
             lock (conversationHistory)
             {
-                conversationHistory.Add(new ChatMessage(ChatRole.User, BuildAutonomousPrompt(boardId, triggerReason)));
+                conversationHistory.Add(new ChatMessage(ChatRole.User, BuildAutonomousPrompt(boardId, triggerReason, turnsInPhase)));
             }
 
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -155,10 +160,11 @@ namespace EventStormingBoard.Server.Services
         private async Task<List<AgentStep>> InvokeAgentAsync(Guid boardId, bool allowDestructiveChanges, CancellationToken cancellationToken)
         {
             var board = _serviceProvider.GetRequiredService<IBoardsRepository>().GetById(boardId);
+            var boardEventLog = _serviceProvider.GetRequiredService<IBoardEventLog>();
             var boardPlugin = new BoardPlugin(
                 _serviceProvider.GetRequiredService<IBoardsRepository>(),
                 _serviceProvider.GetRequiredService<IBoardEventPipeline>(),
-                _serviceProvider.GetRequiredService<IBoardEventLog>(),
+                boardEventLog,
                 _serviceProvider.GetRequiredService<IHubContext<BoardsHub>>(),
                 boardId);
 
@@ -201,7 +207,7 @@ namespace EventStormingBoard.Server.Services
 
             return await groupChat.RunAsync(
                 boardId, board, boardPlugin, messages,
-                allowDestructiveChanges, cancellationToken,
+                allowDestructiveChanges, boardEventLog, cancellationToken,
                 onStepCompleted: BroadcastStep).ConfigureAwait(false);
         }
 
@@ -271,10 +277,9 @@ namespace EventStormingBoard.Server.Services
             return result;
         }
 
-        private string BuildAutonomousPrompt(Guid boardId, string triggerReason)
+        private string BuildAutonomousPrompt(Guid boardId, string triggerReason, int turnsInCurrentPhase)
         {
             var board = _serviceProvider.GetRequiredService<IBoardsRepository>().GetById(boardId);
-            var isEarlyFlowLayoutPhase = board?.Phase is EventStormingPhase.IdentifyEvents or EventStormingPhase.AddCommandsAndPolicies;
             var needsSessionIntroduction = board is not null &&
                 string.IsNullOrWhiteSpace(board.Domain) &&
                 string.IsNullOrWhiteSpace(board.SessionScope) &&
@@ -284,8 +289,8 @@ namespace EventStormingBoard.Server.Services
             var phaseGuidance = board?.Phase switch
             {
                 EventStormingPhase.SetContext => "If this phase has just started, explain that participants should clarify the domain boundary, business goal, actors, and scope before modeling the flow.",
-                EventStormingPhase.IdentifyEvents => "If this phase has just started, explain that participants should brainstorm domain events in past tense, place them chronologically, and keep adding more events themselves after you delegate a starter example (max 3). They should think of as many events as possible before moving on to adding commands or policies. If the phase didn't just start, ask if there are any important events missing or if the flow looks complete enough to move on - also delegate reviewing the board and re-arranging notes to make more space if it is needed.",
-                EventStormingPhase.AddCommandsAndPolicies => "If this phase has just started, explain that participants should pick one existing Event at a time and connect it back to what triggered it using a Command, Policy and optionally an ExternalSystem - delegate a starter example for one Event. The starter example must cover exactly one Event, not the whole happy path. Prefer a user-invoked Command with a User note when the domain plausibly supports one, and explain the difference between a user-invoked Command, an automated Command, and a Policy before asking participants to continue the rest themselves. If the phase didn't just start, delegate reviewing the board and re-arranging notes to make more space if it is needed",
+                EventStormingPhase.IdentifyEvents => "If this phase has just started, explain that participants should brainstorm domain events in past tense, place them chronologically, and keep adding more events themselves after you delegate a starter example (max 3). They should think of as many events as possible before moving on to adding commands or policies. If the phase didn't just start, ask if there are any important events missing or if the flow looks complete enough to move on - also delegate reviewing the board if it is needed.",
+                EventStormingPhase.AddCommandsAndPolicies => "If this phase has just started, explain that participants should pick one existing Event at a time and connect it back to what triggered it using a Command, Policy and optionally an ExternalSystem - delegate a starter example for one Event. The starter example must cover exactly one Event, not the whole happy path. Prefer a user-invoked Command with a User note when the domain plausibly supports one, and explain the difference between a user-invoked Command, an automated Command, and a Policy before asking participants to continue the rest themselves. If the phase didn't just start, delegate reviewing the board if it is needed.",
                 EventStormingPhase.DefineAggregates => "If this phase has just started, explain that participants should identify the core aggregates that own behavior around existing commands and events - delegate adding one example aggregate. Do not add ReadModels unless someone explicitly asks for them.",
                 EventStormingPhase.BreakItDown => "If this phase has just started, explain that participants should identify bounded contexts, subdomains, and integration boundaries rather than adding lots of new notes.",
                 _ => "If the current phase has just started, explain the phase goal and what participants should do before or alongside your first example."
@@ -295,8 +300,10 @@ namespace EventStormingBoard.Server.Services
                 ? "This is a brand new blank session. Ensure the session starts in SetContext. Your very first reply must do four things in this order: (1) briefly explain the high-level Event Storming process and the main phases, (2) explain the house rules for how participants should contribute, (3) explain why the team is working this way, and only then (4) ask one concrete question to capture the missing domain and scope context. Do not skip the introduction and do not jump straight to the question."
                 : string.Empty;
 
-            var layoutGuidance = isEarlyFlowLayoutPhase
-                ? "When adding or rearranging notes in this phase, leave generous room between events or clusters so users can keep extending the board. If notes are getting cramped, use MoveNotes to spread them out."
+            var layoutGuidance = string.Empty; // The Organiser agent handles board layout automatically.
+
+            var reviewGuidance = turnsInCurrentPhase >= 2
+                ? "This phase has had multiple autonomous turns without user activity. Before making further changes, use RequestBoardReview to review the current board quality and provide feedback to participants."
                 : string.Empty;
 
             return $"""
@@ -307,6 +314,7 @@ namespace EventStormingBoard.Server.Services
                 {phaseGuidance}
                 {sessionBootstrap}
                 {layoutGuidance}
+                {reviewGuidance}
                 Ask at most one concise question or delegate one small facilitation move unless users have explicitly asked for broader changes.
                 By default, autonomous facilitation should prefer spreading out existing events to make collaboration easier, asking questions that get participants thinking, suggesting improvements, or suggesting that the group moves to the next phase if the current phase looks complete.
                 When a phase has just started (or you have started it), or when the users have asked for help with the phase, you may delegate a very small starter example via RequestSpecialistProposal to teach how the phase works. Keep that example intentionally small, then stop and hand back to the users.

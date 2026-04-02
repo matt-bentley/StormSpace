@@ -41,7 +41,7 @@ const AGENT_DISPLAY: Record<string, AgentDisplayInfo> = {
   TriggerMapper: { label: 'Trigger Mapper', icon: 'account_tree', cssClass: 'agent-trigger-mapper' },
   DomainDesigner: { label: 'Domain Designer', icon: 'architecture', cssClass: 'agent-domain-designer' },
   WallScribe: { label: 'Wall Scribe', icon: 'edit_note', cssClass: 'agent-wall-scribe' },
-  Challenger: { label: 'Challenger', icon: 'gavel', cssClass: 'agent-challenger' },
+  Organiser: { label: 'Organiser', icon: 'auto_fix_high', cssClass: 'agent-organiser' },
 };
 
 const DEFAULT_AGENT: AgentDisplayInfo = { label: 'AI Assistant', icon: 'smart_toy', cssClass: 'agent-default' };

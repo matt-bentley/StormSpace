@@ -17,6 +17,8 @@ public class AgentServiceToolPolicyTests
         Assert.Contains(nameof(BoardPlugin.SetPhase), tools);
         Assert.Contains(nameof(BoardPlugin.CompleteAutonomousSession), tools);
         Assert.Contains(nameof(DelegationPlugin.RequestSpecialistProposal), tools);
+        Assert.Contains(nameof(DelegationPlugin.RequestBoardReview), tools);
+        Assert.Contains(nameof(DelegationPlugin.RequestBoardOrganisation), tools);
 
         Assert.DoesNotContain(nameof(BoardPlugin.CreateNote), tools);
         Assert.DoesNotContain(nameof(BoardPlugin.CreateNotes), tools);
@@ -28,7 +30,7 @@ public class AgentServiceToolPolicyTests
     }
 
     [Fact]
-    public void SpecialistsAndChallenger_HaveReadOnlyTools()
+    public void Specialists_HaveReadOnlyTools()
     {
         var tools = BoardAgentFactory.GetReadOnlyToolNames();
 
@@ -61,5 +63,23 @@ public class AgentServiceToolPolicyTests
         Assert.Contains(nameof(BoardPlugin.CreateNotes), tools);
         Assert.Contains(nameof(BoardPlugin.EditNoteText), tools);
         Assert.Contains(nameof(BoardPlugin.MoveNotes), tools);
+    }
+
+    [Fact]
+    public void Organiser_HasMoveAndConcernTools_Only()
+    {
+        var tools = BoardAgentFactory.GetOrganiserToolNames();
+
+        Assert.Contains(nameof(BoardPlugin.GetBoardState), tools);
+        Assert.Contains(nameof(BoardPlugin.MoveNotes), tools);
+        Assert.Contains(nameof(BoardPlugin.CreateNote), tools);
+        Assert.Equal(3, tools.Count);
+
+        // Must NOT have destructive or creative tools beyond Concern notes
+        Assert.DoesNotContain(nameof(BoardPlugin.CreateNotes), tools);
+        Assert.DoesNotContain(nameof(BoardPlugin.CreateConnection), tools);
+        Assert.DoesNotContain(nameof(BoardPlugin.CreateConnections), tools);
+        Assert.DoesNotContain(nameof(BoardPlugin.EditNoteText), tools);
+        Assert.DoesNotContain(nameof(BoardPlugin.DeleteNotes), tools);
     }
 }

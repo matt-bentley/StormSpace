@@ -2,6 +2,7 @@ using EventStormingBoard.Server.Entities;
 using EventStormingBoard.Server.Filters;
 using EventStormingBoard.Server.Models;
 using EventStormingBoard.Server.Plugins;
+using EventStormingBoard.Server.Services;
 using Microsoft.Extensions.AI;
 using System.Text;
 
@@ -20,7 +21,8 @@ namespace EventStormingBoard.Server.Agents
     /// <summary>
     /// Orchestrates a group chat between the Lead Facilitator and specialist agents.
     /// The Facilitator is the main entry point. When it calls RequestSpecialistProposal,
-    /// the specialist pipeline runs: Specialist → Challenger → Wall Scribe (if approved).
+    /// the specialist pipeline runs: Specialist → Wall Scribe.
+    /// When it calls RequestBoardReview, a specialist runs in advisory review mode.
     /// All agent steps are collected for UI display.
     /// </summary>
     public sealed class FacilitatorGroupChat
@@ -42,10 +44,12 @@ namespace EventStormingBoard.Server.Agents
             BoardPlugin boardPlugin,
             List<ChatMessage> conversationHistory,
             bool allowDestructiveChanges,
+            IBoardEventLog boardEventLog,
             CancellationToken cancellationToken,
             Func<AgentStep, Task>? onStepCompleted = null)
         {
             var steps = new List<AgentStep>();
+            bool organiserRanViaDelegation = false;
 
             _toolCallFilter.BeginCapture(boardId.ToString());
 
@@ -66,7 +70,28 @@ namespace EventStormingBoard.Server.Agents
                     return pipelineResult;
                 }
 
-                var facilitator = _agentFactory.CreateFacilitator(board, boardPlugin, DelegationHandler, boardId);
+                async Task<string> ReviewHandler(SpecialistAgent? specialist, string instructions)
+                {
+                    delegationStartIndex = _toolCallFilter.PeekCaptureCount(boardId.ToString());
+                    var reviewResult = await RunReviewPipelineAsync(
+                        boardId, board, boardPlugin, specialist, instructions,
+                        steps, onStepCompleted, cancellationToken).ConfigureAwait(false);
+                    delegationEndIndex = _toolCallFilter.PeekCaptureCount(boardId.ToString());
+                    return reviewResult;
+                }
+
+                async Task<string> OrganisationHandler(string instructions)
+                {
+                    organiserRanViaDelegation = true;
+                    delegationStartIndex = _toolCallFilter.PeekCaptureCount(boardId.ToString());
+                    var result = await RunOrganiserAsync(
+                        boardId, board, boardPlugin, instructions,
+                        steps, onStepCompleted, cancellationToken).ConfigureAwait(false);
+                    delegationEndIndex = _toolCallFilter.PeekCaptureCount(boardId.ToString());
+                    return result;
+                }
+
+                var facilitator = _agentFactory.CreateFacilitator(board, boardPlugin, DelegationHandler, ReviewHandler, OrganisationHandler, boardId);
                 var response = await facilitator.RunAsync(conversationHistory, cancellationToken: cancellationToken).ConfigureAwait(false);
 
                 var allToolCalls = _toolCallFilter.EndCapture(boardId.ToString());
@@ -115,6 +140,24 @@ namespace EventStormingBoard.Server.Agents
                     steps.Add(facilitatorStep);
                     if (onStepCompleted != null)
                         await onStepCompleted(facilitatorStep).ConfigureAwait(false);
+                }
+
+                // --- Organiser: run if notes were recently created (by agent or user) ---
+                if (!organiserRanViaDelegation)
+                {
+                    bool agentCreatedNotes = allToolCalls.Any(tc =>
+                        tc.Name == nameof(BoardPlugin.CreateNote) ||
+                        tc.Name == nameof(BoardPlugin.CreateNotes));
+
+                    bool hasRecentUserNotes = HasRecentNoteCreations(boardEventLog, boardId);
+
+                    if (agentCreatedNotes || hasRecentUserNotes)
+                    {
+                        await RunOrganiserAsync(
+                            boardId, board, boardPlugin,
+                            "Organise the board according to positioning rules for the current phase.",
+                            steps, onStepCompleted, cancellationToken).ConfigureAwait(false);
+                    }
                 }
 
                 return steps;
@@ -177,43 +220,13 @@ namespace EventStormingBoard.Server.Agents
             sb.AppendLine($"## {specialistName} Proposal");
             sb.AppendLine(proposal);
 
-            // --- Step 2: Challenger reviews the proposal ---
-            var preChallengerCount = CountCapturedToolCalls(boardKey);
-            var challenger = _agentFactory.CreateChallenger(board, boardPlugin, boardId);
-            var challengerMessages = new List<ChatMessage>
-            {
-                new(ChatRole.User, $"Review the following proposal from {specialistName}:\n\n{proposal}")
-            };
-            var challengerResponse = await challenger
-                .RunAsync(challengerMessages, cancellationToken: cancellationToken)
-                .ConfigureAwait(false);
-            var review = challengerResponse.Text ?? string.Empty;
-            var challengerToolCalls = SliceCapturedToolCalls(boardKey, preChallengerCount);
-
-            var challengerStep = new AgentStep
-            {
-                AgentName = "Challenger",
-                Content = review,
-                ToolCalls = challengerToolCalls
-            };
-            steps.Add(challengerStep);
-            if (onStepCompleted != null)
-                await onStepCompleted(challengerStep).ConfigureAwait(false);
-
-            sb.AppendLine();
-            sb.AppendLine("## Challenger Review");
-            sb.AppendLine(review);
-
-            // --- Step 3: If approved, Wall Scribe executes ---
-            if (IsApproved(review))
+            // --- Step 2: Wall Scribe executes the proposal ---
             {
                 var preScribeCount = CountCapturedToolCalls(boardKey);
                 var scribe = _agentFactory.CreateWallScribe(board, boardPlugin, allowDestructiveChanges, boardId);
                 var scribeMessages = new List<ChatMessage>
                 {
-                    new(ChatRole.User,
-                        $"Execute the following approved proposal:\n\n{proposal}" +
-                        (string.IsNullOrWhiteSpace(review) ? string.Empty : $"\n\nChallenger notes:\n{review}"))
+                    new(ChatRole.User, $"Execute the following proposal:\n\n{proposal}")
                 };
                 var scribeResponse = await scribe
                     .RunAsync(scribeMessages, cancellationToken: cancellationToken)
@@ -235,15 +248,70 @@ namespace EventStormingBoard.Server.Agents
                 sb.AppendLine("## Execution Result");
                 sb.AppendLine(scribeText);
             }
-            else
-            {
-                sb.AppendLine();
-                sb.AppendLine("## Execution");
-                sb.AppendLine("Proposal was REJECTED by the Challenger. No changes were made to the board.");
-                sb.AppendLine("Consider revising the approach based on the Challenger's feedback.");
-            }
 
             return sb.ToString();
+        }
+
+        private async Task<string> RunReviewPipelineAsync(
+            Guid boardId,
+            Board? board,
+            BoardPlugin boardPlugin,
+            SpecialistAgent? specialist,
+            string instructions,
+            List<AgentStep> steps,
+            Func<AgentStep, Task>? onStepCompleted,
+            CancellationToken cancellationToken)
+        {
+            var boardKey = boardId.ToString();
+
+            // Resolve which specialist should perform the review.
+            // If not specified, pick based on the current board phase.
+            var resolvedSpecialist = specialist ?? ResolveReviewerForPhase(board);
+            var reviewerRole = resolvedSpecialist switch
+            {
+                SpecialistAgent.EventExplorer => AgentRole.EventExplorer,
+                SpecialistAgent.TriggerMapper => AgentRole.TriggerMapper,
+                SpecialistAgent.DomainDesigner => AgentRole.DomainDesigner,
+                _ => throw new ArgumentOutOfRangeException(nameof(specialist))
+            };
+
+            var reviewerName = resolvedSpecialist.ToString();
+            var preReviewCount = CountCapturedToolCalls(boardKey);
+            var reviewer = _agentFactory.CreateReviewer(reviewerRole, board, boardPlugin, boardId);
+            var reviewMessages = new List<ChatMessage>
+            {
+                new(ChatRole.User, instructions)
+            };
+            var reviewResponse = await reviewer
+                .RunAsync(reviewMessages, cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+            var reviewText = reviewResponse.Text ?? string.Empty;
+            var reviewToolCalls = SliceCapturedToolCalls(boardKey, preReviewCount);
+
+            var reviewStep = new AgentStep
+            {
+                AgentName = reviewerName,
+                Content = reviewText,
+                ToolCalls = reviewToolCalls
+            };
+            steps.Add(reviewStep);
+            if (onStepCompleted != null)
+                await onStepCompleted(reviewStep).ConfigureAwait(false);
+
+            return reviewText;
+        }
+
+        private static SpecialistAgent ResolveReviewerForPhase(Board? board)
+        {
+            return board?.Phase switch
+            {
+                Models.EventStormingPhase.SetContext => SpecialistAgent.EventExplorer,
+                Models.EventStormingPhase.IdentifyEvents => SpecialistAgent.EventExplorer,
+                Models.EventStormingPhase.AddCommandsAndPolicies => SpecialistAgent.TriggerMapper,
+                Models.EventStormingPhase.DefineAggregates => SpecialistAgent.DomainDesigner,
+                Models.EventStormingPhase.BreakItDown => SpecialistAgent.DomainDesigner,
+                _ => SpecialistAgent.EventExplorer
+            };
         }
 
         /// <summary>
@@ -262,16 +330,60 @@ namespace EventStormingBoard.Server.Agents
             return _toolCallFilter.PeekCaptureSlice(boardKey, fromIndex);
         }
 
-        private static bool IsApproved(string reviewText)
+        private async Task<string> RunOrganiserAsync(
+            Guid boardId,
+            Board? board,
+            BoardPlugin boardPlugin,
+            string instructions,
+            List<AgentStep> steps,
+            Func<AgentStep, Task>? onStepCompleted,
+            CancellationToken cancellationToken)
         {
-            // Use word boundary check to avoid false positives on "DISAPPROVED"
-            bool hasApproved = System.Text.RegularExpressions.Regex.IsMatch(
-                reviewText, @"\bAPPROVED\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-            bool hasRejected = reviewText.Contains("REJECTED", StringComparison.OrdinalIgnoreCase)
-                            || reviewText.Contains("NOT APPROVED", StringComparison.OrdinalIgnoreCase)
-                            || reviewText.Contains("DISAPPROVED", StringComparison.OrdinalIgnoreCase);
+            var boardKey = boardId.ToString();
+            _toolCallFilter.BeginCapture(boardKey);
+            try
+            {
+                var organiser = _agentFactory.CreateOrganiser(board, boardPlugin, boardId);
+                var organiserMessages = new List<ChatMessage>
+                {
+                    new(ChatRole.User, instructions)
+                };
+                var organiserResponse = await organiser
+                    .RunAsync(organiserMessages, cancellationToken: cancellationToken)
+                    .ConfigureAwait(false);
+                var organiserToolCalls = _toolCallFilter.EndCapture(boardKey);
 
-            return hasApproved && !hasRejected;
+                var organiserText = organiserResponse.Text ?? string.Empty;
+                var organiserStep = new AgentStep
+                {
+                    AgentName = "Organiser",
+                    Content = organiserText,
+                    ToolCalls = organiserToolCalls
+                };
+                steps.Add(organiserStep);
+                if (onStepCompleted != null)
+                    await onStepCompleted(organiserStep).ConfigureAwait(false);
+
+                return organiserText;
+            }
+            catch
+            {
+                _toolCallFilter.EndCapture(boardKey);
+                throw;
+            }
         }
+
+        private static readonly TimeSpan RecentNoteWindow = TimeSpan.FromSeconds(120);
+
+        private static bool HasRecentNoteCreations(IBoardEventLog eventLog, Guid boardId)
+        {
+            var cutoff = DateTimeOffset.UtcNow - RecentNoteWindow;
+            var recentEvents = eventLog.GetRecent(boardId, 50);
+            return recentEvents.Any(e =>
+                e.EventType == "NoteCreatedEvent" &&
+                e.Timestamp >= cutoff);
+        }
+
+
     }
 }

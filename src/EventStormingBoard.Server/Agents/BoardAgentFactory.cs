@@ -34,9 +34,11 @@ namespace EventStormingBoard.Server.Agents
             Board? board,
             BoardPlugin boardPlugin,
             Func<SpecialistAgent, string, Task<string>> delegationHandler,
+            Func<SpecialistAgent?, string, Task<string>> reviewHandler,
+            Func<string, Task<string>> organisationHandler,
             Guid boardId)
         {
-            var delegationPlugin = new DelegationPlugin(delegationHandler);
+            var delegationPlugin = new DelegationPlugin(delegationHandler, reviewHandler, organisationHandler);
             var tools = new List<AITool>
             {
                 CreateTool(boardPlugin, nameof(BoardPlugin.GetBoardState)),
@@ -45,7 +47,9 @@ namespace EventStormingBoard.Server.Agents
                 CreateTool(boardPlugin, nameof(BoardPlugin.SetSessionScope)),
                 CreateTool(boardPlugin, nameof(BoardPlugin.SetPhase)),
                 CreateTool(boardPlugin, nameof(BoardPlugin.CompleteAutonomousSession)),
-                CreateTool(delegationPlugin, nameof(DelegationPlugin.RequestSpecialistProposal))
+                CreateTool(delegationPlugin, nameof(DelegationPlugin.RequestSpecialistProposal)),
+                CreateTool(delegationPlugin, nameof(DelegationPlugin.RequestBoardReview)),
+                CreateTool(delegationPlugin, nameof(DelegationPlugin.RequestBoardOrganisation))
             };
 
             return BuildAgent(AgentPrompts.BuildLeadFacilitatorPrompt(board), tools, boardId);
@@ -69,12 +73,6 @@ namespace EventStormingBoard.Server.Agents
             return BuildAgent(prompt, tools, boardId);
         }
 
-        public AIAgent CreateChallenger(Board? board, BoardPlugin boardPlugin, Guid boardId)
-        {
-            var tools = CreateReadOnlyTools(boardPlugin);
-            return BuildAgent(AgentPrompts.BuildChallengerPrompt(board), tools, boardId);
-        }
-
         public AIAgent CreateWallScribe(
             Board? board,
             BoardPlugin boardPlugin,
@@ -83,6 +81,26 @@ namespace EventStormingBoard.Server.Agents
         {
             var tools = CreateWallScribeTools(boardPlugin, allowDestructiveChanges);
             return BuildAgent(AgentPrompts.BuildWallScribePrompt(board), tools, boardId);
+        }
+
+        public AIAgent CreateReviewer(
+            AgentRole specialistRole,
+            Board? board,
+            BoardPlugin boardPlugin,
+            Guid boardId)
+        {
+            var prompt = AgentPrompts.BuildReviewPrompt(specialistRole, board);
+            var tools = CreateReadOnlyTools(boardPlugin);
+            return BuildAgent(prompt, tools, boardId);
+        }
+
+        public AIAgent CreateOrganiser(
+            Board? board,
+            BoardPlugin boardPlugin,
+            Guid boardId)
+        {
+            var tools = CreateOrganiserTools(boardPlugin);
+            return BuildAgent(AgentPrompts.BuildOrganiserPrompt(board), tools, boardId);
         }
 
         private AIAgent BuildAgent(string instructions, IList<AITool> tools, Guid boardId)
@@ -129,7 +147,9 @@ namespace EventStormingBoard.Server.Agents
                 nameof(BoardPlugin.SetSessionScope),
                 nameof(BoardPlugin.SetPhase),
                 nameof(BoardPlugin.CompleteAutonomousSession),
-                nameof(DelegationPlugin.RequestSpecialistProposal)
+                nameof(DelegationPlugin.RequestSpecialistProposal),
+                nameof(DelegationPlugin.RequestBoardReview),
+                nameof(DelegationPlugin.RequestBoardOrganisation)
             };
         }
 
@@ -163,6 +183,16 @@ namespace EventStormingBoard.Server.Agents
             return names;
         }
 
+        public static IReadOnlyList<string> GetOrganiserToolNames()
+        {
+            return new[]
+            {
+                nameof(BoardPlugin.GetBoardState),
+                nameof(BoardPlugin.MoveNotes),
+                nameof(BoardPlugin.CreateNote)
+            };
+        }
+
         private static IList<AITool> CreateReadOnlyTools(BoardPlugin boardPlugin)
         {
             return new List<AITool>
@@ -191,6 +221,16 @@ namespace EventStormingBoard.Server.Agents
             }
 
             return tools;
+        }
+
+        private static IList<AITool> CreateOrganiserTools(BoardPlugin boardPlugin)
+        {
+            return new List<AITool>
+            {
+                CreateTool(boardPlugin, nameof(BoardPlugin.GetBoardState)),
+                CreateTool(boardPlugin, nameof(BoardPlugin.MoveNotes)),
+                CreateTool(boardPlugin, nameof(BoardPlugin.CreateNote))
+            };
         }
 
         #endregion

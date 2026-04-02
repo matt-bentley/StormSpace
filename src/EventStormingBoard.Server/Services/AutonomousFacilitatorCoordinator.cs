@@ -13,6 +13,8 @@ namespace EventStormingBoard.Server.Services
         string? GetTriggerReason(Guid boardId, DateTimeOffset now);
         bool TryStartRun(Guid boardId, string triggerReason, DateTimeOffset now, out AutonomousFacilitatorStatusDto status);
         AutonomousFacilitatorStatusDto CompleteRun(Guid boardId, AutonomousAgentResult result, DateTimeOffset now);
+        int GetTurnsInCurrentPhase(Guid boardId);
+        void RecordPhaseAtRun(Guid boardId, string? phase);
     }
 
     public sealed class AutonomousFacilitatorCoordinator : IAutonomousFacilitatorCoordinator
@@ -210,6 +212,32 @@ namespace EventStormingBoard.Server.Services
             }
         }
 
+        public int GetTurnsInCurrentPhase(Guid boardId)
+        {
+            var state = _states.GetOrAdd(boardId, _ => new RuntimeState());
+            lock (state.SyncRoot)
+            {
+                return state.TurnsInCurrentPhase;
+            }
+        }
+
+        public void RecordPhaseAtRun(Guid boardId, string? phase)
+        {
+            var state = _states.GetOrAdd(boardId, _ => new RuntimeState());
+            lock (state.SyncRoot)
+            {
+                if (string.Equals(state.PhaseAtLastRun, phase, StringComparison.Ordinal))
+                {
+                    state.TurnsInCurrentPhase++;
+                }
+                else
+                {
+                    state.PhaseAtLastRun = phase;
+                    state.TurnsInCurrentPhase = 1;
+                }
+            }
+        }
+
         private static bool CanRunNow(RuntimeState state, DateTimeOffset now)
         {
             if (state.LastRunStartedUtc.HasValue && now - state.LastRunStartedUtc.Value < MinimumCooldown)
@@ -268,6 +296,8 @@ namespace EventStormingBoard.Server.Services
             public string? LastResultStatus { get; set; }
             public string? StopReason { get; set; }
             public string? TriggerReason { get; set; }
+            public string? PhaseAtLastRun { get; set; }
+            public int TurnsInCurrentPhase { get; set; }
             public DateTimeOffset UpdatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
         }
     }

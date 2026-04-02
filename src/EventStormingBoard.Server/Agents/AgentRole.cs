@@ -9,7 +9,7 @@ namespace EventStormingBoard.Server.Agents
         TriggerMapper,
         DomainDesigner,
         WallScribe,
-        Challenger
+        Organiser
     }
 
     [JsonConverter(typeof(JsonStringEnumConverter))]
