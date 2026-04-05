@@ -26,11 +26,7 @@
           placeholder="What is this event storming session focused on? Which bounded context or process flow? E.g., 'Order fulfillment - from order placement through to delivery confirmation.'"></textarea>
       </mat-form-field>
 
-      <mat-form-field appearance="outline">
-        <mat-label>Agent Instructions</mat-label>
-        <textarea matInput [(ngModel)]="data.agentInstructions" name="agentInstructions" rows="3"
-          placeholder="How should the AI agent behave? E.g., 'Be critical of naming. Challenge vague events. Suggest missing aggregates. Focus on the happy path first.'"></textarea>
-      </mat-form-field>
+      <p class="agents-hint">Default AI agents will be configured automatically. You can customize them from the board.</p>
     </details>
 
     <div class="warning-text">Warning! Storm boards self-destruct in 1 hour if not used.</div>

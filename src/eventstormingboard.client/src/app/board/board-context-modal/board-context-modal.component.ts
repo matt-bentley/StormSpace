@@ -11,7 +11,6 @@ import { EVENT_STORMING_PHASES } from '../../_shared/models/board.model';
 export interface BoardContextData {
   domain: string;
   sessionScope: string;
-  agentInstructions: string;
   phase: string;
   autonomousEnabled: boolean;
 }

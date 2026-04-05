@@ -3,6 +3,7 @@ import * as signalR from '@microsoft/signalr';
 import { Subject } from 'rxjs';
 import { BoardContextUpdatedEvent, BoardNameUpdatedEvent, ConnectionCreatedEvent, CursorPositionUpdatedEvent, NoteCreatedEvent, NoteResizedEvent, NotesDeletedEvent, NotesMovedEvent, NoteTextEditedEvent, PastedEvent, UserJoinedBoardEvent, UserLeftBoardEvent } from '../models/board-events.model';
 import { BoardUser } from '../models/board-user.model';
+import { AgentConfiguration } from '../models/agent-configuration.model';
 
 export interface AgentToolCall {
   name: string;
@@ -14,6 +15,7 @@ export interface AgentChatMessage {
   userName?: string;
   agentName?: string;
   content?: string;
+  prompt?: string;
   toolCalls?: AgentToolCall[];
   timestamp?: string;
 }
@@ -65,6 +67,7 @@ export class BoardsSignalRService {
   public agentToolCallStarted$ = new Subject<AgentToolCallStartedEvent>();
   public autonomousStatusChanged$ = new Subject<AutonomousFacilitatorStatus>();
   public agentHistoryCleared$ = new Subject<string>();
+  public agentConfigurationsUpdated$ = new Subject<{ boardId: string; agents: AgentConfiguration[] }>();
   public agentChatHistory: AgentChatMessage[] = [];
   public autonomousStatuses = new Map<string, AutonomousFacilitatorStatus>();
 
@@ -152,6 +155,12 @@ export class BoardsSignalRService {
       const boardId = this.pickValue<string>(event, 'boardId', 'BoardId') ?? '';
       this.agentChatHistory = [];
       this.agentHistoryCleared$.next(boardId);
+    });
+    this.hubConnection.on('AgentConfigurationsUpdated', (event) => {
+      const raw = (event ?? {}) as Record<string, unknown>;
+      const boardId = this.pickValue<string>(raw, 'boardId', 'BoardId') ?? '';
+      const agents = (this.pickValue<unknown[]>(raw, 'agents', 'Agents') ?? []) as AgentConfiguration[];
+      this.agentConfigurationsUpdated$.next({ boardId, agents });
     });
 
     return this.hubConnection.start()
@@ -259,6 +268,7 @@ export class BoardsSignalRService {
       userName: this.pickValue<string>(event, 'userName', 'UserName'),
       agentName: this.pickValue<string>(event, 'agentName', 'AgentName'),
       content: this.pickValue<string>(event, 'content', 'Content'),
+      prompt: this.pickValue<string>(event, 'prompt', 'Prompt'),
       timestamp: this.pickValue<string>(event, 'timestamp', 'Timestamp'),
       toolCalls: Array.isArray(toolCalls)
         ? toolCalls.map((toolCall) => {

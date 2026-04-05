@@ -34,8 +34,6 @@ export interface BoardContextUpdatedEvent extends BoardEvent {
     oldDomain?: string;
     newSessionScope?: string;
     oldSessionScope?: string;
-    newAgentInstructions?: string;
-    oldAgentInstructions?: string;
     newPhase?: string;
     oldPhase?: string;
     newAutonomousEnabled: boolean;

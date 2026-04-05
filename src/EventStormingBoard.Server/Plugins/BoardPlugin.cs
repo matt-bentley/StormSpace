@@ -78,7 +78,7 @@ namespace EventStormingBoard.Server.Plugins
         }
 
         [Description("Sets the board Domain context used to guide the Event Storming facilitator. Pass an empty value to clear it.")]
-        public string SetDomain(
+        public async Task<string> SetDomain(
             [Description("The domain context for this board")] string? domain)
         {
             var board = _repository.GetById(_boardId);
@@ -95,8 +95,6 @@ namespace EventStormingBoard.Server.Plugins
                 NewDomain = normalizedDomain,
                 OldSessionScope = board.SessionScope,
                 NewSessionScope = board.SessionScope,
-                OldAgentInstructions = board.AgentInstructions,
-                NewAgentInstructions = board.AgentInstructions,
                 OldPhase = board.Phase,
                 NewPhase = board.Phase,
                 OldAutonomousEnabled = board.AutonomousEnabled,
@@ -104,7 +102,7 @@ namespace EventStormingBoard.Server.Plugins
             };
 
             _boardEventPipeline.ApplyAndLog(@event, "AI Agent");
-            _hubContext.Clients.Group(_boardId.ToString()).SendAsync("BoardContextUpdated", @event);
+            await _hubContext.Clients.Group(_boardId.ToString()).SendAsync("BoardContextUpdated", @event).ConfigureAwait(false);
 
             return string.IsNullOrWhiteSpace(normalizedDomain)
                 ? "Cleared board domain context."
@@ -112,7 +110,7 @@ namespace EventStormingBoard.Server.Plugins
         }
 
         [Description("Sets the board Session Scope context used to constrain the Event Storming session. Pass an empty value to clear it.")]
-        public string SetSessionScope(
+        public async Task<string> SetSessionScope(
             [Description("The session scope for this board")] string? sessionScope)
         {
             var board = _repository.GetById(_boardId);
@@ -129,8 +127,6 @@ namespace EventStormingBoard.Server.Plugins
                 NewDomain = board.Domain,
                 OldSessionScope = board.SessionScope,
                 NewSessionScope = normalizedSessionScope,
-                OldAgentInstructions = board.AgentInstructions,
-                NewAgentInstructions = board.AgentInstructions,
                 OldPhase = board.Phase,
                 NewPhase = board.Phase,
                 OldAutonomousEnabled = board.AutonomousEnabled,
@@ -138,7 +134,7 @@ namespace EventStormingBoard.Server.Plugins
             };
 
             _boardEventPipeline.ApplyAndLog(@event, "AI Agent");
-            _hubContext.Clients.Group(_boardId.ToString()).SendAsync("BoardContextUpdated", @event);
+            await _hubContext.Clients.Group(_boardId.ToString()).SendAsync("BoardContextUpdated", @event).ConfigureAwait(false);
 
             return string.IsNullOrWhiteSpace(normalizedSessionScope)
                 ? "Cleared board session scope."
@@ -146,7 +142,7 @@ namespace EventStormingBoard.Server.Plugins
         }
 
         [Description("Sets the current Event Storming workshop phase")]
-        public string SetPhase(
+        public async Task<string> SetPhase(
             [Description("The phase to set")] EventStormingPhase phase)
         {
             var board = _repository.GetById(_boardId);
@@ -162,8 +158,6 @@ namespace EventStormingBoard.Server.Plugins
                 NewDomain = board.Domain,
                 OldSessionScope = board.SessionScope,
                 NewSessionScope = board.SessionScope,
-                OldAgentInstructions = board.AgentInstructions,
-                NewAgentInstructions = board.AgentInstructions,
                 OldPhase = board.Phase,
                 NewPhase = phase,
                 OldAutonomousEnabled = board.AutonomousEnabled,
@@ -171,13 +165,13 @@ namespace EventStormingBoard.Server.Plugins
             };
 
             _boardEventPipeline.ApplyAndLog(@event, "AI Agent");
-            _hubContext.Clients.Group(_boardId.ToString()).SendAsync("BoardContextUpdated", @event);
+            await _hubContext.Clients.Group(_boardId.ToString()).SendAsync("BoardContextUpdated", @event).ConfigureAwait(false);
 
             return $"Set board phase to {phase}.";
         }
 
         [Description("Marks the autonomous facilitation session as complete and disables autonomous mode for this board.")]
-        public string CompleteAutonomousSession(
+        public async Task<string> CompleteAutonomousSession(
             [Description("A short summary of why the session is complete")] string? summary = null)
         {
             var board = _repository.GetById(_boardId);
@@ -193,8 +187,6 @@ namespace EventStormingBoard.Server.Plugins
                 NewDomain = board.Domain,
                 OldSessionScope = board.SessionScope,
                 NewSessionScope = board.SessionScope,
-                OldAgentInstructions = board.AgentInstructions,
-                NewAgentInstructions = board.AgentInstructions,
                 OldPhase = board.Phase,
                 NewPhase = board.Phase,
                 OldAutonomousEnabled = board.AutonomousEnabled,
@@ -202,7 +194,7 @@ namespace EventStormingBoard.Server.Plugins
             };
 
             _boardEventPipeline.ApplyAndLog(@event, "AI Agent");
-            _hubContext.Clients.Group(_boardId.ToString()).SendAsync("BoardContextUpdated", @event);
+            await _hubContext.Clients.Group(_boardId.ToString()).SendAsync("BoardContextUpdated", @event).ConfigureAwait(false);
 
             return string.IsNullOrWhiteSpace(summary)
                 ? "Autonomous facilitation completed."
@@ -210,7 +202,7 @@ namespace EventStormingBoard.Server.Plugins
         }
 
         [Description("Creates a new sticky note on the board. Valid note types for Event Storming are: Event (something that happened, past tense), Command (an action/intent triggered by a user or system), Aggregate (a cluster of domain objects), User (an actor/persona), Policy (a business rule or automated reaction, 'when X then Y'), ReadModel (a view/projection of data), ExternalSystem (an outside dependency), Concern (a problem, risk, or question).")]
-        public string CreateNote(
+        public async Task<string> CreateNote(
             [Description("The text label for the note")] string text,
             [Description("The note type: Event, Command, Aggregate, User, Policy, ReadModel, ExternalSystem, or Concern")] NoteType type,
             [Description("X coordinate for placement on the canvas")] double x,
@@ -238,13 +230,13 @@ namespace EventStormingBoard.Server.Plugins
             };
 
             _boardEventPipeline.ApplyAndLog(@event, "AI Agent");
-            _hubContext.Clients.Group(_boardId.ToString()).SendAsync("NoteCreated", @event);
+            await _hubContext.Clients.Group(_boardId.ToString()).SendAsync("NoteCreated", @event).ConfigureAwait(false);
 
             return $"Created {type} note \"{text}\" (id: {noteId})";
         }
 
         [Description("Creates a connection (arrow) between two existing notes on the board. Use note IDs from GetBoardState.")]
-        public string CreateConnection(
+        public async Task<string> CreateConnection(
             [Description("The ID of the source note (where the arrow starts)")] Guid fromNoteId,
             [Description("The ID of the target note (where the arrow ends)")] Guid toNoteId)
         {
@@ -269,13 +261,13 @@ namespace EventStormingBoard.Server.Plugins
             };
 
             _boardEventPipeline.ApplyAndLog(@event, "AI Agent");
-            _hubContext.Clients.Group(_boardId.ToString()).SendAsync("ConnectionCreated", @event);
+            await _hubContext.Clients.Group(_boardId.ToString()).SendAsync("ConnectionCreated", @event).ConfigureAwait(false);
 
             return $"Connected \"{fromNote.Text}\" → \"{toNote.Text}\"";
         }
 
         [Description("Edits the text of an existing note. Use note IDs from GetBoardState.")]
-        public string EditNoteText(
+        public async Task<string> EditNoteText(
             [Description("The ID of the note to edit")] Guid noteId,
             [Description("The new text for the note")] string newText)
         {
@@ -295,13 +287,13 @@ namespace EventStormingBoard.Server.Plugins
             };
 
             _boardEventPipeline.ApplyAndLog(@event, "AI Agent");
-            _hubContext.Clients.Group(_boardId.ToString()).SendAsync("NoteTextEdited", @event);
+            await _hubContext.Clients.Group(_boardId.ToString()).SendAsync("NoteTextEdited", @event).ConfigureAwait(false);
 
             return $"Updated note text from \"{oldText}\" to \"{newText}\"";
         }
 
         [Description("Moves one or more notes to new positions on the board. Use this to reorganise the board layout. Use note IDs from GetBoardState.")]
-        public string MoveNotes(
+        public async Task<string> MoveNotes(
             [Description("The list of note moves specifying each note's ID and target coordinates")] List<NoteMoveInput> moves)
         {
             var board = _repository.GetById(_boardId);
@@ -341,13 +333,13 @@ namespace EventStormingBoard.Server.Plugins
             };
 
             _boardEventPipeline.ApplyAndLog(@event, "AI Agent");
-            _hubContext.Clients.Group(_boardId.ToString()).SendAsync("NotesMoved", @event);
+            await _hubContext.Clients.Group(_boardId.ToString()).SendAsync("NotesMoved", @event).ConfigureAwait(false);
 
             return $"Moved {from.Count} note(s) to new positions.";
         }
 
         [Description("Creates multiple sticky notes on the board in a single call. Returns the generated IDs for each note so you can use them in CreateConnections. Prefer this over CreateNote when adding more than one note.")]
-        public string CreateNotes(
+        public async Task<string> CreateNotes(
             [Description("The list of notes to create")] List<CreateNoteInput> notes)
         {
             var board = _repository.GetById(_boardId);
@@ -383,7 +375,7 @@ namespace EventStormingBoard.Server.Plugins
                 };
 
                 _boardEventPipeline.ApplyAndLog(@event, "AI Agent");
-                _hubContext.Clients.Group(_boardId.ToString()).SendAsync("NoteCreated", @event);
+                await _hubContext.Clients.Group(_boardId.ToString()).SendAsync("NoteCreated", @event).ConfigureAwait(false);
 
                 createdIds.Add((noteId, input.Text));
             }
@@ -397,7 +389,7 @@ namespace EventStormingBoard.Server.Plugins
         }
 
         [Description("Creates multiple connections (arrows) between existing notes in a single call. Use note IDs from GetBoardState or from the IDs returned by CreateNotes. Prefer this over CreateConnection when adding more than one connection.")]
-        public string CreateConnections(
+        public async Task<string> CreateConnections(
             [Description("The list of connections to create")] List<CreateConnectionInput> connections)
         {
             var board = _repository.GetById(_boardId);
@@ -437,7 +429,7 @@ namespace EventStormingBoard.Server.Plugins
                 };
 
                 _boardEventPipeline.ApplyAndLog(@event, "AI Agent");
-                _hubContext.Clients.Group(_boardId.ToString()).SendAsync("ConnectionCreated", @event);
+                await _hubContext.Clients.Group(_boardId.ToString()).SendAsync("ConnectionCreated", @event).ConfigureAwait(false);
 
                 results.AppendLine($"  - \"{fromNote.Text}\" → \"{toNote.Text}\"");
                 created++;
@@ -447,7 +439,7 @@ namespace EventStormingBoard.Server.Plugins
         }
 
         [Description("Deletes one or more notes from the board and any connections involving those notes. Use note IDs from GetBoardState.")]
-        public string DeleteNotes(
+        public async Task<string> DeleteNotes(
             [Description("The list of note IDs to delete")] List<Guid> noteIds)
         {
             var board = _repository.GetById(_boardId);
@@ -483,7 +475,7 @@ namespace EventStormingBoard.Server.Plugins
             };
 
             _boardEventPipeline.ApplyAndLog(@event, "AI Agent");
-            _hubContext.Clients.Group(_boardId.ToString()).SendAsync("NotesDeleted", @event);
+            await _hubContext.Clients.Group(_boardId.ToString()).SendAsync("NotesDeleted", @event).ConfigureAwait(false);
 
             return $"Deleted {notesToDelete.Count} note(s) and {connectionsToDelete.Count} connection(s)";
         }

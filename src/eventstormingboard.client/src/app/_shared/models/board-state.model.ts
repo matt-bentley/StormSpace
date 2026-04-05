@@ -5,7 +5,6 @@ export interface BoardState {
     name: string;
     domain?: string;
     sessionScope?: string;
-    agentInstructions?: string;
     phase?: string;
     autonomousEnabled: boolean;
     notes: Note[];

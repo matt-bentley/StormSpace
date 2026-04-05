@@ -1,4 +1,4 @@
-using EventStormingBoard.Server.Agents;
+﻿using EventStormingBoard.Server.Agents;
 using EventStormingBoard.Server.Events;
 using EventStormingBoard.Server.Filters;
 using EventStormingBoard.Server.Hubs;
@@ -88,16 +88,19 @@ namespace EventStormingBoard.Server.Services
             var steps = await InvokeAgentAsync(boardId, allowDestructiveChanges: false, timeoutCts.Token).ConfigureAwait(false);
             var board = _serviceProvider.GetRequiredService<IBoardsRepository>().GetById(boardId);
             var allToolCalls = steps.SelectMany(s => s.ToolCalls).ToList();
-            var facilitatorReply = steps.FirstOrDefault(s => s.AgentName == "Facilitator")?.Content ?? string.Empty;
+            var facilitatorConfig = board?.AgentConfigurations.FirstOrDefault(a => a.IsFacilitator);
+            var facilitatorName = facilitatorConfig?.Name ?? "Facilitator";
+            var facilitatorReply = steps.FirstOrDefault(s => s.AgentName == facilitatorName)?.Content ?? string.Empty;
             var trimmedReply = facilitatorReply.Trim();
             var usedCompletionTool = allToolCalls.Any(call => string.Equals(call.Name, nameof(BoardPlugin.CompleteAutonomousSession), StringComparison.Ordinal));
 
             if (board?.AutonomousEnabled == false && usedCompletionTool)
             {
                 var visibleMessage = string.IsNullOrWhiteSpace(trimmedReply)
-                    ? "The session looks complete, so I’m pausing autonomous facilitation here."
+                    ? "The session looks complete, so I'm pausing autonomous facilitation here."
                     : trimmedReply;
-                PatchFacilitatorContent(steps, visibleMessage);                var completedMessages = AppendAgentSteps(boardId, steps);
+                PatchFacilitatorContent(steps, facilitatorName, visibleMessage);
+                var completedMessages = AppendAgentSteps(boardId, steps);
 
                 return new AutonomousAgentResult
                 {
@@ -112,11 +115,13 @@ namespace EventStormingBoard.Server.Services
 
             if (string.IsNullOrWhiteSpace(trimmedReply) && allToolCalls.Count == 0)
             {
+                var idleMessages = AppendAgentSteps(boardId, steps);
                 return new AutonomousAgentResult
                 {
                     Status = AutonomousAgentStatus.Idle,
                     TriggerReason = triggerReason,
                     ToolCalls = allToolCalls,
+                    AgentMessages = idleMessages,
                     Diagnostics = "No visible reply and no tool activity."
                 };
             }
@@ -125,7 +130,7 @@ namespace EventStormingBoard.Server.Services
                 ? "I made a small facilitation update to keep the session moving."
                 : trimmedReply;
 
-            PatchFacilitatorContent(steps, visibleActedMessage);
+            PatchFacilitatorContent(steps, facilitatorName, visibleActedMessage);
             var actedMessages = AppendAgentSteps(boardId, steps);
 
             return new AutonomousAgentResult
@@ -160,11 +165,10 @@ namespace EventStormingBoard.Server.Services
         private async Task<List<AgentStep>> InvokeAgentAsync(Guid boardId, bool allowDestructiveChanges, CancellationToken cancellationToken)
         {
             var board = _serviceProvider.GetRequiredService<IBoardsRepository>().GetById(boardId);
-            var boardEventLog = _serviceProvider.GetRequiredService<IBoardEventLog>();
             var boardPlugin = new BoardPlugin(
                 _serviceProvider.GetRequiredService<IBoardsRepository>(),
                 _serviceProvider.GetRequiredService<IBoardEventPipeline>(),
-                boardEventLog,
+                _serviceProvider.GetRequiredService<IBoardEventLog>(),
                 _serviceProvider.GetRequiredService<IHubContext<BoardsHub>>(),
                 boardId);
 
@@ -185,6 +189,7 @@ namespace EventStormingBoard.Server.Services
                     Role = "assistant",
                     AgentName = step.AgentName,
                     Content = step.Content,
+                    Prompt = step.Prompt,
                     ToolCalls = step.ToolCalls.Count > 0 ? step.ToolCalls : null,
                     Timestamp = DateTime.UtcNow
                 };
@@ -205,18 +210,19 @@ namespace EventStormingBoard.Server.Services
                 messages = new List<ChatMessage>();
             }
 
+            var agentConfigurations = board?.AgentConfigurations ?? DefaultAgentConfigurations.CreateDefaults();
+
             return await groupChat.RunAsync(
-                boardId, board, boardPlugin, messages,
-                allowDestructiveChanges, boardEventLog, cancellationToken,
+                boardId, board, boardPlugin, agentConfigurations, messages,
+                allowDestructiveChanges, cancellationToken,
                 onStepCompleted: BroadcastStep).ConfigureAwait(false);
         }
 
-        private static void PatchFacilitatorContent(List<AgentStep> steps, string content)
+        private static void PatchFacilitatorContent(List<AgentStep> steps, string facilitatorName, string content)
         {
-            var facilitator = steps.FirstOrDefault(s => s.AgentName == "Facilitator");
+            var facilitator = steps.FirstOrDefault(s => s.AgentName == facilitatorName);
             if (facilitator != null && string.IsNullOrWhiteSpace(facilitator.Content))
             {
-                // AgentStep.Content has init-only setter; replace the step
                 var index = steps.IndexOf(facilitator);
                 steps[index] = new AgentStep
                 {
@@ -232,11 +238,22 @@ namespace EventStormingBoard.Server.Services
             var conversationHistory = _conversationHistories.GetOrAdd(boardId, static _ => new List<ChatMessage>());
             var displayHistory = _displayHistories.GetOrAdd(boardId, static _ => new List<AgentChatMessageDto>());
 
-            // Append the facilitator's reply to the LLM conversation history
-            var facilitatorReply = steps.FirstOrDefault(s => s.AgentName == "Facilitator")?.Content ?? string.Empty;
+            var board = _serviceProvider.GetRequiredService<IBoardsRepository>().GetById(boardId);
+            var facilitatorConfig = board?.AgentConfigurations.FirstOrDefault(a => a.IsFacilitator);
+            var facilitatorName = facilitatorConfig?.Name ?? "Facilitator";
+
+            // Add all agent messages to conversation history so the LLM has
+            // full context of what delegated agents did on subsequent turns.
             lock (conversationHistory)
             {
-                conversationHistory.Add(new ChatMessage(ChatRole.Assistant, facilitatorReply));
+                foreach (var step in steps)
+                {
+                    if (string.IsNullOrWhiteSpace(step.Content) && step.ToolCalls.Count == 0)
+                        continue;
+
+                    var prefix = step.AgentName == facilitatorName ? "" : $"[{step.AgentName}] ";
+                    conversationHistory.Add(new ChatMessage(ChatRole.Assistant, $"{prefix}{step.Content}"));
+                }
             }
 
             var result = new List<AgentChatMessageDto>();
@@ -252,6 +269,7 @@ namespace EventStormingBoard.Server.Services
                         Role = "assistant",
                         AgentName = step.AgentName,
                         Content = step.Content,
+                        Prompt = step.Prompt,
                         ToolCalls = step.ToolCalls.Count > 0 ? step.ToolCalls : null,
                         Timestamp = DateTime.UtcNow
                     };
@@ -259,13 +277,12 @@ namespace EventStormingBoard.Server.Services
                     result.Add(dto);
                 }
 
-                // Ensure the client always receives at least one response to clear the loading state
                 if (result.Count == 0)
                 {
                     var fallback = new AgentChatMessageDto
                     {
                         Role = "assistant",
-                        AgentName = "Facilitator",
+                        AgentName = facilitatorName,
                         Content = string.Empty,
                         Timestamp = DateTime.UtcNow
                     };
@@ -276,7 +293,6 @@ namespace EventStormingBoard.Server.Services
 
             return result;
         }
-
         private string BuildAutonomousPrompt(Guid boardId, string triggerReason, int turnsInCurrentPhase)
         {
             var board = _serviceProvider.GetRequiredService<IBoardsRepository>().GetById(boardId);
@@ -289,21 +305,19 @@ namespace EventStormingBoard.Server.Services
             var phaseGuidance = board?.Phase switch
             {
                 EventStormingPhase.SetContext => "If this phase has just started, explain that participants should clarify the domain boundary, business goal, actors, and scope before modeling the flow.",
-                EventStormingPhase.IdentifyEvents => "If this phase has just started, explain that participants should brainstorm domain events in past tense, place them chronologically, and keep adding more events themselves after you delegate a starter example (max 3). They should think of as many events as possible before moving on to adding commands or policies. If the phase didn't just start, ask if there are any important events missing or if the flow looks complete enough to move on - also delegate reviewing the board if it is needed.",
-                EventStormingPhase.AddCommandsAndPolicies => "If this phase has just started, explain that participants should pick one existing Event at a time and connect it back to what triggered it using a Command, Policy and optionally an ExternalSystem - delegate a starter example for one Event. The starter example must cover exactly one Event, not the whole happy path. Prefer a user-invoked Command with a User note when the domain plausibly supports one, and explain the difference between a user-invoked Command, an automated Command, and a Policy before asking participants to continue the rest themselves. If the phase didn't just start, delegate reviewing the board if it is needed.",
-                EventStormingPhase.DefineAggregates => "If this phase has just started, explain that participants should identify the core aggregates that own behavior around existing commands and events - delegate adding one example aggregate. Do not add ReadModels unless someone explicitly asks for them.",
-                EventStormingPhase.BreakItDown => "If this phase has just started, explain that participants should identify bounded contexts, subdomains, and integration boundaries rather than adding lots of new notes.",
-                _ => "If the current phase has just started, explain the phase goal and what participants should do before or alongside your first example."
+                EventStormingPhase.IdentifyEvents => "If this phase has just started, explain that participants should brainstorm domain events in past tense, place them chronologically, and keep adding more events themselves after you delegate a starter example (max 3). If the phase didn't just start, ask if there are any important events missing or if the flow looks complete enough to move on.",
+                EventStormingPhase.AddCommandsAndPolicies => "If this phase has just started, explain that participants should pick one existing Event at a time and connect it back to what triggered it. Delegate a starter example for one Event. If the phase didn't just start, delegate reviewing the board if it is needed.",
+                EventStormingPhase.DefineAggregates => "If this phase has just started, explain that participants should identify the core aggregates. Delegate adding one example aggregate.",
+                EventStormingPhase.BreakItDown => "If this phase has just started, explain that participants should identify bounded contexts, subdomains, and integration boundaries.",
+                _ => "If the current phase has just started, explain the phase goal and what participants should do."
             };
 
             var sessionBootstrap = needsSessionIntroduction
-                ? "This is a brand new blank session. Ensure the session starts in SetContext. Your very first reply must do four things in this order: (1) briefly explain the high-level Event Storming process and the main phases, (2) explain the house rules for how participants should contribute, (3) explain why the team is working this way, and only then (4) ask one concrete question to capture the missing domain and scope context. Do not skip the introduction and do not jump straight to the question."
+                ? "This is a brand new blank session. Ensure the session starts in SetContext. Your very first reply must: (1) briefly explain Event Storming, (2) explain house rules, (3) explain why the team is working this way, (4) ask one concrete question to capture domain and scope."
                 : string.Empty;
 
-            var layoutGuidance = string.Empty; // The Organiser agent handles board layout automatically.
-
             var reviewGuidance = turnsInCurrentPhase >= 2
-                ? "This phase has had multiple autonomous turns without user activity. Before making further changes, use RequestBoardReview to review the current board quality and provide feedback to participants."
+                ? "This phase has had multiple autonomous turns. Use RequestBoardReview before making further changes."
                 : string.Empty;
 
             return $"""
@@ -313,15 +327,10 @@ namespace EventStormingBoard.Server.Services
                 Call GetRecentEvents as well as GetBoardState so you can tell whether a phase has just started or changed.
                 {phaseGuidance}
                 {sessionBootstrap}
-                {layoutGuidance}
                 {reviewGuidance}
-                Ask at most one concise question or delegate one small facilitation move unless users have explicitly asked for broader changes.
-                By default, autonomous facilitation should prefer spreading out existing events to make collaboration easier, asking questions that get participants thinking, suggesting improvements, or suggesting that the group moves to the next phase if the current phase looks complete.
-                When a phase has just started (or you have started it), or when the users have asked for help with the phase, you may delegate a very small starter example via RequestSpecialistProposal to teach how the phase works. Keep that example intentionally small, then stop and hand back to the users.
-                In AddCommandsAndPolicies, one small facilitation move means one Event starter example only. Do not continue into neighboring Events after that example.
-                Autonomous facilitation must not delete existing notes or connections. If something looks wrong, mention it, add a Concern, or ask the users before making destructive changes.
-                Avoid rewriting existing work unless the users explicitly ask you to; prefer suggestions over large unsolicited changes.
-                Do not create ReadModel notes unless a user explicitly asks for them or the facilitator instructions clearly require them.
+                Ask at most one concise question or delegate one small facilitation move.
+                When a phase has just started, you may delegate a small starter example via DelegateToAgent.
+                Autonomous facilitation must not delete existing notes or connections.
                 If there is nothing meaningful to add right now, do not call any tools and return an empty response.
                 If the workshop is clearly complete, use the CompleteAutonomousSession tool.
                 """;
@@ -345,8 +354,6 @@ namespace EventStormingBoard.Server.Services
                 NewDomain = board.Domain,
                 OldSessionScope = board.SessionScope,
                 NewSessionScope = board.SessionScope,
-                OldAgentInstructions = board.AgentInstructions,
-                NewAgentInstructions = board.AgentInstructions,
                 OldPhase = board.Phase,
                 NewPhase = EventStormingPhase.SetContext,
                 OldAutonomousEnabled = board.AutonomousEnabled,
@@ -358,7 +365,5 @@ namespace EventStormingBoard.Server.Services
                 .Clients.Group(boardId.ToString())
                 .SendAsync("BoardContextUpdated", @event);
         }
-
-
     }
 }

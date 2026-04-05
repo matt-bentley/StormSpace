@@ -117,8 +117,6 @@ namespace EventStormingBoard.Server.Services
                 NewDomain = board.Domain,
                 OldSessionScope = board.SessionScope,
                 NewSessionScope = board.SessionScope,
-                OldAgentInstructions = board.AgentInstructions,
-                NewAgentInstructions = board.AgentInstructions,
                 OldPhase = board.Phase,
                 NewPhase = board.Phase,
                 OldAutonomousEnabled = board.AutonomousEnabled,

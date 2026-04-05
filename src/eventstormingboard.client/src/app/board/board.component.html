@@ -4,6 +4,9 @@
     <button mat-icon-button (click)="openBoardContext()" matTooltip="Board Context for AI">
       <mat-icon>psychology</mat-icon>
     </button>
+    <button mat-icon-button (click)="openAgentConfig()" matTooltip="Configure AI Agents">
+      <mat-icon>smart_toy</mat-icon>
+    </button>
     <button mat-icon-button (click)="canvasService.downloadCanvasImage()" matTooltip="Export Board as Image">
       <mat-icon>image</mat-icon>
     </button>
@@ -138,6 +141,6 @@
 
 @if (isChatOpen) {
   <div class="ai-chat-container floating">
-    <app-ai-chat-panel [boardId]="canvasService.id" [userName]="userName" [autonomousEnabled]="canvasService.boardState.autonomousEnabled" [autonomousStatus]="autonomousStatus" (disableAutonomousRequested)="disableAutonomousMode()" (closed)="isChatOpen = false; hasUnreadMessages = false"></app-ai-chat-panel>
+    <app-ai-chat-panel [boardId]="canvasService.id" [userName]="userName" [autonomousEnabled]="canvasService.boardState.autonomousEnabled" [autonomousStatus]="autonomousStatus" [agentConfigurations]="agentConfigurations" (disableAutonomousRequested)="disableAutonomousMode()" (closed)="isChatOpen = false; hasUnreadMessages = false"></app-ai-chat-panel>
   </div>
 }

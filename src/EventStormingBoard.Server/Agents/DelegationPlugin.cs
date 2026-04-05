@@ -4,71 +4,71 @@ namespace EventStormingBoard.Server.Agents
 {
     public sealed class DelegationPlugin
     {
-        private readonly Func<SpecialistAgent, string, Task<string>> _proposalHandler;
-        private readonly Func<SpecialistAgent?, string, Task<string>> _reviewHandler;
-        private readonly Func<string, Task<string>> _organisationHandler;
+        private readonly Func<string, string, Task<string>> _delegationHandler;
+        private readonly Func<string?, string, Task<string>> _reviewHandler;
+        private readonly Func<string, string, Task<string>> _questionHandler;
 
         public DelegationPlugin(
-            Func<SpecialistAgent, string, Task<string>> proposalHandler,
-            Func<SpecialistAgent?, string, Task<string>> reviewHandler,
-            Func<string, Task<string>> organisationHandler)
+            Func<string, string, Task<string>> delegationHandler,
+            Func<string?, string, Task<string>> reviewHandler,
+            Func<string, string, Task<string>> questionHandler)
         {
-            _proposalHandler = proposalHandler;
+            _delegationHandler = delegationHandler;
             _reviewHandler = reviewHandler;
-            _organisationHandler = organisationHandler;
+            _questionHandler = questionHandler;
         }
 
         [Description(
-            "Request a specialist agent to propose and execute board changes. " +
-            "The specialist will propose changes and the Wall Scribe will execute them on the board. " +
-            "Use this whenever the session requires creating, moving, editing, or connecting notes.")]
-        public Task<string> RequestSpecialistProposal(
+            "Delegate a task to another agent by name. The agent will use its own tools to execute the task. " +
+            "Use this whenever the session requires creating, moving, editing, or connecting notes, " +
+            "or when specialist expertise is needed.")]
+        public Task<string> DelegateToAgent(
             [Description(
-                "Which specialist to consult: " +
-                "EventExplorer (brainstorm events during SetContext/IdentifyEvents), " +
-                "TriggerMapper (commands/policies during AddCommandsAndPolicies), " +
-                "or DomainDesigner (aggregates/boundaries during DefineAggregates/BreakItDown)")]
-            SpecialistAgent specialist,
+                "The name of the agent to delegate to. " +
+                "Available agents depend on the board configuration and current phase.")]
+            string agentName,
             [Description(
-                "Detailed instructions for the specialist. Include: what to propose, " +
+                "Detailed instructions for the agent. Include: what to do, " +
                 "relevant domain context, the current board state summary, " +
                 "positioning hints, and any user preferences from the conversation.")]
             string instructions)
         {
-            return _proposalHandler(specialist, instructions);
+            return _delegationHandler(agentName, instructions);
         }
 
         [Description(
             "Request an advisory review of the current board state. " +
-            "A specialist will analyse the board and provide feedback on quality, correctness, " +
+            "An agent will analyse the board and provide feedback on quality, correctness, " +
             "and suggestions for improvement. This is non-blocking — no board changes are made. " +
             "Use when the user asks for a review, or when a phase has been running for a while.")]
         public Task<string> RequestBoardReview(
             [Description(
-                "Optional: which specialist should review. " +
-                "EventExplorer (review events), TriggerMapper (review commands/policies), " +
-                "DomainDesigner (review aggregates/boundaries). " +
-                "If null, the most appropriate specialist for the current phase is chosen automatically.")]
-            SpecialistAgent? specialist,
+                "Optional: name of the agent that should review. " +
+                "If null or empty, an appropriate agent for the current phase is chosen automatically.")]
+            string? agentName,
             [Description(
                 "Instructions for the review: what aspects to focus on, " +
                 "any specific concerns the user raised, or areas that need attention.")]
             string instructions)
         {
-            return _reviewHandler(specialist, instructions);
+            return _reviewHandler(agentName, instructions);
         }
 
         [Description(
-            "Request the Organiser agent to tidy and reorganise the board layout. " +
-            "The Organiser moves existing notes to match positioning rules and can add Concern notes for layout ambiguities. " +
-            "Use when the user asks to organise, tidy, or rearrange the board, or when notes look cramped or misaligned.")]
-        public Task<string> RequestBoardOrganisation(
+            "Ask a question to another agent by name and get their answer back. " +
+            "No board changes are made. Use this for domain clarification, " +
+            "business rule questions, or when you need specialist knowledge from another agent.")]
+        public Task<string> AskAgentQuestion(
             [Description(
-                "Instructions for the Organiser: what to focus on, " +
-                "any specific areas that need attention, or user preferences about layout.")]
-            string instructions)
+                "The name of the agent to ask. " +
+                "Available agents depend on the board configuration and your permissions.")]
+            string agentName,
+            [Description(
+                "The question to ask the agent. Be specific and include " +
+                "relevant context so the agent can give a useful answer.")]
+            string question)
         {
-            return _organisationHandler(instructions);
+            return _questionHandler(agentName, question);
         }
     }
 }

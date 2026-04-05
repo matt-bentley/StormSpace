@@ -1,0 +1,113 @@
+<h1 mat-dialog-title>Configure AI Agents</h1>
+<div mat-dialog-content>
+  <p class="description">Configure the AI agents available for this board. The facilitator agent is always present.</p>
+
+  <mat-accordion multi>
+    @for (agent of agents; track agent.id; let i = $index) {
+    <mat-expansion-panel>
+      <mat-expansion-panel-header>
+        <mat-panel-title>
+          <mat-icon [style.color]="agent.color" class="agent-header-icon">{{ agent.icon }}</mat-icon>
+          <span class="agent-header-name">{{ agent.name }}</span>
+          @if (agent.isFacilitator) {
+          <span class="facilitator-badge">Facilitator</span>
+          }
+        </mat-panel-title>
+      </mat-expansion-panel-header>
+
+      <div class="agent-form">
+        <mat-form-field appearance="outline">
+          <mat-label>Name</mat-label>
+          <input matInput [(ngModel)]="agent.name" [name]="'name-' + i" />
+        </mat-form-field>
+
+        <div class="icon-color-row">
+          <div class="picker-section">
+            <label class="picker-label">Icon</label>
+            <div class="icon-grid">
+              @for (icon of AGENT_ICONS; track icon) {
+              <button type="button" class="icon-option" [class.selected]="agent.icon === icon"
+                (click)="agent.icon = icon" [matTooltip]="icon">
+                <mat-icon>{{ icon }}</mat-icon>
+              </button>
+              }
+            </div>
+          </div>
+
+          <div class="picker-section">
+            <label class="picker-label">Color</label>
+            <div class="color-grid">
+              @for (color of AGENT_COLORS; track color) {
+              <button type="button" class="color-option" [class.selected]="agent.color === color"
+                [style.background]="color" (click)="agent.color = color">
+              </button>
+              }
+            </div>
+          </div>
+        </div>
+
+        <mat-form-field appearance="outline">
+          <mat-label>System Prompt</mat-label>
+          <textarea matInput [(ngModel)]="agent.systemPrompt" [name]="'prompt-' + i" rows="6"
+            placeholder="The complete system prompt for this agent..."></textarea>
+        </mat-form-field>
+
+        <div class="section-label">Active Phases</div>
+        <div class="phase-checkboxes">
+          <mat-checkbox [checked]="allPhasesEnabled(agent)" (change)="toggleAllPhases(agent)">
+            All phases
+          </mat-checkbox>
+          @for (phase of phases; track phase.value) {
+          <mat-checkbox [checked]="isPhaseEnabled(agent, phase.value)"
+            (change)="togglePhase(agent, phase.value)">
+            {{ phase.label }}
+          </mat-checkbox>
+          }
+        </div>
+
+        <div class="section-label">Allowed Tools</div>
+        <div class="tool-checkboxes">
+          @for (tool of availableTools; track tool.name) {
+          <mat-checkbox [checked]="isToolEnabled(agent, tool.name)"
+            (change)="toggleTool(agent, tool.name)" [matTooltip]="tool.description">
+            {{ tool.name }}
+          </mat-checkbox>
+          }
+          @if (availableTools.length === 0) {
+          <span class="no-tools-hint">Loading tools...</span>
+          }
+        </div>
+
+        <div class="section-label">Can Ask Questions To</div>
+        <div class="ask-agent-checkboxes">
+          <mat-checkbox [checked]="allAgentsAskable(agent)" (change)="toggleAllAskableAgents(agent)">
+            All agents
+          </mat-checkbox>
+          @for (otherName of getOtherAgentNames(agent); track otherName) {
+          <mat-checkbox [checked]="isAgentAskable(agent, otherName)"
+            (change)="toggleAskableAgent(agent, otherName)">
+            {{ otherName }}
+          </mat-checkbox>
+          }
+        </div>
+
+        @if (!agent.isFacilitator) {
+        <div class="remove-section">
+          <button mat-button color="warn" (click)="removeAgent(i)">
+            <mat-icon>delete</mat-icon> Remove Agent
+          </button>
+        </div>
+        }
+      </div>
+    </mat-expansion-panel>
+    }
+  </mat-accordion>
+
+  <button mat-stroked-button class="add-agent-btn" (click)="addAgent()">
+    <mat-icon>add</mat-icon> Add Agent
+  </button>
+</div>
+<div mat-dialog-actions align="end">
+  <button mat-button type="button" (click)="onCancel()">Cancel</button>
+  <button mat-flat-button color="primary" (click)="onSave()" [disabled]="saving">Save</button>
+</div>

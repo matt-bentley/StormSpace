@@ -28,7 +28,6 @@ export class CreateBoardModalComponent {
       name: string;
       domain?: string;
       sessionScope?: string;
-      agentInstructions?: string;
     }
   ) { }
 
@@ -41,8 +40,7 @@ export class CreateBoardModalComponent {
       this.boardsService.create({
         name: this.data.name,
         domain: this.data.domain?.trim() || undefined,
-        sessionScope: this.data.sessionScope?.trim() || undefined,
-        agentInstructions: this.data.agentInstructions?.trim() || undefined
+        sessionScope: this.data.sessionScope?.trim() || undefined
       }).subscribe({
         next: (createdBoard) => {
           this.dialogRef.close(createdBoard.id);

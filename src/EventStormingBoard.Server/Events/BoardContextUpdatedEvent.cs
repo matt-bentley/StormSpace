@@ -8,8 +8,6 @@ namespace EventStormingBoard.Server.Events
         public string? OldDomain { get; set; }
         public string? NewSessionScope { get; set; }
         public string? OldSessionScope { get; set; }
-        public string? NewAgentInstructions { get; set; }
-        public string? OldAgentInstructions { get; set; }
         public EventStormingPhase? NewPhase { get; set; }
         public EventStormingPhase? OldPhase { get; set; }
         public bool NewAutonomousEnabled { get; set; }

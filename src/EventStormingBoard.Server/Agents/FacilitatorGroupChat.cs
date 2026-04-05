@@ -15,14 +15,15 @@ namespace EventStormingBoard.Server.Agents
     {
         public required string AgentName { get; init; }
         public required string Content { get; init; }
+        public string? Prompt { get; init; }
         public List<AgentToolCallDto> ToolCalls { get; init; } = new();
     }
 
     /// <summary>
-    /// Orchestrates a group chat between the Lead Facilitator and specialist agents.
-    /// The Facilitator is the main entry point. When it calls RequestSpecialistProposal,
-    /// the specialist pipeline runs: Specialist → Wall Scribe.
-    /// When it calls RequestBoardReview, a specialist runs in advisory review mode.
+    /// Orchestrates a group chat between the Facilitator and delegated agents.
+    /// The Facilitator is the main entry point. When it calls DelegateToAgent,
+    /// the target agent runs with its own tools and returns a result.
+    /// When it calls RequestBoardReview, a read-only review agent runs.
     /// All agent steps are collected for UI display.
     /// </summary>
     public sealed class FacilitatorGroupChat
@@ -42,76 +43,83 @@ namespace EventStormingBoard.Server.Agents
             Guid boardId,
             Board? board,
             BoardPlugin boardPlugin,
+            List<AgentConfiguration> agentConfigurations,
             List<ChatMessage> conversationHistory,
             bool allowDestructiveChanges,
-            IBoardEventLog boardEventLog,
             CancellationToken cancellationToken,
             Func<AgentStep, Task>? onStepCompleted = null)
         {
             var steps = new List<AgentStep>();
-            bool organiserRanViaDelegation = false;
 
             _toolCallFilter.BeginCapture(boardId.ToString());
 
             try
             {
-                // Track pipeline boundaries to correctly attribute tool calls.
-                // The Facilitator may call tools both before and after delegation.
-                int delegationStartIndex = -1;
-                int delegationEndIndex = -1;
+                var delegationRanges = new List<(int Start, int End)>();
 
-                async Task<string> DelegationHandler(SpecialistAgent specialist, string instructions)
+                async Task<string> DelegationHandler(string agentName, string instructions)
                 {
-                    delegationStartIndex = _toolCallFilter.PeekCaptureCount(boardId.ToString());
-                    var pipelineResult = await RunSpecialistPipelineAsync(
-                        boardId, board, boardPlugin, specialist, instructions,
-                        allowDestructiveChanges, steps, onStepCompleted, cancellationToken).ConfigureAwait(false);
-                    delegationEndIndex = _toolCallFilter.PeekCaptureCount(boardId.ToString());
-                    return pipelineResult;
-                }
-
-                async Task<string> ReviewHandler(SpecialistAgent? specialist, string instructions)
-                {
-                    delegationStartIndex = _toolCallFilter.PeekCaptureCount(boardId.ToString());
-                    var reviewResult = await RunReviewPipelineAsync(
-                        boardId, board, boardPlugin, specialist, instructions,
+                    var start = _toolCallFilter.PeekCaptureCount(boardId.ToString());
+                    var result = await RunDelegatedAgentAsync(
+                        boardId, board, boardPlugin, agentConfigurations,
+                        agentName, instructions, allowDestructiveChanges,
                         steps, onStepCompleted, cancellationToken).ConfigureAwait(false);
-                    delegationEndIndex = _toolCallFilter.PeekCaptureCount(boardId.ToString());
-                    return reviewResult;
-                }
-
-                async Task<string> OrganisationHandler(string instructions)
-                {
-                    organiserRanViaDelegation = true;
-                    delegationStartIndex = _toolCallFilter.PeekCaptureCount(boardId.ToString());
-                    var result = await RunOrganiserAsync(
-                        boardId, board, boardPlugin, instructions,
-                        steps, onStepCompleted, cancellationToken).ConfigureAwait(false);
-                    delegationEndIndex = _toolCallFilter.PeekCaptureCount(boardId.ToString());
+                    var end = _toolCallFilter.PeekCaptureCount(boardId.ToString());
+                    delegationRanges.Add((start, end));
                     return result;
                 }
 
-                var facilitator = _agentFactory.CreateFacilitator(board, boardPlugin, DelegationHandler, ReviewHandler, OrganisationHandler, boardId);
+                async Task<string> ReviewHandler(string? agentName, string instructions)
+                {
+                    var start = _toolCallFilter.PeekCaptureCount(boardId.ToString());
+                    var result = await RunReviewAgentAsync(
+                        boardId, board, boardPlugin, agentConfigurations,
+                        agentName, instructions,
+                        steps, onStepCompleted, cancellationToken).ConfigureAwait(false);
+                    var end = _toolCallFilter.PeekCaptureCount(boardId.ToString());
+                    delegationRanges.Add((start, end));
+                    return result;
+                }
+
+                async Task<string> QuestionHandler(string agentName, string question)
+                {
+                    var start = _toolCallFilter.PeekCaptureCount(boardId.ToString());
+                    var facilitatorConfig2 = agentConfigurations.FirstOrDefault(a => a.IsFacilitator);
+                    var result = await RunQuestionAgentAsync(
+                        boardId, board, boardPlugin, agentConfigurations,
+                        facilitatorConfig2, agentName, question,
+                        steps, onStepCompleted, cancellationToken).ConfigureAwait(false);
+                    var end = _toolCallFilter.PeekCaptureCount(boardId.ToString());
+                    delegationRanges.Add((start, end));
+                    return result;
+                }
+
+                var delegationPlugin = new DelegationPlugin(DelegationHandler, ReviewHandler, QuestionHandler);
+
+                var facilitatorConfig = agentConfigurations.FirstOrDefault(a => a.IsFacilitator)
+                    ?? throw new InvalidOperationException("No facilitator agent configured for this board.");
+
+                var facilitator = _agentFactory.CreateAgent(
+                    facilitatorConfig, board, boardPlugin, delegationPlugin,
+                    boardId, allowDestructiveChanges, agentConfigurations);
+
                 var response = await facilitator.RunAsync(conversationHistory, cancellationToken: cancellationToken).ConfigureAwait(false);
 
                 var allToolCalls = _toolCallFilter.EndCapture(boardId.ToString());
 
-                // Facilitator's tool calls = everything outside the pipeline range.
-                // Pre-delegation calls: [0, delegationStartIndex)
-                // Post-delegation calls: [delegationEndIndex, allToolCalls.Count)
-                List<AgentToolCallDto> facilitatorToolCalls;
-                if (delegationStartIndex >= 0 && delegationEndIndex >= 0)
+                // Facilitator's tool calls = everything outside delegation ranges.
+                var delegatedIndices = new HashSet<int>();
+                foreach (var (start, end) in delegationRanges)
                 {
-                    facilitatorToolCalls = allToolCalls.GetRange(0, delegationStartIndex);
-                    if (delegationEndIndex < allToolCalls.Count)
-                    {
-                        facilitatorToolCalls.AddRange(allToolCalls.GetRange(delegationEndIndex, allToolCalls.Count - delegationEndIndex));
-                    }
+                    for (var i = start; i < end; i++)
+                        delegatedIndices.Add(i);
                 }
-                else
+
+                var facilitatorToolCalls = new List<AgentToolCallDto>();
+                for (var i = 0; i < allToolCalls.Count; i++)
                 {
-                    // No delegation happened — all tool calls belong to the Facilitator
-                    facilitatorToolCalls = allToolCalls;
+                    if (!delegatedIndices.Contains(i))
+                        facilitatorToolCalls.Add(allToolCalls[i]);
                 }
 
                 var facilitatorText = response.Text ?? string.Empty;
@@ -120,7 +128,7 @@ namespace EventStormingBoard.Server.Agents
                 {
                     facilitatorStep = new AgentStep
                     {
-                        AgentName = "Facilitator",
+                        AgentName = facilitatorConfig.Name,
                         Content = facilitatorText,
                         ToolCalls = facilitatorToolCalls
                     };
@@ -129,7 +137,7 @@ namespace EventStormingBoard.Server.Agents
                 {
                     facilitatorStep = new AgentStep
                     {
-                        AgentName = "Facilitator",
+                        AgentName = facilitatorConfig.Name,
                         Content = string.Empty,
                         ToolCalls = facilitatorToolCalls
                     };
@@ -142,24 +150,6 @@ namespace EventStormingBoard.Server.Agents
                         await onStepCompleted(facilitatorStep).ConfigureAwait(false);
                 }
 
-                // --- Organiser: run if notes were recently created (by agent or user) ---
-                if (!organiserRanViaDelegation)
-                {
-                    bool agentCreatedNotes = allToolCalls.Any(tc =>
-                        tc.Name == nameof(BoardPlugin.CreateNote) ||
-                        tc.Name == nameof(BoardPlugin.CreateNotes));
-
-                    bool hasRecentUserNotes = HasRecentNoteCreations(boardEventLog, boardId);
-
-                    if (agentCreatedNotes || hasRecentUserNotes)
-                    {
-                        await RunOrganiserAsync(
-                            boardId, board, boardPlugin,
-                            "Organise the board according to positioning rules for the current phase.",
-                            steps, onStepCompleted, cancellationToken).ConfigureAwait(false);
-                    }
-                }
-
                 return steps;
             }
             catch
@@ -169,129 +159,144 @@ namespace EventStormingBoard.Server.Agents
             }
         }
 
-        private async Task<string> RunSpecialistPipelineAsync(
+        private async Task<string> RunDelegatedAgentAsync(
             Guid boardId,
             Board? board,
             BoardPlugin boardPlugin,
-            SpecialistAgent specialist,
+            List<AgentConfiguration> agentConfigurations,
+            string agentName,
             string instructions,
             bool allowDestructiveChanges,
             List<AgentStep> steps,
             Func<AgentStep, Task>? onStepCompleted,
             CancellationToken cancellationToken)
         {
-            var sb = new StringBuilder();
-
-            // Track tool call count before each agent runs so we can attribute them correctly
-            var boardKey = boardId.ToString();
-
-            // --- Step 1: Specialist proposes changes ---
-            var specialistRole = specialist switch
+            var agentConfig = FindActiveAgent(agentConfigurations, agentName, board?.Phase);
+            if (agentConfig == null)
             {
-                SpecialistAgent.EventExplorer => AgentRole.EventExplorer,
-                SpecialistAgent.TriggerMapper => AgentRole.TriggerMapper,
-                SpecialistAgent.DomainDesigner => AgentRole.DomainDesigner,
-                _ => throw new ArgumentOutOfRangeException(nameof(specialist))
-            };
+                var available = string.Join(", ", agentConfigurations
+                    .Where(a => !a.IsFacilitator && IsActiveInPhase(a, board?.Phase))
+                    .Select(a => $"\"{a.Name}\""));
+                return $"Agent '{agentName}' not found or not active in the current phase. Available agents: {available}";
+            }
 
-            var specialistName = specialist.ToString();
-            var preSpecialistCount = CountCapturedToolCalls(boardKey);
-            var specialistAgent = _agentFactory.CreateSpecialist(specialistRole, board, boardPlugin, boardId);
-            var specialistMessages = new List<ChatMessage>
+            var boardKey = boardId.ToString();
+            var preAgentCount = _toolCallFilter.PeekCaptureCount(boardKey);
+
+            // If the agent has AskAgentQuestion in its tools, give it a question-only DelegationPlugin
+            DelegationPlugin? agentDelegationPlugin = null;
+            List<AgentConfiguration>? agentVisibleConfigs = null;
+            if (agentConfig.AllowedTools.Contains(nameof(DelegationPlugin.AskAgentQuestion)))
+            {
+                async Task<string> AgentQuestionHandler(string targetName, string question)
+                {
+                    // Validate CanAskAgents
+                    if (agentConfig.CanAskAgents != null &&
+                        !agentConfig.CanAskAgents.Any(n => string.Equals(n, targetName, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        var allowed = string.Join(", ", agentConfig.CanAskAgents.Select(n => $"\"{n}\""));
+                        return $"You are not allowed to ask '{targetName}'. You can ask: {allowed}";
+                    }
+                    return await RunQuestionAgentAsync(
+                        boardId, board, boardPlugin, agentConfigurations,
+                        agentConfig, targetName, question,
+                        steps, onStepCompleted, cancellationToken).ConfigureAwait(false);
+                }
+
+                agentDelegationPlugin = new DelegationPlugin(
+                    (_, _) => Task.FromResult("Delegation is not available for this agent."),
+                    (_, _) => Task.FromResult("Board review is not available for this agent."),
+                    AgentQuestionHandler);
+                agentVisibleConfigs = agentConfigurations;
+            }
+
+            var agent = _agentFactory.CreateAgent(
+                agentConfig, board, boardPlugin, agentDelegationPlugin, boardId, allowDestructiveChanges, agentVisibleConfigs);
+
+            var messages = new List<ChatMessage>
             {
                 new(ChatRole.User, instructions)
             };
-            var specialistResponse = await specialistAgent
-                .RunAsync(specialistMessages, cancellationToken: cancellationToken)
-                .ConfigureAwait(false);
-            var proposal = specialistResponse.Text ?? string.Empty;
-            var specialistToolCalls = SliceCapturedToolCalls(boardKey, preSpecialistCount);
 
-            var specialistStep = new AgentStep
+            var response = await agent.RunAsync(messages, cancellationToken: cancellationToken).ConfigureAwait(false);
+            var agentText = response.Text ?? string.Empty;
+            var agentToolCalls = _toolCallFilter.PeekCaptureSlice(boardKey, preAgentCount);
+
+            var agentStep = new AgentStep
             {
-                AgentName = specialistName,
-                Content = proposal,
-                ToolCalls = specialistToolCalls
+                AgentName = agentConfig.Name,
+                Content = agentText,
+                Prompt = instructions,
+                ToolCalls = agentToolCalls
             };
-            steps.Add(specialistStep);
+            steps.Add(agentStep);
             if (onStepCompleted != null)
-                await onStepCompleted(specialistStep).ConfigureAwait(false);
+                await onStepCompleted(agentStep).ConfigureAwait(false);
 
-            sb.AppendLine($"## {specialistName} Proposal");
-            sb.AppendLine(proposal);
-
-            // --- Step 2: Wall Scribe executes the proposal ---
-            {
-                var preScribeCount = CountCapturedToolCalls(boardKey);
-                var scribe = _agentFactory.CreateWallScribe(board, boardPlugin, allowDestructiveChanges, boardId);
-                var scribeMessages = new List<ChatMessage>
-                {
-                    new(ChatRole.User, $"Execute the following proposal:\n\n{proposal}")
-                };
-                var scribeResponse = await scribe
-                    .RunAsync(scribeMessages, cancellationToken: cancellationToken)
-                    .ConfigureAwait(false);
-                var scribeText = scribeResponse.Text ?? "Changes applied.";
-                var scribeToolCalls = SliceCapturedToolCalls(boardKey, preScribeCount);
-
-                var scribeStep = new AgentStep
-                {
-                    AgentName = "WallScribe",
-                    Content = scribeText,
-                    ToolCalls = scribeToolCalls
-                };
-                steps.Add(scribeStep);
-                if (onStepCompleted != null)
-                    await onStepCompleted(scribeStep).ConfigureAwait(false);
-
-                sb.AppendLine();
-                sb.AppendLine("## Execution Result");
-                sb.AppendLine(scribeText);
-            }
-
-            return sb.ToString();
+            return agentText;
         }
 
-        private async Task<string> RunReviewPipelineAsync(
+        private async Task<string> RunReviewAgentAsync(
             Guid boardId,
             Board? board,
             BoardPlugin boardPlugin,
-            SpecialistAgent? specialist,
+            List<AgentConfiguration> agentConfigurations,
+            string? agentName,
             string instructions,
             List<AgentStep> steps,
             Func<AgentStep, Task>? onStepCompleted,
             CancellationToken cancellationToken)
         {
-            var boardKey = boardId.ToString();
-
-            // Resolve which specialist should perform the review.
-            // If not specified, pick based on the current board phase.
-            var resolvedSpecialist = specialist ?? ResolveReviewerForPhase(board);
-            var reviewerRole = resolvedSpecialist switch
+            // If no agent specified, pick an appropriate one for the phase
+            AgentConfiguration? reviewerConfig = null;
+            if (!string.IsNullOrWhiteSpace(agentName))
             {
-                SpecialistAgent.EventExplorer => AgentRole.EventExplorer,
-                SpecialistAgent.TriggerMapper => AgentRole.TriggerMapper,
-                SpecialistAgent.DomainDesigner => AgentRole.DomainDesigner,
-                _ => throw new ArgumentOutOfRangeException(nameof(specialist))
+                reviewerConfig = FindActiveAgent(agentConfigurations, agentName, board?.Phase);
+            }
+
+            // Fallback: pick first non-facilitator agent active in current phase
+            reviewerConfig ??= agentConfigurations
+                .Where(a => !a.IsFacilitator && IsActiveInPhase(a, board?.Phase))
+                .OrderBy(a => a.Order)
+                .FirstOrDefault();
+
+            if (reviewerConfig == null)
+                return "No suitable agent found for review in the current phase.";
+
+            var boardKey = boardId.ToString();
+            var preReviewCount = _toolCallFilter.PeekCaptureCount(boardKey);
+
+            // For reviews, only give read-only tools regardless of config
+            var reviewConfig = new AgentConfiguration
+            {
+                Id = reviewerConfig.Id,
+                Name = reviewerConfig.Name,
+                IsFacilitator = false,
+                SystemPrompt = reviewerConfig.SystemPrompt + "\n\nYou are acting as a **Board Reviewer**. Provide advisory feedback only. Do NOT modify the board.",
+                Icon = reviewerConfig.Icon,
+                Color = reviewerConfig.Color,
+                ActivePhases = reviewerConfig.ActivePhases,
+                AllowedTools = new List<string> { nameof(BoardPlugin.GetBoardState), nameof(BoardPlugin.GetRecentEvents) },
+                Order = reviewerConfig.Order
             };
 
-            var reviewerName = resolvedSpecialist.ToString();
-            var preReviewCount = CountCapturedToolCalls(boardKey);
-            var reviewer = _agentFactory.CreateReviewer(reviewerRole, board, boardPlugin, boardId);
-            var reviewMessages = new List<ChatMessage>
+            var reviewer = _agentFactory.CreateAgent(
+                reviewConfig, board, boardPlugin, null, boardId);
+
+            var messages = new List<ChatMessage>
             {
                 new(ChatRole.User, instructions)
             };
-            var reviewResponse = await reviewer
-                .RunAsync(reviewMessages, cancellationToken: cancellationToken)
-                .ConfigureAwait(false);
-            var reviewText = reviewResponse.Text ?? string.Empty;
-            var reviewToolCalls = SliceCapturedToolCalls(boardKey, preReviewCount);
+
+            var response = await reviewer.RunAsync(messages, cancellationToken: cancellationToken).ConfigureAwait(false);
+            var reviewText = response.Text ?? string.Empty;
+            var reviewToolCalls = _toolCallFilter.PeekCaptureSlice(boardKey, preReviewCount);
 
             var reviewStep = new AgentStep
             {
-                AgentName = reviewerName,
+                AgentName = reviewerConfig.Name,
                 Content = reviewText,
+                Prompt = instructions,
                 ToolCalls = reviewToolCalls
             };
             steps.Add(reviewStep);
@@ -301,89 +306,110 @@ namespace EventStormingBoard.Server.Agents
             return reviewText;
         }
 
-        private static SpecialistAgent ResolveReviewerForPhase(Board? board)
-        {
-            return board?.Phase switch
-            {
-                Models.EventStormingPhase.SetContext => SpecialistAgent.EventExplorer,
-                Models.EventStormingPhase.IdentifyEvents => SpecialistAgent.EventExplorer,
-                Models.EventStormingPhase.AddCommandsAndPolicies => SpecialistAgent.TriggerMapper,
-                Models.EventStormingPhase.DefineAggregates => SpecialistAgent.DomainDesigner,
-                Models.EventStormingPhase.BreakItDown => SpecialistAgent.DomainDesigner,
-                _ => SpecialistAgent.EventExplorer
-            };
-        }
-
-        /// <summary>
-        /// Peeks at the current captured tool call count without ending the capture.
-        /// </summary>
-        private int CountCapturedToolCalls(string boardKey)
-        {
-            return _toolCallFilter.PeekCaptureCount(boardKey);
-        }
-
-        /// <summary>
-        /// Returns tool calls captured since the given offset and marks them as claimed.
-        /// </summary>
-        private List<AgentToolCallDto> SliceCapturedToolCalls(string boardKey, int fromIndex)
-        {
-            return _toolCallFilter.PeekCaptureSlice(boardKey, fromIndex);
-        }
-
-        private async Task<string> RunOrganiserAsync(
+        private async Task<string> RunQuestionAgentAsync(
             Guid boardId,
             Board? board,
             BoardPlugin boardPlugin,
-            string instructions,
+            List<AgentConfiguration> agentConfigurations,
+            AgentConfiguration? callerConfig,
+            string agentName,
+            string question,
             List<AgentStep> steps,
             Func<AgentStep, Task>? onStepCompleted,
             CancellationToken cancellationToken)
         {
+            // Validate CanAskAgents for the caller
+            if (callerConfig?.CanAskAgents != null &&
+                !callerConfig.CanAskAgents.Any(n => string.Equals(n, agentName, StringComparison.OrdinalIgnoreCase)))
+            {
+                var allowed = string.Join(", ", callerConfig.CanAskAgents.Select(n => $"\"{n}\""));
+                return $"You are not allowed to ask '{agentName}'. You can ask: {allowed}";
+            }
+
+            var targetConfig = FindActiveAgent(agentConfigurations, agentName, board?.Phase);
+            if (targetConfig == null)
+            {
+                var available = string.Join(", ", agentConfigurations
+                    .Where(a => !a.IsFacilitator && IsActiveInPhase(a, board?.Phase))
+                    .Select(a => $"\"{a.Name}\""));
+                return $"Agent '{agentName}' not found or not active in the current phase. Available agents: {available}";
+            }
+
             var boardKey = boardId.ToString();
-            _toolCallFilter.BeginCapture(boardKey);
-            try
-            {
-                var organiser = _agentFactory.CreateOrganiser(board, boardPlugin, boardId);
-                var organiserMessages = new List<ChatMessage>
-                {
-                    new(ChatRole.User, instructions)
-                };
-                var organiserResponse = await organiser
-                    .RunAsync(organiserMessages, cancellationToken: cancellationToken)
-                    .ConfigureAwait(false);
-                var organiserToolCalls = _toolCallFilter.EndCapture(boardKey);
+            var preQuestionCount = _toolCallFilter.PeekCaptureCount(boardKey);
 
-                var organiserText = organiserResponse.Text ?? string.Empty;
-                var organiserStep = new AgentStep
-                {
-                    AgentName = "Organiser",
-                    Content = organiserText,
-                    ToolCalls = organiserToolCalls
-                };
-                steps.Add(organiserStep);
-                if (onStepCompleted != null)
-                    await onStepCompleted(organiserStep).ConfigureAwait(false);
-
-                return organiserText;
-            }
-            catch
+            // Give the answering agent read-only board access and a question-answering prompt
+            var questionConfig = new AgentConfiguration
             {
-                _toolCallFilter.EndCapture(boardKey);
-                throw;
-            }
+                Id = targetConfig.Id,
+                Name = targetConfig.Name,
+                IsFacilitator = false,
+                SystemPrompt = targetConfig.SystemPrompt +
+                    "\n\nYou are being asked a question by another agent. Answer based on your expertise and the board context. Do NOT modify the board.",
+                Icon = targetConfig.Icon,
+                Color = targetConfig.Color,
+                ActivePhases = targetConfig.ActivePhases,
+                AllowedTools = new List<string> { nameof(BoardPlugin.GetBoardState) },
+                Order = targetConfig.Order
+            };
+
+            var answerer = _agentFactory.CreateAgent(
+                questionConfig, board, boardPlugin, null, boardId);
+
+            var messages = new List<ChatMessage>
+            {
+                new(ChatRole.User, question)
+            };
+
+            var response = await answerer.RunAsync(messages, cancellationToken: cancellationToken).ConfigureAwait(false);
+            var answerText = response.Text ?? string.Empty;
+            var answerToolCalls = _toolCallFilter.PeekCaptureSlice(boardKey, preQuestionCount);
+
+            var answerStep = new AgentStep
+            {
+                AgentName = targetConfig.Name,
+                Content = answerText,
+                Prompt = question,
+                ToolCalls = answerToolCalls
+            };
+            steps.Add(answerStep);
+            if (onStepCompleted != null)
+                await onStepCompleted(answerStep).ConfigureAwait(false);
+
+            return answerText;
         }
 
-        private static readonly TimeSpan RecentNoteWindow = TimeSpan.FromSeconds(120);
-
-        private static bool HasRecentNoteCreations(IBoardEventLog eventLog, Guid boardId)
+        private static AgentConfiguration? FindActiveAgent(
+            List<AgentConfiguration> configs, string agentName, EventStormingPhase? currentPhase)
         {
-            var cutoff = DateTimeOffset.UtcNow - RecentNoteWindow;
-            var recentEvents = eventLog.GetRecent(boardId, 50);
-            return recentEvents.Any(e =>
-                e.EventType == "NoteCreatedEvent" &&
-                e.Timestamp >= cutoff);
+            // Try exact match first (case-insensitive)
+            var config = configs.FirstOrDefault(a =>
+                string.Equals(a.Name, agentName, StringComparison.OrdinalIgnoreCase));
+
+            // Fallback: normalized match (remove spaces, hyphens, underscores)
+            if (config == null)
+            {
+                var normalized = NormalizeName(agentName);
+                config = configs.FirstOrDefault(a =>
+                    string.Equals(NormalizeName(a.Name), normalized, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (config == null) return null;
+            if (!IsActiveInPhase(config, currentPhase)) return null;
+
+            return config;
         }
 
+        private static string NormalizeName(string name) =>
+            name.Replace(" ", "").Replace("-", "").Replace("_", "");
 
+        private static bool IsActiveInPhase(AgentConfiguration config, EventStormingPhase? currentPhase)
+        {
+            // null ActivePhases means active in all phases
+            if (config.ActivePhases == null || config.ActivePhases.Count == 0) return true;
+            // If no phase is set on the board, all agents are active
+            if (!currentPhase.HasValue) return true;
+            return config.ActivePhases.Contains(currentPhase.Value);
+        }
     }
 }

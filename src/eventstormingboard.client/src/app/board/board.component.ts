@@ -19,6 +19,8 @@ import { KeyboardShortcutsModalComponent } from './keyboard-shortcuts-modal/keyb
 import { CursorPositionUpdatedEvent } from '../_shared/models/board-events.model';
 import { AiChatPanelComponent } from './ai-chat-panel/ai-chat-panel.component';
 import { BoardContextModalComponent, BoardContextData } from './board-context-modal/board-context-modal.component';
+import { AgentConfigModalComponent, AgentConfigModalData } from './agent-config-modal/agent-config-modal.component';
+import { AgentConfiguration } from '../_shared/models/agent-configuration.model';
 import { EVENT_STORMING_PHASES } from '../_shared/models/board.model';
 
 @Component({
@@ -68,6 +70,7 @@ export class BoardComponent implements OnInit, OnDestroy {
   public hasUnreadMessages = false;
   public phases = EVENT_STORMING_PHASES;
   public autonomousStatus?: AutonomousFacilitatorStatus;
+  public agentConfigurations: AgentConfiguration[] = [];
 
   public isPhaseActive(phase: string): boolean {
     return this.canvasService.boardState.phase === phase;
@@ -78,11 +81,11 @@ export class BoardComponent implements OnInit, OnDestroy {
       boardName: this.canvasService.boardState.name,
       domain: this.canvasService.boardState.domain,
       sessionScope: this.canvasService.boardState.sessionScope,
-      agentInstructions: this.canvasService.boardState.agentInstructions,
       phase: this.canvasService.boardState.phase,
       autonomousEnabled: this.canvasService.boardState.autonomousEnabled,
       notes: this.canvasService.boardState.notes,
-      connections: this.canvasService.boardState.connections
+      connections: this.canvasService.boardState.connections,
+      agentConfigurations: this.agentConfigurations
     };
 
     const json = JSON.stringify(boardState, null, 2);
@@ -107,7 +110,6 @@ export class BoardComponent implements OnInit, OnDestroy {
         this.canvasService.boardState.name = boardState.boardName || 'Untitled Board';
         this.canvasService.boardState.domain = boardState.domain;
         this.canvasService.boardState.sessionScope = boardState.sessionScope;
-        this.canvasService.boardState.agentInstructions = boardState.agentInstructions;
         this.canvasService.boardState.phase = boardState.phase;
         this.canvasService.boardState.autonomousEnabled = !!boardState.autonomousEnabled;
         this.canvasService.boardState.notes = boardState.notes || [];
@@ -165,7 +167,6 @@ export class BoardComponent implements OnInit, OnDestroy {
       data: {
         domain: this.canvasService.boardState.domain || '',
         sessionScope: this.canvasService.boardState.sessionScope || '',
-        agentInstructions: this.canvasService.boardState.agentInstructions || '',
         phase: this.canvasService.boardState.phase || '',
         autonomousEnabled: this.canvasService.boardState.autonomousEnabled
       } as BoardContextData
@@ -178,8 +179,6 @@ export class BoardComponent implements OnInit, OnDestroy {
           this.canvasService.boardState.domain,
           result.sessionScope || undefined,
           this.canvasService.boardState.sessionScope,
-          result.agentInstructions || undefined,
-          this.canvasService.boardState.agentInstructions,
           result.phase || undefined,
           this.canvasService.boardState.phase,
           result.autonomousEnabled,
@@ -188,6 +187,80 @@ export class BoardComponent implements OnInit, OnDestroy {
         this.canvasService.executeCommand(command);
       }
     });
+  }
+
+  public openAgentConfig(): void {
+    const dialogRef = this.dialog.open(AgentConfigModalComponent, {
+      width: '720px',
+      maxWidth: '95vw',
+      maxHeight: '90vh',
+      data: {
+        boardId: this.id,
+        agents: this.agentConfigurations
+      } as AgentConfigModalData
+    });
+
+    dialogRef.afterClosed().subscribe((result: AgentConfiguration[] | undefined) => {
+      if (result) {
+        this.saveAgentConfigurations(result);
+      }
+    });
+  }
+
+  private saveAgentConfigurations(agents: AgentConfiguration[]): void {
+    const existingIds = new Set(this.agentConfigurations.map(a => a.id));
+    const newIds = new Set(agents.map(a => a.id));
+
+    // Delete removed agents
+    const toDelete = this.agentConfigurations.filter(a => !newIds.has(a.id) && !a.isFacilitator);
+    // Add new agents
+    const toAdd = agents.filter(a => !existingIds.has(a.id));
+    // Update existing agents
+    const toUpdate = agents.filter(a => existingIds.has(a.id));
+
+    const ops: Promise<void>[] = [];
+
+    for (const agent of toDelete) {
+      ops.push(new Promise<void>((resolve, reject) => {
+        this.boardsService.deleteAgent(this.id, agent.id).subscribe({ next: () => resolve(), error: reject });
+      }));
+    }
+
+    for (const agent of toAdd) {
+      ops.push(new Promise<void>((resolve, reject) => {
+        this.boardsService.addAgent(this.id, {
+          name: agent.name,
+          systemPrompt: agent.systemPrompt,
+          icon: agent.icon,
+          color: agent.color,
+          activePhases: agent.activePhases,
+          allowedTools: agent.allowedTools,
+          order: agent.order
+        }).subscribe({ next: () => resolve(), error: reject });
+      }));
+    }
+
+    for (const agent of toUpdate) {
+      ops.push(new Promise<void>((resolve, reject) => {
+        this.boardsService.updateAgent(this.id, agent.id, {
+          name: agent.name,
+          systemPrompt: agent.systemPrompt,
+          icon: agent.icon,
+          color: agent.color,
+          activePhases: agent.activePhases,
+          allowedTools: agent.allowedTools,
+          order: agent.order
+        }).subscribe({ next: () => resolve(), error: reject });
+      }));
+    }
+
+    Promise.all(ops).then(() => {
+      // Refresh agent configs from server
+      this.boardsService.getAgents(this.id).subscribe({
+        next: configs => this.agentConfigurations = configs,
+        error: err => console.error('Failed to refresh agent configs:', err)
+      });
+    }).catch(err => console.error('Failed to save agent configurations:', err));
   }
 
   public addNote(type: string): void {
@@ -233,8 +306,6 @@ export class BoardComponent implements OnInit, OnDestroy {
       this.canvasService.boardState.domain,
       this.canvasService.boardState.sessionScope,
       this.canvasService.boardState.sessionScope,
-      this.canvasService.boardState.agentInstructions,
-      this.canvasService.boardState.agentInstructions,
       this.canvasService.boardState.phase,
       this.canvasService.boardState.phase,
       false,
@@ -255,9 +326,9 @@ export class BoardComponent implements OnInit, OnDestroy {
         this.canvasService.boardState.name = board.name;
         this.canvasService.boardState.domain = board.domain;
         this.canvasService.boardState.sessionScope = board.sessionScope;
-        this.canvasService.boardState.agentInstructions = board.agentInstructions;
         this.canvasService.boardState.phase = board.phase;
         this.canvasService.boardState.autonomousEnabled = board.autonomousEnabled;
+        this.agentConfigurations = board.agentConfigurations ?? [];
         // Map NoteDto[] to Note[]
         this.canvasService.boardState.notes = board.notes.map(n => ({
           ...n,
@@ -329,7 +400,6 @@ export class BoardComponent implements OnInit, OnDestroy {
           new UpdateBoardContextCommand(
             event.newDomain, event.oldDomain,
             event.newSessionScope, event.oldSessionScope,
-            event.newAgentInstructions, event.oldAgentInstructions,
             event.newPhase, event.oldPhase,
             event.newAutonomousEnabled, event.oldAutonomousEnabled
           ), true, event.isUndo);
@@ -396,6 +466,14 @@ export class BoardComponent implements OnInit, OnDestroy {
       .subscribe(status => {
         if (status.boardId === this.id) {
           this.autonomousStatus = status;
+        }
+      });
+
+    this.boardsHub.agentConfigurationsUpdated$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(event => {
+        if (event.boardId === this.id) {
+          this.agentConfigurations = event.agents;
         }
       });
   }

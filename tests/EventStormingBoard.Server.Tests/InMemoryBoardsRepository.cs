@@ -23,11 +23,11 @@ public sealed class InMemoryBoardsRepository : IBoardsRepository
         board.Name = boardUpdate.Name;
         board.Domain = boardUpdate.Domain;
         board.SessionScope = boardUpdate.SessionScope;
-        board.AgentInstructions = boardUpdate.AgentInstructions;
         board.Phase = boardUpdate.Phase;
         board.AutonomousEnabled = boardUpdate.AutonomousEnabled;
         board.Notes = boardUpdate.Notes;
         board.Connections = boardUpdate.Connections;
+        board.AgentConfigurations = boardUpdate.AgentConfigurations;
         return true;
     }
 

@@ -96,13 +96,6 @@ namespace EventStormingBoard.Server.Services
                     : $"Updated session scope to \"{@event.NewSessionScope}\"";
             }
 
-            if (!string.Equals(@event.OldAgentInstructions, @event.NewAgentInstructions, StringComparison.Ordinal))
-            {
-                return string.IsNullOrWhiteSpace(@event.NewAgentInstructions)
-                    ? "Cleared facilitator instructions"
-                    : "Updated facilitator instructions";
-            }
-
             if (@event.OldAutonomousEnabled != @event.NewAutonomousEnabled)
             {
                 return @event.NewAutonomousEnabled

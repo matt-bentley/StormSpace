@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, Pipe, PipeTransform, ViewChild, HostListener } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, Pipe, PipeTransform, SimpleChanges, ViewChild, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -8,6 +8,7 @@ import { BoardsSignalRService, AgentChatMessage, AgentToolCallStartedEvent, Auto
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Subject, takeUntil } from 'rxjs';
 import { marked } from 'marked';
+import { AgentConfiguration } from '../../_shared/models/agent-configuration.model';
 
 marked.setOptions({ breaks: true, gfm: true });
 
@@ -26,25 +27,17 @@ export interface ChatMessage {
   userName?: string;
   agentName?: string;
   text: string;
+  prompt?: string;
   toolCalls?: { name: string; arguments: string }[];
 }
 
 export interface AgentDisplayInfo {
   label: string;
   icon: string;
-  cssClass: string;
+  color: string;
 }
 
-const AGENT_DISPLAY: Record<string, AgentDisplayInfo> = {
-  Facilitator: { label: 'Facilitator', icon: 'psychology', cssClass: 'agent-facilitator' },
-  EventExplorer: { label: 'Event Explorer', icon: 'explore', cssClass: 'agent-event-explorer' },
-  TriggerMapper: { label: 'Trigger Mapper', icon: 'account_tree', cssClass: 'agent-trigger-mapper' },
-  DomainDesigner: { label: 'Domain Designer', icon: 'architecture', cssClass: 'agent-domain-designer' },
-  WallScribe: { label: 'Wall Scribe', icon: 'edit_note', cssClass: 'agent-wall-scribe' },
-  Organiser: { label: 'Organiser', icon: 'auto_fix_high', cssClass: 'agent-organiser' },
-};
-
-const DEFAULT_AGENT: AgentDisplayInfo = { label: 'AI Assistant', icon: 'smart_toy', cssClass: 'agent-default' };
+const DEFAULT_AGENT: AgentDisplayInfo = { label: 'AI Assistant', icon: 'smart_toy', color: '#3f51b5' };
 
 @Component({
   selector: 'app-ai-chat-panel',
@@ -52,11 +45,12 @@ const DEFAULT_AGENT: AgentDisplayInfo = { label: 'AI Assistant', icon: 'smart_to
   templateUrl: './ai-chat-panel.component.html',
   styleUrls: ['./ai-chat-panel.component.scss']
 })
-export class AiChatPanelComponent implements OnInit, OnDestroy {
+export class AiChatPanelComponent implements OnInit, OnDestroy, OnChanges {
   @Input() boardId!: string;
   @Input() userName!: string;
   @Input() autonomousEnabled = false;
   @Input() autonomousStatus?: AutonomousFacilitatorStatus;
+  @Input() agentConfigurations: AgentConfiguration[] = [];
   @Output() closed = new EventEmitter<void>();
   @Output() disableAutonomousRequested = new EventEmitter<void>();
   @ViewChild('messagesContainer') private messagesContainer!: ElementRef<HTMLDivElement>;
@@ -72,8 +66,26 @@ export class AiChatPanelComponent implements OnInit, OnDestroy {
   public isResizing = false;
   private startX = 0;
   private startWidth = 0;
+  private agentDisplayMap = new Map<string, AgentDisplayInfo>();
 
   constructor(private signalRService: BoardsSignalRService) { }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['agentConfigurations']) {
+      this.rebuildAgentDisplayMap();
+    }
+  }
+
+  private rebuildAgentDisplayMap(): void {
+    this.agentDisplayMap.clear();
+    for (const config of this.agentConfigurations) {
+      this.agentDisplayMap.set(config.name, {
+        label: config.name,
+        icon: config.icon,
+        color: config.color
+      });
+    }
+  }
 
   ngOnInit(): void {
     // Load existing history from the service cache, or request from server
@@ -207,12 +219,13 @@ export class AiChatPanelComponent implements OnInit, OnDestroy {
       userName: msg.userName ?? undefined,
       agentName: msg.agentName ?? undefined,
       text: msg.content ?? '',
+      prompt: msg.prompt ?? undefined,
       toolCalls: msg.toolCalls?.map(tc => ({ name: tc.name, arguments: tc.arguments }))
     };
   }
 
   agentInfo(msg: ChatMessage): AgentDisplayInfo {
-    return (msg.agentName && AGENT_DISPLAY[msg.agentName]) || DEFAULT_AGENT;
+    return (msg.agentName && this.agentDisplayMap.get(msg.agentName)) || DEFAULT_AGENT;
   }
 
   private scrollToBottom(): void {

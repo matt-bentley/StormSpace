@@ -30,77 +30,18 @@ namespace EventStormingBoard.Server.Agents
             _serviceProvider = serviceProvider;
         }
 
-        public AIAgent CreateFacilitator(
+        public AIAgent CreateAgent(
+            AgentConfiguration config,
             Board? board,
             BoardPlugin boardPlugin,
-            Func<SpecialistAgent, string, Task<string>> delegationHandler,
-            Func<SpecialistAgent?, string, Task<string>> reviewHandler,
-            Func<string, Task<string>> organisationHandler,
-            Guid boardId)
+            DelegationPlugin? delegationPlugin,
+            Guid boardId,
+            bool allowDestructiveChanges = true,
+            List<AgentConfiguration>? allAgentConfigurations = null)
         {
-            var delegationPlugin = new DelegationPlugin(delegationHandler, reviewHandler, organisationHandler);
-            var tools = new List<AITool>
-            {
-                CreateTool(boardPlugin, nameof(BoardPlugin.GetBoardState)),
-                CreateTool(boardPlugin, nameof(BoardPlugin.GetRecentEvents)),
-                CreateTool(boardPlugin, nameof(BoardPlugin.SetDomain)),
-                CreateTool(boardPlugin, nameof(BoardPlugin.SetSessionScope)),
-                CreateTool(boardPlugin, nameof(BoardPlugin.SetPhase)),
-                CreateTool(boardPlugin, nameof(BoardPlugin.CompleteAutonomousSession)),
-                CreateTool(delegationPlugin, nameof(DelegationPlugin.RequestSpecialistProposal)),
-                CreateTool(delegationPlugin, nameof(DelegationPlugin.RequestBoardReview)),
-                CreateTool(delegationPlugin, nameof(DelegationPlugin.RequestBoardOrganisation))
-            };
-
-            return BuildAgent(AgentPrompts.BuildLeadFacilitatorPrompt(board), tools, boardId);
-        }
-
-        public AIAgent CreateSpecialist(
-            AgentRole role,
-            Board? board,
-            BoardPlugin boardPlugin,
-            Guid boardId)
-        {
-            var prompt = role switch
-            {
-                AgentRole.EventExplorer => AgentPrompts.BuildEventExplorerPrompt(board),
-                AgentRole.TriggerMapper => AgentPrompts.BuildTriggerMapperPrompt(board),
-                AgentRole.DomainDesigner => AgentPrompts.BuildDomainDesignerPrompt(board),
-                _ => throw new ArgumentException($"Not a specialist role: {role}", nameof(role))
-            };
-
-            var tools = CreateReadOnlyTools(boardPlugin);
-            return BuildAgent(prompt, tools, boardId);
-        }
-
-        public AIAgent CreateWallScribe(
-            Board? board,
-            BoardPlugin boardPlugin,
-            bool allowDestructiveChanges,
-            Guid boardId)
-        {
-            var tools = CreateWallScribeTools(boardPlugin, allowDestructiveChanges);
-            return BuildAgent(AgentPrompts.BuildWallScribePrompt(board), tools, boardId);
-        }
-
-        public AIAgent CreateReviewer(
-            AgentRole specialistRole,
-            Board? board,
-            BoardPlugin boardPlugin,
-            Guid boardId)
-        {
-            var prompt = AgentPrompts.BuildReviewPrompt(specialistRole, board);
-            var tools = CreateReadOnlyTools(boardPlugin);
-            return BuildAgent(prompt, tools, boardId);
-        }
-
-        public AIAgent CreateOrganiser(
-            Board? board,
-            BoardPlugin boardPlugin,
-            Guid boardId)
-        {
-            var tools = CreateOrganiserTools(boardPlugin);
-            return BuildAgent(AgentPrompts.BuildOrganiserPrompt(board), tools, boardId);
+            var instructions = config.SystemPrompt + AgentPrompts.BuildRuntimeContext(board, allAgentConfigurations, callingAgent: config);
+            var tools = ResolveTools(config.AllowedTools, boardPlugin, delegationPlugin, allowDestructiveChanges);
+            return BuildAgent(instructions, tools, boardId);
         }
 
         private AIAgent BuildAgent(string instructions, IList<AITool> tools, Guid boardId)
@@ -135,124 +76,89 @@ namespace EventStormingBoard.Server.Agents
                 .Build();
         }
 
-        #region Tool Lists
+        #region Tool Resolution
 
-        public static IReadOnlyList<string> GetFacilitatorToolNames()
+        public IList<AITool> ResolveTools(
+            IEnumerable<string> allowedToolNames,
+            BoardPlugin boardPlugin,
+            DelegationPlugin? delegationPlugin,
+            bool allowDestructiveChanges)
         {
-            return new[]
+            var tools = new List<AITool>();
+            foreach (var toolName in allowedToolNames)
             {
-                nameof(BoardPlugin.GetBoardState),
-                nameof(BoardPlugin.GetRecentEvents),
-                nameof(BoardPlugin.SetDomain),
-                nameof(BoardPlugin.SetSessionScope),
-                nameof(BoardPlugin.SetPhase),
-                nameof(BoardPlugin.CompleteAutonomousSession),
-                nameof(DelegationPlugin.RequestSpecialistProposal),
-                nameof(DelegationPlugin.RequestBoardReview),
-                nameof(DelegationPlugin.RequestBoardOrganisation)
-            };
-        }
+                if (!allowDestructiveChanges && toolName == nameof(BoardPlugin.DeleteNotes))
+                    continue;
 
-        public static IReadOnlyList<string> GetReadOnlyToolNames()
-        {
-            return new[]
-            {
-                nameof(BoardPlugin.GetBoardState),
-                nameof(BoardPlugin.GetRecentEvents)
-            };
-        }
-
-        public static IReadOnlyList<string> GetWallScribeToolNames(bool allowDestructiveChanges)
-        {
-            var names = new List<string>
-            {
-                nameof(BoardPlugin.GetBoardState),
-                nameof(BoardPlugin.CreateNote),
-                nameof(BoardPlugin.CreateNotes),
-                nameof(BoardPlugin.CreateConnection),
-                nameof(BoardPlugin.CreateConnections),
-                nameof(BoardPlugin.EditNoteText),
-                nameof(BoardPlugin.MoveNotes)
-            };
-
-            if (allowDestructiveChanges)
-            {
-                names.Add(nameof(BoardPlugin.DeleteNotes));
+                var tool = TryCreateTool(toolName, boardPlugin, delegationPlugin);
+                if (tool != null)
+                    tools.Add(tool);
             }
-
-            return names;
-        }
-
-        public static IReadOnlyList<string> GetOrganiserToolNames()
-        {
-            return new[]
-            {
-                nameof(BoardPlugin.GetBoardState),
-                nameof(BoardPlugin.MoveNotes),
-                nameof(BoardPlugin.CreateNote)
-            };
-        }
-
-        private static IList<AITool> CreateReadOnlyTools(BoardPlugin boardPlugin)
-        {
-            return new List<AITool>
-            {
-                CreateTool(boardPlugin, nameof(BoardPlugin.GetBoardState)),
-                CreateTool(boardPlugin, nameof(BoardPlugin.GetRecentEvents))
-            };
-        }
-
-        private static IList<AITool> CreateWallScribeTools(BoardPlugin boardPlugin, bool allowDestructiveChanges)
-        {
-            var tools = new List<AITool>
-            {
-                CreateTool(boardPlugin, nameof(BoardPlugin.GetBoardState)),
-                CreateTool(boardPlugin, nameof(BoardPlugin.CreateNote)),
-                CreateTool(boardPlugin, nameof(BoardPlugin.CreateNotes)),
-                CreateTool(boardPlugin, nameof(BoardPlugin.CreateConnection)),
-                CreateTool(boardPlugin, nameof(BoardPlugin.CreateConnections)),
-                CreateTool(boardPlugin, nameof(BoardPlugin.EditNoteText)),
-                CreateTool(boardPlugin, nameof(BoardPlugin.MoveNotes))
-            };
-
-            if (allowDestructiveChanges)
-            {
-                tools.Add(CreateTool(boardPlugin, nameof(BoardPlugin.DeleteNotes)));
-            }
-
             return tools;
         }
 
-        private static IList<AITool> CreateOrganiserTools(BoardPlugin boardPlugin)
+        private static AIFunction? TryCreateTool(string toolName, BoardPlugin boardPlugin, DelegationPlugin? delegationPlugin)
         {
-            return new List<AITool>
+            // Try BoardPlugin first
+            var method = typeof(BoardPlugin).GetMethod(toolName);
+            if (method != null)
+                return CreateToolFromMethod(method, boardPlugin);
+
+            // Try DelegationPlugin
+            if (delegationPlugin != null)
             {
-                CreateTool(boardPlugin, nameof(BoardPlugin.GetBoardState)),
-                CreateTool(boardPlugin, nameof(BoardPlugin.MoveNotes)),
-                CreateTool(boardPlugin, nameof(BoardPlugin.CreateNote))
-            };
+                method = typeof(DelegationPlugin).GetMethod(toolName);
+                if (method != null)
+                    return CreateToolFromMethod(method, delegationPlugin);
+            }
+
+            return null;
+        }
+
+        private static AIFunction CreateToolFromMethod(System.Reflection.MethodInfo method, object target)
+        {
+            var description = method.GetCustomAttributes(typeof(DescriptionAttribute), inherit: false)
+                .OfType<DescriptionAttribute>()
+                .FirstOrDefault()
+                ?.Description;
+
+            return AIFunctionFactory.Create(method, target, new AIFunctionFactoryOptions
+            {
+                Name = method.Name,
+                Description = description
+            });
+        }
+
+        #endregion
+
+        #region Tool Definitions Registry
+
+        public static List<ToolDefinitionDto> GetAllToolDefinitions()
+        {
+            var definitions = new List<ToolDefinitionDto>();
+
+            foreach (var method in typeof(BoardPlugin).GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.DeclaredOnly))
+            {
+                var desc = method.GetCustomAttributes(typeof(DescriptionAttribute), false)
+                    .OfType<DescriptionAttribute>()
+                    .FirstOrDefault()?.Description;
+                definitions.Add(new ToolDefinitionDto { Name = method.Name, Description = desc });
+            }
+
+            foreach (var method in typeof(DelegationPlugin).GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.DeclaredOnly))
+            {
+                var desc = method.GetCustomAttributes(typeof(DescriptionAttribute), false)
+                    .OfType<DescriptionAttribute>()
+                    .FirstOrDefault()?.Description;
+                definitions.Add(new ToolDefinitionDto { Name = method.Name, Description = desc });
+            }
+
+            return definitions;
         }
 
         #endregion
 
         #region Helpers
-
-        private static AIFunction CreateTool(object plugin, string methodName)
-        {
-            var methodInfo = plugin.GetType().GetMethod(methodName)
-                ?? throw new InvalidOperationException($"Method '{methodName}' not found on {plugin.GetType().Name}.");
-
-            var description = methodInfo.GetCustomAttributes(typeof(DescriptionAttribute), inherit: false)
-                .OfType<DescriptionAttribute>()
-                .FirstOrDefault()
-                ?.Description;
-
-            return AIFunctionFactory.Create(methodInfo, plugin, new AIFunctionFactoryOptions
-            {
-                Name = methodName,
-                Description = description
-            });
-        }
 
         private bool IsReasoningModel() =>
             !_options.DeploymentName.Contains("gpt-4", StringComparison.OrdinalIgnoreCase);

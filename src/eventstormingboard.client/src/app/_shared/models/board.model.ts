@@ -1,3 +1,5 @@
+import { AgentConfiguration } from './agent-configuration.model';
+
 export type EventStormingPhase =
   | 'setContext'
   | 'identifyEvents'
@@ -18,11 +20,11 @@ export interface BoardDto {
   name: string;
   domain?: string;
   sessionScope?: string;
-  agentInstructions?: string;
   phase?: EventStormingPhase;
   autonomousEnabled: boolean;
   notes: NoteDto[];
   connections: ConnectionDto[];
+  agentConfigurations: AgentConfiguration[];
 }
 
 export interface BoardSummaryDto {
@@ -34,7 +36,6 @@ export interface BoardCreateDto {
   name: string;
   domain?: string;
   sessionScope?: string;
-  agentInstructions?: string;
   phase?: EventStormingPhase;
   autonomousEnabled?: boolean;
 }

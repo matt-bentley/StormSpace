@@ -8,10 +8,10 @@ namespace EventStormingBoard.Server.Entities
         public required string Name { get; set; }
         public string? Domain { get; set; }
         public string? SessionScope { get; set; }
-        public string? AgentInstructions { get; set; }
         public EventStormingPhase? Phase { get; set; }
         public bool AutonomousEnabled { get; set; }
         public List<Note> Notes { get; set; } = new();
         public List<Connection> Connections { get; set; } = new();
+        public List<AgentConfiguration> AgentConfigurations { get; set; } = new();
     }
 }
