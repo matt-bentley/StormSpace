@@ -38,6 +38,23 @@
       </div>
     }
   </div>
+
+  @if (activeAgents.length > 0) {
+    <div class="top-bar-divider"></div>
+    <div class="agent-presence">
+      @for (agent of activeAgents; track agent.id) {
+        <div
+          class="agent-circle"
+          [style.background-color]="agent.color"
+          [matTooltip]="agent.name + (agent.isFacilitator ? ' (Orchestrator)' : '') + ' — Active'">
+          <mat-icon class="agent-circle-icon">{{ agent.icon }}</mat-icon>
+          <span class="agent-bot-badge">
+            <mat-icon class="bot-badge-icon">smart_toy</mat-icon>
+          </span>
+        </div>
+      }
+    </div>
+  }
 </div>
 <div class="floating-toolbar floating">
   <button mat-icon-button (click)="addNote('event')" [ngStyle]="{ background: getNoteColor('event') }"

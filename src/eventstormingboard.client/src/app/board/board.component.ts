@@ -72,6 +72,15 @@ export class BoardComponent implements OnInit, OnDestroy {
   public autonomousStatus?: AutonomousFacilitatorStatus;
   public agentConfigurations: AgentConfiguration[] = [];
 
+  get activeAgents(): AgentConfiguration[] {
+    const currentPhase = this.canvasService.boardState.phase;
+    return this.agentConfigurations.filter(a => {
+      if (!a.activePhases) return true;
+      if (!currentPhase) return true;
+      return a.activePhases.includes(currentPhase as any);
+    });
+  }
+
   public isPhaseActive(phase: string): boolean {
     return this.canvasService.boardState.phase === phase;
   }

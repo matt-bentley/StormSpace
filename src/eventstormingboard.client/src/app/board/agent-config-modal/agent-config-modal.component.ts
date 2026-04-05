@@ -14,6 +14,7 @@ import { AgentConfiguration, AgentConfigurationCreate, AgentConfigurationUpdate,
 import { BoardsService } from '../../_shared/services/boards.service';
 import { EVENT_STORMING_PHASES } from '../../_shared/models/board.model';
 import { v4 as uuid } from 'uuid';
+import { AgentInteractionDiagramComponent } from '../agent-interaction-diagram/agent-interaction-diagram.component';
 
 export interface AgentConfigModalData {
   boardId: string;
@@ -33,7 +34,8 @@ export interface AgentConfigModalData {
     MatIconModule,
     MatButtonModule,
     MatTooltipModule,
-    MatExpansionModule
+    MatExpansionModule,
+    AgentInteractionDiagramComponent
   ],
   templateUrl: './agent-config-modal.component.html',
   styleUrls: ['./agent-config-modal.component.scss']
@@ -43,6 +45,8 @@ export class AgentConfigModalComponent implements OnInit {
   public availableTools: ToolDefinition[] = [];
   public phases = EVENT_STORMING_PHASES;
   public saving = false;
+
+  public viewMode: 'config' | 'diagram' = 'config';
 
   public readonly AGENT_ICONS = [
     'psychology', 'explore', 'account_tree', 'architecture', 'edit_note',

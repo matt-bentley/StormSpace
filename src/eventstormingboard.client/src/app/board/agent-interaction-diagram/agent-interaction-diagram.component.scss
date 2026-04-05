@@ -1,0 +1,137 @@
+.diagram-container {
+  position: relative;
+  width: 100%;
+  min-height: 460px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(ellipse at 50% 50%, rgba(63, 81, 181, 0.03) 0%, transparent 70%),
+    linear-gradient(135deg, #fafbff 0%, #f5f5fa 100%);
+  border-radius: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+
+  svg {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+/* Ambient circles behind nodes */
+.ambient-circle {
+  pointer-events: none;
+}
+
+/* Edges */
+.edge-path {
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.edge-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  pointer-events: none;
+}
+
+/* Agent nodes */
+.agent-node {
+  cursor: default;
+
+  .node-circle {
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.18));
+    transition: transform 0.2s ease, filter 0.2s ease;
+  }
+
+  .glow-ring {
+    pointer-events: none;
+  }
+
+  .node-icon {
+    font-family: 'Material Icons', sans-serif;
+    pointer-events: none;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  }
+
+  .node-label {
+    font-size: 12px;
+    font-weight: 600;
+    fill: #333;
+    letter-spacing: 0.2px;
+    paint-order: stroke;
+    stroke: white;
+    stroke-width: 3px;
+    stroke-linejoin: round;
+  }
+
+  .facilitator-label {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+
+  &:hover .node-circle {
+    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.25));
+  }
+}
+
+/* Facilitator pulse animation */
+.pulse-ring {
+  animation: pulse 2.5s ease-in-out infinite;
+  transform-origin: center;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.4;
+    stroke-width: 2;
+  }
+  50% {
+    opacity: 0.15;
+    stroke-width: 5;
+  }
+}
+
+/* Legend overlay */
+.diagram-legend {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+  border-radius: 10px;
+  padding: 10px 14px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+
+  .legend-title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #666;
+    margin-bottom: 6px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+    font-size: 12px;
+    color: #444;
+    font-weight: 500;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    svg {
+      flex-shrink: 0;
+    }
+  }
+}
