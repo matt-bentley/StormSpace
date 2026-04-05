@@ -49,7 +49,9 @@ export class AgentInteractionDiagramComponent implements OnChanges, AfterViewIni
   private baseContainerSize = 500;
 
   ngAfterViewInit(): void {
-    this.recalcSize();
+    setTimeout(() => {
+      this.recalcSize();
+    });
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -239,20 +241,20 @@ export class AgentInteractionDiagramComponent implements OnChanges, AfterViewIni
     return `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`;
   }
 
-  edgeDash(type: string): string {
+  edgeDash(type: string): string | null {
     switch (type) {
-      case 'delegate': return 'none';
-      case 'review': return '8 4';
-      case 'ask': return '3 3';
-      default: return 'none';
+      case 'delegate': return null;
+      case 'review': return '8 6';
+      case 'ask': return '4 6';
+      default: return null;
     }
   }
 
   edgeColor(type: string): string {
     switch (type) {
-      case 'delegate': return '#1976d2';
-      case 'review': return '#e65100';
-      case 'ask': return '#7b1fa2';
+      case 'delegate': return '#00e6ff';
+      case 'review': return '#ff9900';
+      case 'ask': return '#cc00ff';
       default: return '#999';
     }
   }
@@ -305,6 +307,13 @@ export class AgentInteractionDiagramComponent implements OnChanges, AfterViewIni
     return `rgb(${r}, ${g}, ${b})`;
   }
 
+  darken(hex: string, amount: number): string {
+    const r = Math.max(0, parseInt(hex.slice(1, 3), 16) - amount);
+    const g = Math.max(0, parseInt(hex.slice(3, 5), 16) - amount);
+    const b = Math.max(0, parseInt(hex.slice(5, 7), 16) - amount);
+    return `rgb(${r}, ${g}, ${b})`;
+  }
+
   trackByEdge(_index: number, edge: AgentEdge): string {
     return `${edge.from}-${edge.to}-${edge.type}`;
   }
@@ -317,7 +326,7 @@ export class AgentInteractionDiagramComponent implements OnChanges, AfterViewIni
     return `${edge.from}-${edge.to}`;
   }
 
-  bundledEdgePath(edge: BundledEdge): string {
+  bundledTypeEdgePath(edge: BundledEdge, typeIndex: number, totalTypes: number): string {
     const from = this.getNode(edge.from);
     const to = this.getNode(edge.to);
     if (!from || !to) return '';
@@ -329,46 +338,35 @@ export class AgentInteractionDiagramComponent implements OnChanges, AfterViewIni
 
     const nx = dx / dist;
     const ny = dy / dist;
-    const x1 = from.x + nx * from.radius;
-    const y1 = from.y + ny * from.radius;
-    const x2 = to.x - nx * to.radius;
-    const y2 = to.y - ny * to.radius;
+    
+    // Spread lines sideways so they don't overlap when there are multiple types
+    const spread = (typeIndex - (totalTypes - 1) / 2) * 35; // 35px spread apart at curve center
+    
+    const curveAmount = edge.curveDirection === 0 
+      ? spread  // If straight line, use spread to bow them out
+      : (edge.curveDirection * 0.2 * dist) + spread; // If already bowed, add spread
 
-    const curveAmount = edge.curveDirection * 0.2 * dist;
     const px = -ny * curveAmount;
     const py = nx * curveAmount;
+    
+    // Slightly offset endpoints to prevent arrowheads from clashing visually
+    const endShift = (typeIndex - (totalTypes - 1) / 2) * 8;
+    const x1 = from.x + nx * from.radius - ny * endShift;
+    const y1 = from.y + ny * from.radius + nx * endShift;
+    const x2 = to.x - nx * to.radius - ny * endShift;
+    const y2 = to.y - ny * to.radius + nx * endShift;
+
     const cx = (x1 + x2) / 2 + px;
     const cy = (y1 + y2) / 2 + py;
 
     return `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`;
   }
 
-  bundledEdgeLabelPos(edge: BundledEdge): { x: number; y: number } {
-    const from = this.getNode(edge.from);
-    const to = this.getNode(edge.to);
-    if (!from || !to) return { x: 0, y: 0 };
-
-    const dx = to.x - from.x;
-    const dy = to.y - from.y;
-    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-    const nx = dx / dist;
-    const ny = dy / dist;
-    const curveAmount = edge.curveDirection * 0.2 * dist;
-    const px = -ny * curveAmount * 0.6;
-    const py = nx * curveAmount * 0.6;
-
-    // Position at 60% along the path (closer to target) to reduce label clustering near the center
-    return {
-      x: from.x + dx * 0.6 + px,
-      y: from.y + dy * 0.6 + py
-    };
-  }
-
   bundledEdgePrimaryColor(edge: BundledEdge): string {
     if (edge.types.length === 1) {
       return this.edgeColor(edge.types[0]);
     }
-    return '#546e7a';
+    return '#00ffcc'; // Brighter neon color for multiple links
   }
 
   bundledEdgeLabel(edge: BundledEdge): string {
@@ -381,33 +379,10 @@ export class AgentInteractionDiagramComponent implements OnChanges, AfterViewIni
       return labels[edge.types[0]] ?? edge.types[0];
     }
     const shortLabels: Record<string, string> = {
-      delegate: 'Del',
-      review: 'Rev',
+      delegate: 'Delegate',
+      review: 'Review',
       ask: 'Ask'
     };
-    return edge.types.map(t => shortLabels[t]).join(' \u00b7 ');
-  }
-
-  bundledEdgeLabelWidth(edge: BundledEdge): number {
-    const label = this.bundledEdgeLabel(edge);
-    return Math.max(44, label.length * 5.5 + 16);
-  }
-
-  bundledEdgeDash(edge: BundledEdge): string {
-    if (edge.types.length === 1) {
-      return this.edgeDash(edge.types[0]);
-    }
-    return 'none';
-  }
-
-  /** Hide edge labels when the edge is too short to fit one legibly */
-  showBundledEdgeLabel(edge: BundledEdge): boolean {
-    const from = this.getNode(edge.from);
-    const to = this.getNode(edge.to);
-    if (!from || !to) return false;
-    const dx = to.x - from.x;
-    const dy = to.y - from.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    return dist > (from.radius + to.radius + 60);
+    return edge.types.map(t => shortLabels[t]).join(', ');
   }
 }

@@ -1,36 +1,58 @@
 <div class="diagram-container" #diagramContainer>
   <svg [attr.width]="svgWidth" [attr.height]="svgHeight" [attr.viewBox]="'0 0 ' + svgWidth + ' ' + svgHeight"
-    xmlns="http://www.w3.org/2000/svg">
+    xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
 
     <!-- Defs: gradients, filters, arrowheads -->
     <defs>
+      <!-- Glow filter for lines -->
+      <filter id="line-glow" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur stdDeviation="3" result="blur" />
+        <feMerge>
+          <feMergeNode in="blur" />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+      </filter>
+
       <!-- Arrowhead markers per edge type -->
-      <marker id="arrow-delegate" viewBox="0 0 10 8" refX="9" refY="4"
-        markerWidth="8" markerHeight="6" orient="auto-start-reverse">
-        <path d="M 0 0 L 10 4 L 0 8 Z" fill="#1976d2" />
+      <marker id="arrow-delegate" viewBox="0 0 10 10" refX="10" refY="5"
+        markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#00e6ff" />
       </marker>
-      <marker id="arrow-review" viewBox="0 0 10 8" refX="9" refY="4"
-        markerWidth="8" markerHeight="6" orient="auto-start-reverse">
-        <path d="M 0 0 L 10 4 L 0 8 Z" fill="#e65100" />
+      <marker id="arrow-review" viewBox="0 0 10 10" refX="10" refY="5"
+        markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#ff9900" />
       </marker>
-      <marker id="arrow-ask" viewBox="0 0 10 8" refX="9" refY="4"
-        markerWidth="8" markerHeight="6" orient="auto-start-reverse">
-        <path d="M 0 0 L 10 4 L 0 8 Z" fill="#7b1fa2" />
+      <marker id="arrow-ask" viewBox="0 0 10 10" refX="10" refY="5"
+        markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#cc00ff" />
       </marker>
 
       <!-- Ambient background glow -->
       <filter id="ambient-glow" x="-50%" y="-50%" width="200%" height="200%">
-        <feGaussianBlur in="SourceGraphic" stdDeviation="40" />
+        <feGaussianBlur in="SourceGraphic" stdDeviation="60" />
       </filter>
+
+      <!-- Glass reflections -->
+      <linearGradient id="orb-reflection" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="rgba(255,255,255,0.7)" />
+        <stop offset="30%" stop-color="rgba(255,255,255,0.1)" />
+        <stop offset="100%" stop-color="rgba(255,255,255,0)" />
+      </linearGradient>
 
       <!-- Per-node glow filter and gradient -->
       @for (node of nodes; track trackByNode($index, node)) {
         <filter [attr.id]="glowId(node)" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur in="SourceGraphic" stdDeviation="6" />
+          <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur2" />
+          <feMerge>
+            <feMergeNode in="blur2" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
         </filter>
-        <radialGradient [attr.id]="gradientId(node)" cx="35%" cy="35%" r="65%">
-          <stop offset="0%" [attr.stop-color]="lighten(node.agent.color, 60)" />
-          <stop offset="100%" [attr.stop-color]="node.agent.color" />
+        
+        <radialGradient [attr.id]="gradientId(node)" cx="25%" cy="25%" r="75%">
+          <stop offset="0%" [attr.stop-color]="lighten(node.agent.color, 80)" />
+          <stop offset="20%" [attr.stop-color]="node.agent.color" />
+          <stop offset="100%" [attr.stop-color]="darken(node.agent.color, -50)" />
         </radialGradient>
       }
     </defs>
@@ -38,115 +60,124 @@
     <!-- Ambient background glows behind the graph -->
     @for (node of nodes; track trackByNode($index, node)) {
       <circle
-        [attr.cx]="node.x" [attr.cy]="node.y" [attr.r]="node.radius * 2.5"
-        [attr.fill]="hexToRgba(node.agent.color, 0.07)"
+        [attr.cx]="node.x" [attr.cy]="node.y" [attr.r]="node.radius * 3.5"
+        [attr.fill]="hexToRgba(node.agent.color, 0.12)"
         filter="url(#ambient-glow)"
         class="ambient-circle" />
     }
 
-    <!-- Orbit ring (subtle) -->
+    <!-- Orbit ring (cybernetic radar look) -->
     @if (nodes.length > 1) {
       <circle
         [attr.cx]="centerX" [attr.cy]="centerY" [attr.r]="orbitRadius"
-        fill="none" stroke="rgba(0,0,0,0.04)" stroke-width="1" stroke-dasharray="6 4" />
+        fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1.5" stroke-dasharray="2 6" />
+      <circle
+        [attr.cx]="centerX" [attr.cy]="centerY" [attr.r]="orbitRadius + 40"
+        fill="none" stroke="rgba(0, 230, 255, 0.05)" stroke-width="1" stroke-dasharray="10 20" />
+      <circle
+        [attr.cx]="centerX" [attr.cy]="centerY" [attr.r]="orbitRadius - 40"
+        fill="none" stroke="rgba(255, 153, 0, 0.05)" stroke-width="1" stroke-dasharray="20 10" />
     }
 
     <!-- Edges (bundled) -->
     @for (bundle of bundledEdges; track trackByBundledEdge($index, bundle)) {
-      <path
-        [attr.d]="bundledEdgePath(bundle)"
-        fill="none"
-        [attr.stroke]="bundledEdgePrimaryColor(bundle)"
-        stroke-width="2"
-        [attr.stroke-dasharray]="bundledEdgeDash(bundle)"
-        [attr.marker-end]="'url(#arrow-' + bundle.types[0] + ')'"
-        class="edge-path"
-        opacity="0.55" />
-    }
+      <g>
+        <title>{{ bundledEdgeLabel(bundle) }}</title>
+        @for (type of bundle.types; track type; let i = $index) {
+          <path
+            [attr.d]="bundledTypeEdgePath(bundle, i, bundle.types.length)"
+            fill="none"
+            [attr.stroke]="edgeColor(type)"
+            stroke-width="2.5"
+            [attr.stroke-dasharray]="edgeDash(type)"
+            [attr.marker-end]="'url(#arrow-' + type + ')'"
+            class="edge-path" [class.animated]="edgeDash(type)"
+            opacity="0.8" />
 
-    <!-- Edge labels (bundled) -->
-    @for (bundle of bundledEdges; track trackByBundledEdge($index, bundle)) {
-      @if (showBundledEdgeLabel(bundle)) {
-      <g [attr.transform]="'translate(' + bundledEdgeLabelPos(bundle).x + ',' + bundledEdgeLabelPos(bundle).y + ')'">
-        <rect [attr.x]="-(bundledEdgeLabelWidth(bundle)) / 2" y="-9"
-          [attr.width]="bundledEdgeLabelWidth(bundle)" height="18" rx="9"
-          fill="white" opacity="0.92" stroke="rgba(0,0,0,0.06)" stroke-width="0.5" />
-        <text text-anchor="middle" dominant-baseline="central"
-          class="edge-label" [attr.fill]="bundledEdgePrimaryColor(bundle)">
-          {{ bundledEdgeLabel(bundle) }}
-        </text>
+          <!-- Glowing particle flowing along the edge -->
+          <circle r="2.5" [attr.fill]="edgeColor(type)" class="pulse-particle">
+            <animateMotion dur="3s" repeatCount="indefinite" [attr.path]="bundledTypeEdgePath(bundle, i, bundle.types.length)" calcMode="linear" />
+          </circle>
+        }
       </g>
-      }
     }
 
     <!-- Nodes -->
     @for (node of nodes; track trackByNode($index, node)) {
       <g class="agent-node" [class.facilitator-node]="node.agent.isFacilitator">
-        <!-- Outer glow ring -->
-        <circle
-          [attr.cx]="node.x" [attr.cy]="node.y" [attr.r]="node.radius + 4"
-          [attr.fill]="hexToRgba(node.agent.color, 0.15)"
-          [attr.filter]="'url(#' + glowId(node) + ')'"
-          class="glow-ring" />
-
-        <!-- Main circle -->
-        <circle
-          [attr.cx]="node.x" [attr.cy]="node.y" [attr.r]="node.radius"
-          [attr.fill]="'url(#' + gradientId(node) + ')'"
-          stroke="white" stroke-width="3"
-          class="node-circle" />
-
+        
         <!-- Pulsing ring for facilitator -->
         @if (node.agent.isFacilitator) {
           <circle
-            [attr.cx]="node.x" [attr.cy]="node.y" [attr.r]="node.radius + 2"
-            fill="none" [attr.stroke]="node.agent.color" stroke-width="2"
-            class="pulse-ring" opacity="0.5" />
+            [attr.cx]="node.x" [attr.cy]="node.y" [attr.r]="node.radius"
+            fill="none" [attr.stroke]="node.agent.color"
+            class="pulse-ring" />
+          <!-- Inner ring radar -->
+          <circle
+            [attr.cx]="node.x" [attr.cy]="node.y" [attr.r]="node.radius + 15"
+            fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1" stroke-dasharray="2 4" />
         }
 
-        <!-- Icon placeholder (text char as fallback since SVG can't render mat-icon) -->
+        <!-- Outer glow ring -->
+        <circle
+          [attr.cx]="node.x" [attr.cy]="node.y" [attr.r]="node.radius + 2"
+          [attr.fill]="hexToRgba(node.agent.color, 0.4)"
+          [attr.filter]="'url(#' + glowId(node) + ')'"
+          class="glow-ring" />
+
+        <!-- Main orb body -->
+        <circle
+          [attr.cx]="node.x" [attr.cy]="node.y" [attr.r]="node.radius"
+          [attr.fill]="'url(#' + gradientId(node) + ')'"
+          stroke="rgba(255,255,255,0.8)" stroke-width="1.5"
+          class="node-circle" />
+        
+        <!-- Glass shine inner highlight -->
+        <circle
+          [attr.cx]="node.x" [attr.cy]="node.y" [attr.r]="node.radius - 1.5"
+          fill="url(#orb-reflection)"
+          pointer-events="none" />
+
+        <!-- Icon -->
         <text [attr.x]="node.x" [attr.y]="node.y"
           text-anchor="middle" dominant-baseline="central"
-          class="node-icon" fill="white" [attr.font-size]="node.radius * 0.6" font-family="Material Icons">
+          class="node-icon" fill="#ffffff" [attr.font-size]="node.radius * 0.6 + 'px'" font-family="Material Icons">
           {{ node.agent.icon }}
         </text>
 
         <!-- Agent name label -->
-        <text [attr.x]="node.x" [attr.y]="node.y + node.radius + 16"
+        <text [attr.x]="node.x" [attr.y]="node.y + node.radius + 18"
           text-anchor="middle" class="node-label"
-          [attr.font-size]="node.radius >= 34 ? 12 : 10">
+          [attr.font-size]="node.radius >= 32 ? '13px' : '11px'">
           {{ node.agent.name }}
         </text>
-
-        <!-- Facilitator badge -->
-        @if (node.agent.isFacilitator) {
-          <g [attr.transform]="'translate(' + node.x + ',' + (node.y + node.radius + 30) + ')'">
-            <rect x="-30" y="-7" width="60" height="14" rx="7"
-              fill="white" opacity="0.9" />
-            <text text-anchor="middle" dominant-baseline="central"
-              class="facilitator-label" fill="#3f51b5">
-              Orchestrator
-            </text>
-          </g>
-        }
       </g>
     }
   </svg>
 
   <!-- Legend -->
   <div class="diagram-legend">
-    <div class="legend-title">Interactions</div>
-    <div class="legend-item">
-      <svg width="32" height="12"><line x1="0" y1="6" x2="28" y2="6" stroke="#1976d2" stroke-width="2" /><polygon points="28,2 32,6 28,10" fill="#1976d2" /></svg>
+    <div class="legend-title">Link Protocols</div>
+    <div class="legend-item" style="color: #00e6ff;">
+      <svg width="36" height="14" style="overflow: visible">
+        <line x1="0" y1="7" x2="28" y2="7" stroke="#00e6ff" stroke-width="2.5" class="edge-path" />
+        <polygon points="28,3 34,7 28,11" fill="#00e6ff" class="pulse-particle" />
+      </svg>
       <span>Delegate</span>
     </div>
-    <div class="legend-item">
-      <svg width="32" height="12"><line x1="0" y1="6" x2="28" y2="6" stroke="#e65100" stroke-width="2" stroke-dasharray="8 4" /><polygon points="28,2 32,6 28,10" fill="#e65100" /></svg>
-      <span>Request Review</span>
+    <div class="legend-item" style="color: #ff9900;">
+      <svg width="36" height="14" style="overflow: visible">
+        <line x1="0" y1="7" x2="28" y2="7" stroke="#ff9900" stroke-width="2.5" stroke-dasharray="8 6" class="edge-path" />
+        <polygon points="28,3 34,7 28,11" fill="#ff9900" class="pulse-particle" />
+      </svg>
+      <span>Review</span>
     </div>
-    <div class="legend-item">
-      <svg width="32" height="12"><line x1="0" y1="6" x2="28" y2="6" stroke="#7b1fa2" stroke-width="2" stroke-dasharray="3 3" /><polygon points="28,2 32,6 28,10" fill="#7b1fa2" /></svg>
-      <span>Ask Question</span>
+    <div class="legend-item" style="color: #cc00ff;">
+      <svg width="36" height="14" style="overflow: visible">
+        <line x1="0" y1="7" x2="28" y2="7" stroke="#cc00ff" stroke-width="2.5" stroke-dasharray="4 6" class="edge-path" />
+        <polygon points="28,3 34,7 28,11" fill="#cc00ff" class="pulse-particle" />
+      </svg>
+      <span>Ask</span>
     </div>
   </div>
 </div>
