@@ -12,6 +12,9 @@ namespace EventStormingBoard.Server.Models
         public List<string> AllowedTools { get; set; } = new();
         public List<string>? CanAskAgents { get; set; }
         public int Order { get; set; }
+        public string ModelType { get; set; } = "gpt-4.1";
+        public float? Temperature { get; set; }
+        public string? ReasoningEffort { get; set; }
     }
 
     public sealed class AgentConfigurationCreateDto
@@ -24,6 +27,9 @@ namespace EventStormingBoard.Server.Models
         public List<string> AllowedTools { get; set; } = new();
         public List<string>? CanAskAgents { get; set; }
         public int Order { get; set; }
+        public string ModelType { get; set; } = "gpt-4.1";
+        public float? Temperature { get; set; }
+        public string? ReasoningEffort { get; set; }
     }
 
     public sealed class AgentConfigurationUpdateDto
@@ -36,6 +42,9 @@ namespace EventStormingBoard.Server.Models
         public List<string> AllowedTools { get; set; } = new();
         public List<string>? CanAskAgents { get; set; }
         public int Order { get; set; }
+        public string ModelType { get; set; } = "gpt-4.1";
+        public float? Temperature { get; set; }
+        public string? ReasoningEffort { get; set; }
     }
 
     public sealed class ToolDefinitionDto

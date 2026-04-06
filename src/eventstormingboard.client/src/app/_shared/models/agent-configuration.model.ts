@@ -11,6 +11,9 @@ export interface AgentConfiguration {
   allowedTools: string[];
   canAskAgents?: string[];
   order: number;
+  modelType: string;
+  temperature?: number;
+  reasoningEffort?: string;
 }
 
 export interface AgentConfigurationCreate {
@@ -22,6 +25,9 @@ export interface AgentConfigurationCreate {
   allowedTools: string[];
   canAskAgents?: string[];
   order: number;
+  modelType: string;
+  temperature?: number;
+  reasoningEffort?: string;
 }
 
 export interface AgentConfigurationUpdate {
@@ -33,6 +39,9 @@ export interface AgentConfigurationUpdate {
   allowedTools: string[];
   canAskAgents?: string[];
   order: number;
+  modelType: string;
+  temperature?: number;
+  reasoningEffort?: string;
 }
 
 export interface ToolDefinition {

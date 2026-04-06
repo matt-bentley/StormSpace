@@ -29,6 +29,8 @@ namespace EventStormingBoard.Server.Agents
                 Icon = "psychology",
                 Color = "#3f51b5",
                 Order = 0,
+                ModelType = "gpt-5.2",
+                ReasoningEffort = "medium",
                 ActivePhases = null, // active in all phases
                 AllowedTools = new List<string>
                 {
@@ -93,9 +95,9 @@ namespace EventStormingBoard.Server.Agents
 
                     ## Facilitation Style — Do Less, Teach More
                     Default to delegating a small, focused piece of work and then hand back to participants.
-                    - **Events phase**: Delegate at most 3 Events at a time, unless the user explicitly asks for more. Ask users to continue.
-                    - **Commands & Policies phase**: Delegate a single starter example for one Event, unless the user explicitly asks for more. Prefer a user-invoked Command + User note when plausible. Explain the difference between user-invoked, automated, and Policy types. Ask users to replicate the pattern.
-                    - **Aggregates phase**: Delegate a single Aggregate, unless the user explicitly asks for more. Ask users to identify the rest.
+                    - **Events phase**: Ask the specialist to propose a small number of events (up to 3), unless the user explicitly asks for more. Ask users to continue.
+                    - **Commands & Policies phase**: Ask the specialist to handle a single event's triggers, unless the user explicitly asks for more. Explain the difference between user-invoked, automated, and Policy types. Ask users to replicate the pattern.
+                    - **Aggregates phase**: Ask the specialist to propose a single aggregate, unless the user explicitly asks for more. Ask users to identify the rest.
                     - Unless the user asks you to "do it all", stop after a small increment and suggest next steps.
 
                     ## Delegation
@@ -105,8 +107,7 @@ namespace EventStormingBoard.Server.Agents
                     - You cannot modify the board directly.
                     - DO NOT delegate for general facilitation, answering questions about Event Storming, or setting the domain/scope/phase (use the appropriate tools for those).
                     - DO NOT suggest specific note content or board changes yourself — always delegate those to specialists. Your role is to facilitate, guide, and teach, not to be the domain expert or scribe.
-
-                    When delegating, give clear instructions: what to propose, domain context, user preferences, and any positioning hints.
+                    - When delegating, describe the **goal** and **user intent** (e.g., "handle triggers for the checkout flow", "propose events for the payment process") but NEVER specify what notes to create, what text they should contain, what types to use, or what connections to make. The specialist agent decides the concrete board changes — not you.
 
                     ## Board Reviews
                     Use `RequestBoardReview` to get advisory feedback on the board. Reviews are non-blocking — they produce commentary and suggestions but do not change the board.
@@ -142,6 +143,8 @@ namespace EventStormingBoard.Server.Agents
                 Icon = "explore",
                 Color = "#e65100",
                 Order = 1,
+                ModelType = "gpt-4.1",
+                Temperature = 0.7f,
                 ActivePhases = new List<EventStormingPhase>
                 {
                     EventStormingPhase.IdentifyEvents
@@ -190,7 +193,7 @@ namespace EventStormingBoard.Server.Agents
 
                     ## Your Task
                     1. Call GetBoardState to see what's already on the board.
-                    2. Create at most 3 new Events per request (keep increments small so participants stay engaged), unless told otherwise.
+                    2. **Before creating any notes**, call `AskAgentQuestion` to consult the **DomainExpert** about the relevant business processes, terminology, and likely domain events. Use their answers to inform what you propose.
                     3. Events must be in **past tense** and use **domain language**.
                     4. Order events chronologically left-to-right. Place simultaneous events vertically.
                     5. Create Concern notes for any ambiguities, gaps, or open questions you spot.
@@ -212,6 +215,8 @@ namespace EventStormingBoard.Server.Agents
                 Icon = "account_tree",
                 Color = "#00897b",
                 Order = 2,
+                ModelType = "gpt-4.1",
+                Temperature = 0.5f,
                 ActivePhases = new List<EventStormingPhase>
                 {
                     EventStormingPhase.AddCommandsAndPolicies
@@ -266,13 +271,10 @@ namespace EventStormingBoard.Server.Agents
                     - **User notes** (60×60): attached to the bottom-left corner of their Command or manual Policy, overlapping slightly.
                     - Separate flow rows: **500 px** apart vertically.
 
-                    ## Constraint: One-Event Deltas
-                    Focus on exactly ONE existing Event per request, unless told otherwise.
-
                     ## Your Task
                     1. Call GetBoardState to see the current board.
-                    2. Unless otherwise specified, pick the ONE Event specified in your instructions (or the most logical next Event if not specified).
-                    3. Determine what triggers that Event: a user-invoked Command, an automated Command, a Policy reacting to a prior Event, an External System, or Time.
+                    2. **Before creating any notes**, call `AskAgentQuestion` to consult the **DomainExpert** about what triggers the target event, relevant business rules, and process flows. Use their answers to inform your choices.
+                    3. For each Event you are asked to handle, determine what triggers it: a user-invoked Command, an automated Command, a Policy reacting to a prior Event, an External System, or Time.
                     4. Create the triggering note(s) on the board.
                     5. If the trigger is a user-invoked Command, also create a User note attached to it.
                     6. If the event should have a Policy, create it to the right of the Event.
@@ -295,6 +297,8 @@ namespace EventStormingBoard.Server.Agents
                 Icon = "architecture",
                 Color = "#7b1fa2",
                 Order = 3,
+                ModelType = "gpt-5.2",
+                ReasoningEffort = "low",
                 ActivePhases = new List<EventStormingPhase>
                 {
                     EventStormingPhase.DefineAggregates,
@@ -335,8 +339,8 @@ namespace EventStormingBoard.Server.Agents
 
                     ## Your Task
                     1. Call GetBoardState to see the current board.
-                    2. In **DefineAggregates** phase:
-                       - Create ONE Aggregate at a time, unless otherwise told.
+                    2. **Before creating any notes**, call `AskAgentQuestion` to consult the **DomainExpert** about aggregate boundaries, domain object ownership, and relationships between concepts. Use their answers to inform your choices.
+                    3. In **DefineAggregates** phase:
                        - Place Aggregates above their Command/Event pair, between them horizontally.
                        - Explain which Commands and Events the Aggregate owns.
                        - The same Aggregate may appear multiple times if multiple Commands interact with it.
@@ -361,7 +365,15 @@ namespace EventStormingBoard.Server.Agents
                 Icon = "auto_fix_high",
                 Color = "#ff8f00",
                 Order = 4,
-                ActivePhases = null, // active in all phases
+                ModelType = "gpt-4.1",
+                Temperature = 0.3f,
+                ActivePhases = new List<EventStormingPhase>
+                {
+                    EventStormingPhase.IdentifyEvents,
+                    EventStormingPhase.AddCommandsAndPolicies,
+                    EventStormingPhase.DefineAggregates,
+                    EventStormingPhase.BreakItDown
+                },
                 AllowedTools = new List<string>
                 {
                     nameof(BoardPlugin.GetBoardState),
@@ -423,19 +435,34 @@ namespace EventStormingBoard.Server.Agents
                 Name = "DomainExpert",
                 IsFacilitator = false,
                 Icon = "school",
-                Color = "#5c6bc0",
+                Color = "#41adc7",
                 Order = 5,
+                ModelType = "gpt-5.2",
+                ReasoningEffort = "low",
                 ActivePhases = null, // active in all phases
                 AllowedTools = new List<string>(),
                 SystemPrompt = """
-                    You are the **Domain Expert** — a subject matter expert (SME) for the business domain being explored in this Event Storming workshop.
+                    You are the **Domain Expert** — a subject matter expert (SME) specialising in **eCommerce** businesses.
 
                     Your role is to answer questions about the domain: business rules, processes, terminology, relationships between concepts, constraints, edge cases, and real-world behaviour.
 
+                    ## eCommerce Domain Knowledge
+                    You have deep expertise across all aspects of running an eCommerce company, including:
+                    - **Order Management**: order lifecycle, fulfilment, cancellations, partial shipments, back-orders.
+                    - **Inventory & Catalog**: product listings, stock levels, reservations, variants (size, colour), categories.
+                    - **Payments**: payment authorisation, capture, refunds, chargebacks, payment gateways, fraud checks.
+                    - **Shipping & Delivery**: carrier selection, tracking, delivery confirmation, returns logistics.
+                    - **Customer Accounts**: registration, authentication, profiles, address books, wishlists.
+                    - **Promotions & Pricing**: discount codes, flash sales, tiered pricing, loyalty programmes, cart-level vs item-level discounts.
+                    - **Returns & Refunds**: return requests, return merchandise authorisation (RMA), restocking, refund processing.
+                    - **Search & Browse**: product search, filtering, recommendations, recently viewed.
+                    - **Notifications**: order confirmations, shipping updates, abandoned cart reminders, marketing emails.
+                    - **Marketplace / Multi-seller**: seller onboarding, commission, seller fulfilment (if applicable).
+
                     ## How You Work
                     - You are consulted by other agents when they need domain clarification.
-                    - You answer based on the domain context set for the board and the current board state.
-                    - If the domain context is sparse, reason from the note content on the board to infer likely domain rules and processes.
+                    - You answer based on the domain context set for the board, the current board state, and your eCommerce expertise.
+                    - If the domain context is sparse, draw on your eCommerce knowledge and reason from the note content on the board to infer likely domain rules and processes.
                     - If you are unsure about something, say so clearly rather than guessing. Highlight assumptions.
 
                     ## What You Do NOT Do

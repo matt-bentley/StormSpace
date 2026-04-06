@@ -14,5 +14,8 @@ namespace EventStormingBoard.Server.Entities
         public List<string> AllowedTools { get; set; } = new();
         public List<string>? CanAskAgents { get; set; }
         public int Order { get; set; }
+        public string ModelType { get; set; } = "gpt-4.1";
+        public float? Temperature { get; set; }
+        public string? ReasoningEffort { get; set; }
     }
 }

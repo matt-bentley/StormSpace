@@ -75,6 +75,17 @@
   flex-wrap: wrap;
 }
 
+.model-settings-row {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+
+  mat-form-field {
+    flex: 1;
+    min-width: 150px;
+  }
+}
+
 .picker-section {
   flex: 1;
   min-width: 200px;

@@ -43,6 +43,38 @@
           <input matInput [(ngModel)]="agent.name" [name]="'name-' + i" />
         </mat-form-field>
 
+        <div class="model-settings-row">
+          <mat-form-field appearance="outline">
+            <mat-label>Model</mat-label>
+            <mat-select [(ngModel)]="agent.modelType" [name]="'modelType-' + i"
+              (ngModelChange)="onModelTypeChange(agent)">
+              @for (model of MODEL_TYPES; track model.value) {
+              <mat-option [value]="model.value">{{ model.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          @if (agent.modelType === 'gpt-4.1') {
+          <mat-form-field appearance="outline">
+            <mat-label>Temperature</mat-label>
+            <input matInput type="number" [(ngModel)]="agent.temperature" [name]="'temperature-' + i"
+              min="0" max="2" step="0.1" />
+            <mat-hint>0 = deterministic, 2 = creative</mat-hint>
+          </mat-form-field>
+          }
+
+          @if (agent.modelType === 'gpt-5.2') {
+          <mat-form-field appearance="outline">
+            <mat-label>Reasoning Effort</mat-label>
+            <mat-select [(ngModel)]="agent.reasoningEffort" [name]="'reasoningEffort-' + i">
+              @for (effort of REASONING_EFFORTS; track effort.value) {
+              <mat-option [value]="effort.value">{{ effort.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          }
+        </div>
+
         <div class="icon-color-row">
           <div class="picker-section">
             <label class="picker-label">Icon</label>

@@ -244,7 +244,10 @@ export class BoardComponent implements OnInit, OnDestroy {
           color: agent.color,
           activePhases: agent.activePhases,
           allowedTools: agent.allowedTools,
-          order: agent.order
+          order: agent.order,
+          modelType: agent.modelType,
+          temperature: agent.temperature,
+          reasoningEffort: agent.reasoningEffort
         }).subscribe({ next: () => resolve(), error: reject });
       }));
     }
@@ -258,7 +261,10 @@ export class BoardComponent implements OnInit, OnDestroy {
           color: agent.color,
           activePhases: agent.activePhases,
           allowedTools: agent.allowedTools,
-          order: agent.order
+          order: agent.order,
+          modelType: agent.modelType,
+          temperature: agent.temperature,
+          reasoningEffort: agent.reasoningEffort
         }).subscribe({ next: () => resolve(), error: reject });
       }));
     }

@@ -10,10 +10,11 @@ namespace EventStormingBoard.Server.Models
         public string Endpoint { get; set; } = string.Empty;
 
         [Required]
-        public string DeploymentName { get; set; } = string.Empty;
+        public string Gpt41DeploymentName { get; set; } = string.Empty;
+
+        [Required]
+        public string Gpt52DeploymentName { get; set; } = string.Empty;
 
         public string? ApiKey { get; set; }
-
-        public string? ReasoningEffort { get; set; } = "medium";
     }
 }

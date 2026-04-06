@@ -41,10 +41,10 @@ namespace EventStormingBoard.Server.Agents
         {
             var instructions = config.SystemPrompt + AgentPrompts.BuildRuntimeContext(board, allAgentConfigurations, callingAgent: config);
             var tools = ResolveTools(config.AllowedTools, boardPlugin, delegationPlugin, allowDestructiveChanges);
-            return BuildAgent(instructions, tools, boardId);
+            return BuildAgent(config, instructions, tools, boardId);
         }
 
-        private AIAgent BuildAgent(string instructions, IList<AITool> tools, Guid boardId)
+        private AIAgent BuildAgent(AgentConfiguration config, string instructions, IList<AITool> tools, Guid boardId)
         {
             var chatOptions = new ChatOptions
             {
@@ -53,16 +53,22 @@ namespace EventStormingBoard.Server.Agents
                 AllowMultipleToolCalls = true
             };
 
-            if (IsReasoningModel())
+            var deploymentName = ResolveDeploymentName(config.ModelType);
+
+            if (IsReasoningModel(config.ModelType))
             {
                 chatOptions.Reasoning = new ReasoningOptions
                 {
-                    Effort = ParseReasoningEffort(_options.ReasoningEffort)
+                    Effort = ParseReasoningEffort(config.ReasoningEffort)
                 };
+            }
+            else if (config.Temperature.HasValue)
+            {
+                chatOptions.Temperature = config.Temperature.Value;
             }
 
             var baseAgent = _azureOpenAIClient
-                .GetChatClient(_options.DeploymentName)
+                .GetChatClient(deploymentName)
                 .AsIChatClient()
                 .AsAIAgent(new ChatClientAgentOptions
                 {
@@ -160,15 +166,20 @@ namespace EventStormingBoard.Server.Agents
 
         #region Helpers
 
-        private bool IsReasoningModel() =>
-            !_options.DeploymentName.Contains("gpt-4", StringComparison.OrdinalIgnoreCase);
+        private string ResolveDeploymentName(string modelType) =>
+            modelType switch
+            {
+                "gpt-5.2" => _options.Gpt52DeploymentName,
+                _ => _options.Gpt41DeploymentName
+            };
+
+        private static bool IsReasoningModel(string modelType) =>
+            modelType == "gpt-5.2";
 
         private static ReasoningEffort ParseReasoningEffort(string? effort)
         {
             return effort?.Trim().ToLowerInvariant() switch
             {
-                "high" => ReasoningEffort.High,
-                "xhigh" => ReasoningEffort.ExtraHigh,
                 "medium" => ReasoningEffort.Medium,
                 _ => ReasoningEffort.Low
             };

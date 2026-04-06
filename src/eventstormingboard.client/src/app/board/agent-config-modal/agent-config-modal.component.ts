@@ -61,6 +61,16 @@ export class AgentConfigModalComponent implements OnInit {
     '#ad1457', '#00838f', '#558b2f', '#6a1b9a', '#ef6c00'
   ];
 
+  public readonly MODEL_TYPES = [
+    { value: 'gpt-4.1', label: 'GPT 4.1' },
+    { value: 'gpt-5.2', label: 'GPT 5.2' }
+  ];
+
+  public readonly REASONING_EFFORTS = [
+    { value: 'low', label: 'Low' },
+    { value: 'medium', label: 'Medium' }
+  ];
+
   constructor(
     public dialogRef: MatDialogRef<AgentConfigModalComponent>,
     @Inject(MAT_DIALOG_DATA) public data: AgentConfigModalData,
@@ -133,7 +143,9 @@ export class AgentConfigModalComponent implements OnInit {
       icon: 'smart_toy',
       color: '#37474f',
       allowedTools: ['GetBoardState', 'GetRecentEvents'],
-      order: this.agents.length
+      order: this.agents.length,
+      modelType: 'gpt-4.1',
+      temperature: 0.7
     };
     this.agents.push(newAgent);
   }
@@ -180,6 +192,16 @@ export class AgentConfigModalComponent implements OnInit {
   public removeAgent(index: number): void {
     if (this.agents[index].isFacilitator) return;
     this.agents.splice(index, 1);
+  }
+
+  public onModelTypeChange(agent: AgentConfiguration): void {
+    if (agent.modelType === 'gpt-5.2') {
+      agent.temperature = undefined;
+      agent.reasoningEffort = agent.reasoningEffort || 'low';
+    } else {
+      agent.reasoningEffort = undefined;
+      agent.temperature = agent.temperature ?? 0.7;
+    }
   }
 
   public onCancel(): void {

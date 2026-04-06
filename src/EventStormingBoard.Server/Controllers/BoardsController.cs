@@ -183,7 +183,10 @@ namespace EventStormingBoard.Server.Controllers
                 ActivePhases = dto.ActivePhases,
                 AllowedTools = dto.AllowedTools,
                 CanAskAgents = dto.CanAskAgents,
-                Order = dto.Order
+                Order = dto.Order,
+                ModelType = dto.ModelType,
+                Temperature = dto.Temperature,
+                ReasoningEffort = dto.ReasoningEffort
             };
 
             board.AgentConfigurations.Add(config);
@@ -216,6 +219,9 @@ namespace EventStormingBoard.Server.Controllers
             config.AllowedTools = dto.AllowedTools;
             config.CanAskAgents = dto.CanAskAgents;
             config.Order = dto.Order;
+            config.ModelType = dto.ModelType;
+            config.Temperature = dto.Temperature;
+            config.ReasoningEffort = dto.ReasoningEffort;
 
             _repository.Update(boardId, board);
             BroadcastAgentConfigurationsUpdated(boardId, board);
@@ -268,7 +274,10 @@ namespace EventStormingBoard.Server.Controllers
                 ActivePhases = config.ActivePhases,
                 AllowedTools = config.AllowedTools,
                 CanAskAgents = config.CanAskAgents,
-                Order = config.Order
+                Order = config.Order,
+                ModelType = config.ModelType,
+                Temperature = config.Temperature,
+                ReasoningEffort = config.ReasoningEffort
             };
         }
 
