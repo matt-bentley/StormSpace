@@ -271,11 +271,13 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   public onWheel(event: WheelEvent): void {
-    const mousePos = this.getMousePos(event);
-
     if (event.ctrlKey) {
       // Ctrl pressed: Zooming behavior  
       event.preventDefault();
+
+      const rect = this.canvas.nativeElement.getBoundingClientRect();
+      const screenX = event.clientX - rect.left;
+      const screenY = event.clientY - rect.top;
 
       const wheel = event.deltaY < 0 ? 1 : -1;
       const zoom = Math.pow(this.canvasService.scaleFactor, wheel);
@@ -286,8 +288,8 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
       if (newScale < 0.2 || newScale > 5) return;
 
       // Adjust origin to zoom towards mouse pointer  
-      this.canvasService.originX = mousePos.x - zoom * (mousePos.x - this.canvasService.originX);
-      this.canvasService.originY = mousePos.y - zoom * (mousePos.y - this.canvasService.originY);
+      this.canvasService.originX = screenX - zoom * (screenX - this.canvasService.originX);
+      this.canvasService.originY = screenY - zoom * (screenY - this.canvasService.originY);
 
       this.canvasService.scale = newScale;
     } else {
