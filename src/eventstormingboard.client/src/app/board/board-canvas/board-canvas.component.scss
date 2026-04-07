@@ -14,12 +14,12 @@
     position: fixed;
     right: var(--board-gutter, 20px);
     bottom: calc(24px + 64px);
-    background: var(--sys-surface-container-low);
+    background: rgba(13, 15, 22, 0.92);
     opacity: 0.85;
     padding: 0;
     cursor: pointer;
-    border: 1px solid rgba(68, 71, 78, 0.15);
-    box-shadow: var(--shadow-glow-primary);
+    border: 1px solid rgba(0, 240, 255, 0.06);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
     z-index: 900;
     transition: opacity var(--duration-normal) var(--ease-sharp);
 

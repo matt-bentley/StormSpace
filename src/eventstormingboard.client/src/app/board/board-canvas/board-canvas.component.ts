@@ -469,7 +469,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     onSurface: '#e2e2e6',
     onSurfaceVariant: '#a0a4ad',
     outlineVariant: '#44474e',
-    gridLine: 'rgba(0, 240, 255, 0.04)',
+    gridLine: 'rgba(0, 240, 255, 0.05)',
     ghostBorder: 'rgba(68, 71, 78, 0.15)',
     fontDisplay: "'Space Grotesk', system-ui, sans-serif",
     fontBody: "'Inter', -apple-system, sans-serif",
@@ -764,36 +764,44 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     const T = BoardCanvasComponent.THEME;
     const typeColor = getNoteColor(note.type);
 
-    // Glow shadow for selected notes
+    // Glow shadow — selected uses cyan, unselected uses type-color glow
     if (note.selected) {
-      this.ctx.shadowColor = 'rgba(0, 240, 255, 0.18)';
-      this.ctx.shadowBlur = 20;
+      this.ctx.shadowColor = 'rgba(0, 240, 255, 0.35)';
+      this.ctx.shadowBlur = 28;
       this.ctx.shadowOffsetX = 0;
       this.ctx.shadowOffsetY = 0;
     } else {
-      this.ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
-      this.ctx.shadowBlur = 8;
+      this.ctx.shadowColor = this.hexToGlow(typeColor, 0.22);
+      this.ctx.shadowBlur = 20;
       this.ctx.shadowOffsetX = 0;
-      this.ctx.shadowOffsetY = 4;
+      this.ctx.shadowOffsetY = 2;
     }
 
-    // Dark surface fill
+    // Note surface fill — elevated from canvas
     this.ctx.beginPath();
     this.ctx.rect(note.x, note.y, note.width, note.height);
     this.ctx.closePath();
-    this.ctx.fillStyle = T.surfaceContainerLow;
+    this.ctx.fillStyle = '#282c34';
+    this.ctx.fill();
+
+    // Type-color tint overlay
+    this.ctx.fillStyle = this.hexToGlow(typeColor, 0.05);
     this.ctx.fill();
 
     this.resetShadow();
 
-    // Ghost border (or cyan selection border)
+    // Left accent bar (draw before border so it sits flush)
+    this.ctx.fillStyle = typeColor;
+    this.ctx.fillRect(note.x, note.y, 3, note.height);
+
+    // Border — type-colored (or cyan selection border)
     this.ctx.beginPath();
     this.ctx.rect(note.x, note.y, note.width, note.height);
     if (note.selected) {
       this.ctx.strokeStyle = T.primaryContainer;
       this.ctx.lineWidth = 2;
     } else {
-      this.ctx.strokeStyle = T.ghostBorder;
+      this.ctx.strokeStyle = this.hexToGlow(typeColor, 0.35);
       this.ctx.lineWidth = 1;
     }
     this.ctx.stroke();
@@ -813,10 +821,6 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     this.ctx.textBaseline = 'middle';
     this.ctx.fillText(chipText, chipX + 6, chipY + chipHeight / 2);
 
-    // Left accent bar
-    this.ctx.fillStyle = typeColor;
-    this.ctx.fillRect(note.x, note.y, 3, note.height);
-
     // Draw text
     this.drawNoteText(note);
   }
@@ -825,6 +829,13 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     this.ctx.shadowBlur = 0;
     this.ctx.shadowOffsetX = 0;
     this.ctx.shadowOffsetY = 0;
+  }
+
+  private hexToGlow(hex: string, alpha: number): string {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
 
   private drawNoteText(note: Note): void {
