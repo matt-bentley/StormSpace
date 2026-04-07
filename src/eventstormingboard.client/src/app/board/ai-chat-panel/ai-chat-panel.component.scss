@@ -180,8 +180,9 @@
     }
 
     .bubble {
-      background: linear-gradient(135deg, var(--sys-primary), var(--sys-primary-container));
-      color: var(--sys-on-primary);
+      background: var(--sys-surface-container-highest);
+      color: var(--sys-on-surface);
+      border-right: 3px solid var(--sys-primary-container);
     }
 
     .sender-name {
