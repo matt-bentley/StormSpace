@@ -6,9 +6,8 @@
   align-items: center;
   justify-content: center;
   background: 
-    radial-gradient(ellipse at center, #1a1e36 0%, #0d1117 100%);
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+    radial-gradient(ellipse at center, var(--sys-surface-container) 0%, var(--sys-surface-dim) 100%);
+  border: 1px solid rgba(68, 71, 78, 0.15);
   overflow: hidden;
   box-shadow: inset 0 0 100px rgba(0,0,0,0.5);
 
@@ -110,25 +109,26 @@
   }
 
   .node-label {
-    font-family: 'Segoe UI', system-ui, sans-serif;
-    font-size: 12px;
-    font-weight: 600;
-    fill: #e6edf3;
-    letter-spacing: 0.5px;
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 700;
+    fill: var(--sys-on-surface);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
     paint-order: stroke;
-    stroke: #0d1117;
+    stroke: var(--sys-surface-dim);
     stroke-width: 4px;
     stroke-linejoin: round;
-    transition: font-size 0.3s ease;
+    transition: font-size var(--duration-slow) var(--ease-sharp);
   }
 
   .facilitator-label {
     font-size: 10px;
-    font-weight: 800;
-    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-weight: 700;
+    font-family: var(--font-display);
     text-transform: uppercase;
-    letter-spacing: 1px;
-    fill: #00e6ff;
+    letter-spacing: 0.1em;
+    fill: var(--sys-primary-container);
   }
 
   &:hover {
@@ -168,25 +168,24 @@
   position: absolute;
   bottom: 16px;
   right: 16px;
-  background: rgba(22, 27, 34, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-radius: 12px;
+  background: rgba(24, 28, 36, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   padding: 14px 18px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
-  color: #e6edf3;
+  border: 1px solid rgba(68, 71, 78, 0.15);
+  box-shadow: var(--shadow-glow-primary), 0 4px 24px rgba(0, 0, 0, 0.4);
+  color: var(--sys-on-surface);
   z-index: 20;
 
   .legend-title {
-    font-family: 'Segoe UI', system-ui, sans-serif;
-    font-size: 11px;
+    font-family: var(--font-display);
+    font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 1.2px;
-    color: #8b949e;
+    letter-spacing: 0.1em;
+    color: var(--sys-on-surface-variant);
     margin-bottom: 10px;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
+    border-bottom: 1px solid rgba(68, 71, 78, 0.15);
     padding-bottom: 4px;
   }
 
@@ -195,9 +194,9 @@
     align-items: center;
     gap: 12px;
     margin-bottom: 8px;
-    font-family: 'Segoe UI', system-ui, sans-serif;
-    font-size: 13px;
-    color: #c9d1d9;
+    font-family: var(--font-body);
+    font-size: 12px;
+    color: var(--sys-on-surface);
     font-weight: 500;
 
     &:last-child {

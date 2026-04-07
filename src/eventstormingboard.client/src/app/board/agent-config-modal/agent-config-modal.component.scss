@@ -6,63 +6,70 @@
 
   h1 {
     margin: 0;
-    font-size: 20px;
-    font-weight: 500;
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--sys-primary-container);
   }
 
   .view-toggle {
     display: flex;
     gap: 2px;
-    background: rgba(0, 0, 0, 0.04);
-    border-radius: 8px;
+    background: rgba(18, 21, 30, 0.5);
+    border: 1px solid rgba(0, 240, 255, 0.06);
     padding: 2px;
 
     button {
-      border-radius: 6px;
-      transition: background 0.15s, color 0.15s;
+      transition: background var(--duration-fast) var(--ease-sharp),
+                  color var(--duration-fast) var(--ease-sharp);
 
       &.active {
-        background: #3f51b5;
-        color: white;
+        background: var(--sys-primary-container);
+        color: var(--sys-on-primary);
       }
     }
   }
 }
 
 .description {
-  color: #666;
+  color: var(--sys-on-surface-variant);
   font-size: 13px;
-  margin-bottom: 16px;
+  margin-bottom: var(--space-4);
 }
 
 .agent-header-icon {
   font-size: 20px;
   width: 20px;
   height: 20px;
-  margin-right: 8px;
+  margin-right: var(--space-2);
 }
 
 .agent-header-name {
-  font-weight: 500;
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--sys-on-surface);
 }
 
 .facilitator-badge {
-  margin-left: 8px;
+  margin-left: var(--space-2);
   padding: 2px 8px;
-  border-radius: 999px;
+  font-family: var(--font-display);
   font-size: 10px;
-  font-weight: 600;
-  color: #3f51b5;
-  background: rgba(63, 81, 181, 0.12);
+  font-weight: 700;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  color: var(--sys-primary-container);
+  border: 1px solid rgba(0, 240, 255, 0.12);
+  background: rgba(0, 240, 255, 0.04);
 }
 
 .agent-form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 8px 0;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
 
   mat-form-field {
     width: 100%;
@@ -71,13 +78,13 @@
 
 .icon-color-row {
   display: flex;
-  gap: 24px;
+  gap: var(--space-6);
   flex-wrap: wrap;
 }
 
 .model-settings-row {
   display: flex;
-  gap: 16px;
+  gap: var(--space-4);
   align-items: flex-start;
 
   mat-form-field {
@@ -92,12 +99,13 @@
 }
 
 .picker-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: #666;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 8px;
+  color: var(--sys-on-surface-variant);
+  margin-bottom: var(--space-2);
   display: block;
 }
 
@@ -112,29 +120,28 @@
     justify-content: center;
     width: 36px;
     height: 36px;
-    border: 2px solid transparent;
-    border-radius: 8px;
-    background: rgba(0, 0, 0, 0.04);
+    border: 1px solid transparent;
+    background: rgba(18, 21, 30, 0.5);
     cursor: pointer;
-    transition: all 0.15s;
+    transition: all var(--duration-fast) var(--ease-sharp);
 
     mat-icon {
       font-size: 20px;
       width: 20px;
       height: 20px;
-      color: #555;
+      color: var(--sys-on-surface-variant);
     }
 
     &:hover {
-      background: rgba(63, 81, 181, 0.08);
+      background: var(--sys-surface-container-high);
     }
 
     &.selected {
-      border-color: #3f51b5;
-      background: rgba(63, 81, 181, 0.12);
+      border-color: var(--sys-primary-container);
+      box-shadow: var(--shadow-glow-primary);
 
       mat-icon {
-        color: #3f51b5;
+        color: var(--sys-primary-container);
       }
     }
   }
@@ -151,25 +158,26 @@
     border-radius: 50%;
     border: 3px solid transparent;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: all var(--duration-fast) var(--ease-sharp);
 
     &:hover {
       transform: scale(1.15);
     }
 
     &.selected {
-      border-color: #333;
-      box-shadow: 0 0 0 2px #fff, 0 0 0 4px currentColor;
+      border-color: var(--sys-on-surface);
+      box-shadow: 0 0 0 2px var(--sys-surface-container-low), 0 0 0 4px currentColor;
     }
   }
 }
 
 .section-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: #666;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  color: var(--sys-on-surface-variant);
 }
 
 .phase-checkboxes,
@@ -185,18 +193,17 @@
 
 .no-tools-hint {
   font-size: 12px;
-  color: #999;
+  color: var(--sys-outline);
   font-style: italic;
 }
 
 .remove-section {
   display: flex;
   justify-content: flex-end;
-  padding-top: 8px;
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  padding-top: var(--space-2);
 }
 
 .add-agent-btn {
-  margin-top: 16px;
+  margin-top: var(--space-4);
   width: 100%;
 }

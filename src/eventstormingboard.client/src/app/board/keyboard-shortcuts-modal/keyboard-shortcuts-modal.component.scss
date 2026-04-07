@@ -2,26 +2,25 @@
   max-height: 70vh;
   min-width: 420px;
   display: grid;
-  gap: 16px;
-  padding-top: 8px;
-  padding-bottom: 8px;
+  gap: var(--space-4);
+  padding-top: var(--space-2);
+  padding-bottom: var(--space-2);
 }
 
 .shortcuts-section {
   margin: 0;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 12px;
-  background: white;
-  padding: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(0, 240, 255, 0.06);
+  background: rgba(18, 21, 30, 0.5);
+  padding: var(--space-4);
 
   h3 {
-    margin: 0 0 12px;
-    font-size: 16px;
-    font-weight: 600;
-    color: #3f51b5;
+    margin: 0 0 var(--space-3);
+    font-family: var(--font-display);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    color: var(--sys-primary-container);
   }
 
   ul {
@@ -30,20 +29,22 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: var(--space-3);
   }
 
   li {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 16px;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-    padding-bottom: 12px;
+    gap: var(--space-4);
+    padding-bottom: var(--space-3);
+  }
+
+  li:not(:last-child) {
+    border-bottom: 1px solid rgba(68, 71, 78, 0.08);
   }
 
   li:last-child {
-    border-bottom: 0;
     padding-bottom: 0;
   }
 }
@@ -57,28 +58,27 @@
 }
 
 .shortcut-description {
-  color: #4a5568;
+  color: var(--sys-on-surface-variant);
   text-align: right;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
 }
 
 kbd {
-  border: 1px solid #cbd5e0;
+  border: 1px solid rgba(0, 240, 255, 0.12);
   border-bottom-width: 3px;
-  border-radius: 6px;
-  background: #f7fafc;
-  color: #2d3748;
-  font-size: 13px;
-  font-weight: 600;
+  background: rgba(0, 240, 255, 0.04);
+  color: var(--sys-primary);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
   line-height: 1;
   padding: 6px 10px;
-  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.05);
 }
 
 .plus {
-  color: #a0aec0;
-  font-weight: 600;
+  color: var(--sys-outline);
+  font-weight: 700;
 }
 
 @media (max-width: 640px) {

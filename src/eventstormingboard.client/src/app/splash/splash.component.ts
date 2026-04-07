@@ -1,41 +1,40 @@
-import { Component, OnInit } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { FormsModule } from '@angular/forms';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
 import { Router } from '@angular/router';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { CreateBoardModalComponent } from './create-board-modal/create-board-modal.component';
 import { SelectBoardModalComponent } from './select-board-modal/select-board-modal.component';
+import { UserService } from '../_shared/services/user.service';
+import { Subject, takeUntil } from 'rxjs';
 
 @Component({
     selector: 'app-splash',
     imports: [
-    MatButtonModule,
     MatIconModule,
-    MatTooltipModule,
     FormsModule,
-    MatFormFieldModule,
-    MatInputModule,
     MatDialogModule
 ],
     templateUrl: './splash.component.html',
     styleUrls: ['./splash.component.scss']
 })
-export class SplashComponent implements OnInit {
+export class SplashComponent implements OnInit, OnDestroy {
 
   public userName: string = '';
+  private destroy$ = new Subject<void>();
 
   constructor(
     private router: Router,
-    private dialog: MatDialog) { }
+    private dialog: MatDialog,
+    private userService: UserService) { }
+
+  public onUserNameChanged(): void {
+    this.userService.setDisplayName(this.userName);
+  }
 
   public createNewBoard(): void {
     if (this.userName) {
-      localStorage.setItem('userName', this.userName);
+      this.userService.setDisplayName(this.userName);
       const dialogRef = this.dialog.open(CreateBoardModalComponent, {
         width: '500px',
         data: { name: '' }
@@ -51,7 +50,7 @@ export class SplashComponent implements OnInit {
 
   public selectExistingBoard(): void {
     if (this.userName) {
-      localStorage.setItem('userName', this.userName);
+      this.userService.setDisplayName(this.userName);
       const dialogRef = this.dialog.open(SelectBoardModalComponent, {
         width: '400px',
         data: { id: '' }
@@ -66,9 +65,13 @@ export class SplashComponent implements OnInit {
   }
 
   public ngOnInit(): void {
-    const savedUserName = localStorage.getItem('userName');
-    if (savedUserName) {
-      this.userName = savedUserName;
-    }
+    this.userService.displayName$.pipe(takeUntil(this.destroy$)).subscribe(name => {
+      this.userName = name;
+    });
+  }
+
+  public ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }  

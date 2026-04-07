@@ -22,6 +22,7 @@ import { BoardContextModalComponent, BoardContextData } from './board-context-mo
 import { AgentConfigModalComponent, AgentConfigModalData } from './agent-config-modal/agent-config-modal.component';
 import { AgentConfiguration } from '../_shared/models/agent-configuration.model';
 import { EVENT_STORMING_PHASES } from '../_shared/models/board.model';
+import { UserService } from '../_shared/services/user.service';
 
 @Component({
     selector: 'app-board',
@@ -51,7 +52,8 @@ export class BoardComponent implements OnInit, OnDestroy {
     public canvasService: BoardCanvasService,
     private activatedRoute: ActivatedRoute,
     private boardsService: BoardsService,
-    private dialog: MatDialog
+    private dialog: MatDialog,
+    private userService: UserService
   ) {
     this.canvasService.boardState = {
       name: '',
@@ -60,7 +62,7 @@ export class BoardComponent implements OnInit, OnDestroy {
       notes: []
     };
     this.id = this.activatedRoute.snapshot.paramMap.get('id') || '';
-    this.userName = localStorage.getItem('userName') ?? 'Anonymous'
+    this.userName = this.userService.displayName || 'Anonymous';
     this.previousName = this.canvasService.boardState.name;
   }
 

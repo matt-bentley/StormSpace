@@ -438,8 +438,8 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     tempCanvas.width = canvasEl.width;
     tempCanvas.height = canvasEl.height;
 
-    // Fill the temporary canvas with a white background
-    tempCtx.fillStyle = '#ffffff';
+    // Fill the temporary canvas with the dark theme background
+    tempCtx.fillStyle = BoardCanvasComponent.THEME.surface;
     tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
 
     // Draw the original canvas content on top of the white background
@@ -452,10 +452,59 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     link.click();
   }
 
+  // ── Kinetic Ionization theme constants for Canvas API ──
+  private static readonly THEME = {
+    surface: '#10131c',
+    surfaceDim: '#0d0f16',
+    surfaceContainerLow: '#181c24',
+    surfaceContainerLowest: '#12151e',
+    surfaceContainerHigh: '#282c34',
+    surfaceContainerHighest: '#31353e',
+    primary: '#dbfcff',
+    primaryContainer: '#00f0ff',
+    onPrimary: '#10131c',
+    secondary: '#f0b4ff',
+    secondaryContainer: '#e040fb',
+    tertiary: '#ff4081',
+    onSurface: '#e2e2e6',
+    onSurfaceVariant: '#a0a4ad',
+    outlineVariant: '#44474e',
+    gridLine: 'rgba(0, 240, 255, 0.04)',
+    ghostBorder: 'rgba(68, 71, 78, 0.15)',
+    fontDisplay: "'Space Grotesk', system-ui, sans-serif",
+    fontBody: "'Inter', -apple-system, sans-serif",
+  };
+
   private drawCanvas(): void {
     const canvasEl = this.canvas.nativeElement;
+    const T = BoardCanvasComponent.THEME;
     this.ctx.setTransform(this.canvasService.scale, 0, 0, this.canvasService.scale, this.canvasService.originX, this.canvasService.originY);
-    this.ctx.clearRect(-this.canvasService.originX / this.canvasService.scale, -this.canvasService.originY / this.canvasService.scale, canvasEl.width / this.canvasService.scale, canvasEl.height / this.canvasService.scale);
+
+    const vx = -this.canvasService.originX / this.canvasService.scale;
+    const vy = -this.canvasService.originY / this.canvasService.scale;
+    const vw = canvasEl.width / this.canvasService.scale;
+    const vh = canvasEl.height / this.canvasService.scale;
+
+    // Dark background
+    this.ctx.fillStyle = T.surface;
+    this.ctx.fillRect(vx, vy, vw, vh);
+
+    // Subtle cyan grid
+    this.ctx.strokeStyle = T.gridLine;
+    this.ctx.lineWidth = 1;
+    const gridSize = 40;
+    const startX = Math.floor(vx / gridSize) * gridSize;
+    const startY = Math.floor(vy / gridSize) * gridSize;
+    this.ctx.beginPath();
+    for (let x = startX; x <= vx + vw; x += gridSize) {
+      this.ctx.moveTo(x, vy);
+      this.ctx.lineTo(x, vy + vh);
+    }
+    for (let y = startY; y <= vy + vh; y += gridSize) {
+      this.ctx.moveTo(vx, y);
+      this.ctx.lineTo(vx + vw, y);
+    }
+    this.ctx.stroke();
 
     this.canvasService.boardState.notes.forEach(note => {
       this.drawNote(note);
@@ -466,17 +515,17 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
 
     if (this.isSelecting) {
       this.ctx.save();
-      this.ctx.strokeStyle = '#3498db';
+      this.ctx.strokeStyle = T.primaryContainer;
       this.ctx.lineWidth = 1;
       this.ctx.setLineDash([4, 2]);
       this.ctx.strokeRect(this.selectionRect.x, this.selectionRect.y, this.selectionRect.width, this.selectionRect.height);
       this.ctx.restore();
     }
 
-    // Indicator square (only when hovering before starting a connection)  
+    // Indicator square (only when hovering before starting a connection)
     if (this.hoveredConnectionStartNote && this.hoveredConnectionStartPos && this.canvasService.isDrawingConnection && !this.arrowStartNote) {
       this.ctx.save();
-      this.ctx.fillStyle = '#000';
+      this.ctx.fillStyle = T.primaryContainer;
       const indicatorSize = 8;
       this.ctx.fillRect(
         this.hoveredConnectionStartPos.x - indicatorSize / 2,
@@ -498,9 +547,9 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
       this.ctx.save();
 
       // Shadow for pointer
-      this.ctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
-      this.ctx.shadowBlur = 6;
-      this.ctx.shadowOffsetX = 1;
+      this.ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+      this.ctx.shadowBlur = 8;
+      this.ctx.shadowOffsetX = 0;
       this.ctx.shadowOffsetY = 2;
 
       // Draw cursor pointer (Figma-style arrow)
@@ -515,8 +564,8 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
       this.ctx.fillStyle = color;
       this.ctx.fill();
 
-      // White exterior stroke
-      this.ctx.strokeStyle = '#ffffff';
+      // Thin border stroke
+      this.ctx.strokeStyle = BoardCanvasComponent.THEME.surfaceContainerLow;
       this.ctx.lineWidth = 1.5;
       this.ctx.lineJoin = 'round';
       this.ctx.stroke();
@@ -524,33 +573,26 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
       // Remove shadow for text rendering clarity
       this.ctx.shadowColor = 'transparent';
 
-      this.ctx.font = 'bold 12px Calibri, sans-serif';
+      const T = BoardCanvasComponent.THEME;
+      this.ctx.font = `700 11px ${T.fontDisplay}`;
       const textWidth = this.ctx.measureText(cursor.userName).width;
       const paddingX = 8;
       const labelWidth = textWidth + paddingX * 2;
-      const labelHeight = 22;
+      const labelHeight = 20;
       const labelX = cursor.x + 12;
       const labelY = cursor.y + 16;
-      const r = 4; // border radius
 
-      // Draw label background with rounded corners
-      this.ctx.beginPath();
-      this.ctx.moveTo(labelX + r, labelY);
-      this.ctx.lineTo(labelX + labelWidth - r, labelY);
-      this.ctx.quadraticCurveTo(labelX + labelWidth, labelY, labelX + labelWidth, labelY + r);
-      this.ctx.lineTo(labelX + labelWidth, labelY + labelHeight - r);
-      this.ctx.quadraticCurveTo(labelX + labelWidth, labelY + labelHeight, labelX + labelWidth - r, labelY + labelHeight);
-      this.ctx.lineTo(labelX + r, labelY + labelHeight);
-      this.ctx.quadraticCurveTo(labelX, labelY + labelHeight, labelX, labelY + labelHeight - r);
-      this.ctx.lineTo(labelX, labelY + r);
-      this.ctx.quadraticCurveTo(labelX, labelY, labelX + r, labelY);
-      this.ctx.closePath();
-      
-      this.ctx.fillStyle = color;
-      this.ctx.fill();
+      // Dark glass label background (0px radius)
+      this.ctx.fillStyle = T.surfaceContainerHigh;
+      this.ctx.fillRect(labelX, labelY, labelWidth, labelHeight);
+
+      // Ghost border on label
+      this.ctx.strokeStyle = T.ghostBorder;
+      this.ctx.lineWidth = 1;
+      this.ctx.strokeRect(labelX, labelY, labelWidth, labelHeight);
 
       // Draw label text
-      this.ctx.fillStyle = '#ffffff';
+      this.ctx.fillStyle = T.primary;
       this.ctx.textAlign = 'left';
       this.ctx.textBaseline = 'middle';
       this.ctx.fillText(cursor.userName, labelX + paddingX, labelY + labelHeight / 2 + 1);
@@ -586,10 +628,13 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private drawMinimap(): void {
+    const T = BoardCanvasComponent.THEME;
     const minimapCanvas = this.minimap.nativeElement;
     const ctx = this.minimapCtx;
 
-    ctx.clearRect(0, 0, minimapCanvas.width, minimapCanvas.height);
+    // Dark minimap background
+    ctx.fillStyle = T.surfaceContainerLowest;
+    ctx.fillRect(0, 0, minimapCanvas.width, minimapCanvas.height);
 
     const { minX, minY, dynamicScale } = this.getCanvasBoundsAndScale();
 
@@ -610,7 +655,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
         const from = this.getClosestSideCenter(fromNote, toNote);
         const to = this.getClosestSideCenter(toNote, fromNote);
 
-        ctx.strokeStyle = '#888';
+        ctx.strokeStyle = T.onSurfaceVariant;
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo((from.x - minX) * dynamicScale, (from.y - minY) * dynamicScale);
@@ -626,7 +671,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
       height: this.canvas.nativeElement.height / this.canvasService.scale
     };
 
-    ctx.strokeStyle = '#bfbfbf';
+    ctx.strokeStyle = T.primaryContainer;
     ctx.lineWidth = 1;
     ctx.strokeRect(
       (viewportRect.x - minX) * dynamicScale,
@@ -716,86 +761,61 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private drawNote(note: Note): void {
+    const T = BoardCanvasComponent.THEME;
+    const typeColor = getNoteColor(note.type);
 
-    // Helper functions for colour manipulation
-    const parseColor = (color: string) => {
-      let r = 0, g = 0, b = 0;
-      if (color.startsWith('#')) {
-        let hex = color.slice(1);
-        if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
-        r = parseInt(hex.slice(0, 2), 16);
-        g = parseInt(hex.slice(2, 4), 16);
-        b = parseInt(hex.slice(4, 6), 16);
-      } else if (color.startsWith('rgb')) {
-        const parts = color.match(/\d+/g);
-        if (parts && parts.length >= 3) {
-          r = parseInt(parts[0], 10);
-          g = parseInt(parts[1], 10);
-          b = parseInt(parts[2], 10);
-        }
-      }
-      return { r, g, b };
-    };
+    // Glow shadow for selected notes
+    if (note.selected) {
+      this.ctx.shadowColor = 'rgba(0, 240, 255, 0.18)';
+      this.ctx.shadowBlur = 20;
+      this.ctx.shadowOffsetX = 0;
+      this.ctx.shadowOffsetY = 0;
+    } else {
+      this.ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+      this.ctx.shadowBlur = 8;
+      this.ctx.shadowOffsetX = 0;
+      this.ctx.shadowOffsetY = 4;
+    }
 
-    const darkenColor = (color: string, amount: number) => {
-      const { r, g, b } = parseColor(color);
-      const shift = Math.floor(255 * (amount / 100));
-      const tr = Math.max(0, r - shift);
-      const tg = Math.max(0, g - shift);
-      const tb = Math.max(0, b - shift);
-      return `rgb(${tr}, ${tg}, ${tb})`;
-    };
-
-    const lightenColor = (color: string, amount: number) => {
-      const { r, g, b } = parseColor(color);
-      const shift = Math.floor(255 * (amount / 100));
-      const tr = Math.min(255, r + shift);
-      const tg = Math.min(255, g + shift);
-      const tb = Math.min(255, b + shift);
-      return `rgb(${tr}, ${tg}, ${tb})`;
-    };
-
-    // Calculate dynamic gradient colours based on base colour
-    const baseColor = getNoteColor(note.type);
-    const topColor = lightenColor(baseColor, 15);
-    const bottomColor = baseColor;
-
-    // Create a smooth gradient for the main note body
-    const gradient = this.ctx.createLinearGradient(note.x, note.y, note.x, note.y + note.height);
-    gradient.addColorStop(0, topColor);
-    gradient.addColorStop(1, bottomColor);
-
-    // More realistic multiple shadow effect
-    this.ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
-    this.ctx.shadowBlur = note.selected ? 12 : 5;
-    this.ctx.shadowOffsetX = note.selected ? 4 : 2;
-    this.ctx.shadowOffsetY = note.selected ? 6 : 3;
-
-    // Draw main note rectangle
+    // Dark surface fill
     this.ctx.beginPath();
     this.ctx.rect(note.x, note.y, note.width, note.height);
     this.ctx.closePath();
-
-    // Fill main shape with gradient
-    this.ctx.fillStyle = gradient;
+    this.ctx.fillStyle = T.surfaceContainerLow;
     this.ctx.fill();
 
-    // Reset shadow before drawing borders and details
     this.resetShadow();
 
-    // Draw border
+    // Ghost border (or cyan selection border)
     this.ctx.beginPath();
     this.ctx.rect(note.x, note.y, note.width, note.height);
     if (note.selected) {
-      // Draw standard selection border on top
-      this.ctx.strokeStyle = '#4A85CD';
-      this.ctx.lineWidth = 2.5;
+      this.ctx.strokeStyle = T.primaryContainer;
+      this.ctx.lineWidth = 2;
     } else {
-      // Very faint outline for unselected
-      this.ctx.strokeStyle = darkenColor(baseColor, 12);
+      this.ctx.strokeStyle = T.ghostBorder;
       this.ctx.lineWidth = 1;
     }
     this.ctx.stroke();
+
+    // Type-colored ID chip in top-left
+    const chipText = note.type.toUpperCase();
+    this.ctx.font = `700 9px ${T.fontDisplay}`;
+    const chipWidth = this.ctx.measureText(chipText).width + 12;
+    const chipHeight = 18;
+    const chipX = note.x + 8;
+    const chipY = note.y + 8;
+
+    this.ctx.fillStyle = typeColor;
+    this.ctx.fillRect(chipX, chipY, chipWidth, chipHeight);
+    this.ctx.fillStyle = T.onPrimary;
+    this.ctx.textAlign = 'left';
+    this.ctx.textBaseline = 'middle';
+    this.ctx.fillText(chipText, chipX + 6, chipY + chipHeight / 2);
+
+    // Left accent bar
+    this.ctx.fillStyle = typeColor;
+    this.ctx.fillRect(note.x, note.y, 3, note.height);
 
     // Draw text
     this.drawNoteText(note);
@@ -808,22 +828,26 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private drawNoteText(note: Note): void {
-    const fontSize = note.width < 80 ? 12 : 16;
-    this.ctx.fillStyle = '#000';
-    this.ctx.font = `bold ${fontSize}px Calibri`;
+    const T = BoardCanvasComponent.THEME;
+    const fontSize = note.width < 80 ? 12 : 14;
+    this.ctx.fillStyle = T.onSurface;
+    this.ctx.font = `600 ${fontSize}px ${T.fontBody}`;
     this.ctx.textAlign = 'center';
+    this.ctx.textBaseline = 'middle';
 
-    const lines = this.getWrappedTextLines(note.text, note.width - 20);
-    const textBlockHeight = lines.length * fontSize;
-    let textY = note.y + (note.height - textBlockHeight) / 2 + fontSize / 2;
+    const topPadding = 32; // Space for chip
+    const lines = this.getWrappedTextLines(note.text, note.width - 24);
+    const lineHeight = fontSize + 4;
+    const textBlockHeight = lines.length * lineHeight;
+    let textY = note.y + topPadding + (note.height - topPadding - textBlockHeight) / 2 + lineHeight / 2;
 
     for (const line of lines) {
       this.ctx.fillText(line, note.x + note.width / 2, textY);
-      textY += fontSize;
+      textY += lineHeight;
     }
 
-    // Reset text alignment
     this.ctx.textAlign = 'start';
+    this.ctx.textBaseline = 'alphabetic';
   }
 
   private getWrappedTextLines(text: string, maxWidth: number): string[] {
@@ -862,10 +886,10 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     const headLength = 12;
     const angle = Math.atan2(toY - fromY, toX - fromX);
 
-    // Soften the default connector from harsh black to a smooth slate grey
-    const baseColor = '#8b8f94'; // Slate 400
-    const hoverColor = '#64748b'; // Slate 500
-    const selectedColor = '#4A85CD';
+    const T = BoardCanvasComponent.THEME;
+    const baseColor = T.onSurfaceVariant;
+    const hoverColor = T.primary;
+    const selectedColor = T.primaryContainer;
 
     const color = selected ? selectedColor : (hovered ? hoverColor : baseColor);
 
@@ -876,10 +900,10 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     this.ctx.lineJoin = 'round';
 
     if (hovered || selected) {
-      this.ctx.shadowBlur = 6;
-      this.ctx.shadowColor = selected ? 'rgba(74, 133, 205, 0.3)' : 'rgba(0,0,0,0.15)';
-      this.ctx.shadowOffsetX = 1;
-      this.ctx.shadowOffsetY = 2;
+      this.ctx.shadowBlur = 10;
+      this.ctx.shadowColor = 'rgba(0, 240, 255, 0.25)';
+      this.ctx.shadowOffsetX = 0;
+      this.ctx.shadowOffsetY = 0;
     } else {
       this.resetShadow();
     }

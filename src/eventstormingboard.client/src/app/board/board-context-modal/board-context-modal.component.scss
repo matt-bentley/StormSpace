@@ -3,18 +3,19 @@ mat-form-field {
 }
 
 .description {
+  font-family: var(--font-body);
   font-size: 13px;
-  color: #666;
-  margin-bottom: 16px;
+  color: var(--sys-on-surface-variant);
+  margin-bottom: var(--space-4);
 }
 
 .autonomous-section {
-  margin-top: 8px;
+  margin-top: var(--space-2);
 }
 
 .autonomous-hint {
-  margin: 8px 0 0;
+  margin: var(--space-2) 0 0;
   font-size: 12px;
   line-height: 1.5;
-  color: #6b7280;
+  color: var(--sys-on-surface-variant);
 }

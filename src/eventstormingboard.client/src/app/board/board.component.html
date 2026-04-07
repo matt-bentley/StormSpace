@@ -56,39 +56,68 @@
     </div>
   }
 </div>
+
 <div class="floating-toolbar floating">
-  <button mat-icon-button (click)="addNote('event')" [ngStyle]="{ background: getNoteColor('event') }"
-    matTooltip="Add Event" matTooltipPosition="right">
-    <mat-icon>event</mat-icon>
+  <button class="tool-btn" [class.active]="canvasService.isSelectMode" (click)="toggleSelectMode()" matTooltip="Select Mode" matTooltipPosition="right">
+    <mat-icon svgIcon="arrow_selector_tool"></mat-icon>
+    <span class="tool-label">SELECT</span>
   </button>
-  <button mat-icon-button (click)="addNote('command')" [ngStyle]="{ background: getNoteColor('command') }"
-    matTooltip="Add Command" matTooltipPosition="right">
+  <button class="tool-btn" [class.active]="canvasService.isDrawingConnection" (click)="toggleConnectionMode()" matTooltip="Draw Connection" matTooltipPosition="right">
+    <mat-icon>trending_flat</mat-icon>
+    <span class="tool-label">DRAW</span>
+  </button>
+  <button class="tool-btn" [class.active]="canvasService.isPanningMode" (click)="togglePanMode()" matTooltip="Pan Mode" matTooltipPosition="right">
+    <mat-icon>pan_tool</mat-icon>
+    <span class="tool-label">PAN</span>
+  </button>
+
+  <div class="toolbar-divider"></div>
+
+  <button class="tool-btn" (click)="addNote('event')" [ngStyle]="{ '--tool-accent': getNoteColor('event') }" matTooltip="Add Event" matTooltipPosition="right">
+    <mat-icon>bolt</mat-icon>
+    <span class="tool-label">EVENT</span>
+  </button>
+  <button class="tool-btn" (click)="addNote('command')" [ngStyle]="{ '--tool-accent': getNoteColor('command') }" matTooltip="Add Command" matTooltipPosition="right">
     <mat-icon>send</mat-icon>
+    <span class="tool-label">CMD</span>
   </button>
-  <button mat-icon-button (click)="addNote('aggregate')" [ngStyle]="{ background: getNoteColor('aggregate') }"
-    matTooltip="Add Aggregate" matTooltipPosition="right">
+  <button class="tool-btn" (click)="addNote('aggregate')" [ngStyle]="{ '--tool-accent': getNoteColor('aggregate') }" matTooltip="Add Aggregate" matTooltipPosition="right">
     <mat-icon svgIcon="database"></mat-icon>
+    <span class="tool-label">AGGR</span>
   </button>
-  <button mat-icon-button (click)="addNote('user')" [ngStyle]="{ background: getNoteColor('user') }"
-    matTooltip="Add User" matTooltipPosition="right">
+  <button class="tool-btn" (click)="addNote('user')" [ngStyle]="{ '--tool-accent': getNoteColor('user') }" matTooltip="Add User" matTooltipPosition="right">
     <mat-icon>person</mat-icon>
+    <span class="tool-label">USER</span>
   </button>
-  <button mat-icon-button (click)="addNote('policy')" [ngStyle]="{ background: getNoteColor('policy') }"
-    matTooltip="Add Policy" matTooltipPosition="right">
+  <button class="tool-btn" (click)="addNote('policy')" [ngStyle]="{ '--tool-accent': getNoteColor('policy') }" matTooltip="Add Policy" matTooltipPosition="right">
     <mat-icon>policy</mat-icon>
+    <span class="tool-label">POLICY</span>
   </button>
-  <button mat-icon-button (click)="addNote('readModel')" [ngStyle]="{ background: getNoteColor('readModel') }"
-    matTooltip="Add Read Model" matTooltipPosition="right">
+  <button class="tool-btn" (click)="addNote('readModel')" [ngStyle]="{ '--tool-accent': getNoteColor('readModel') }" matTooltip="Add Read Model" matTooltipPosition="right">
     <mat-icon>book</mat-icon>
+    <span class="tool-label">READ</span>
   </button>
-  <button mat-icon-button (click)="addNote('externalSystem')"
-    [ngStyle]="{ background: getNoteColor('externalSystem') }" matTooltip="Add External System"
-    matTooltipPosition="right">
+  <button class="tool-btn" (click)="addNote('externalSystem')" [ngStyle]="{ '--tool-accent': getNoteColor('externalSystem') }" matTooltip="Add External System" matTooltipPosition="right">
     <mat-icon>cloud</mat-icon>
+    <span class="tool-label">EXT</span>
   </button>
-  <button mat-icon-button (click)="addNote('concern')" [ngStyle]="{ background: getNoteColor('concern') }"
-    matTooltip="Add Concern" matTooltipPosition="right">
+  <button class="tool-btn" (click)="addNote('concern')" [ngStyle]="{ '--tool-accent': getNoteColor('concern') }" matTooltip="Add Concern" matTooltipPosition="right">
     <mat-icon>warning</mat-icon>
+    <span class="tool-label">ALERT</span>
+  </button>
+
+  <div class="toolbar-divider"></div>
+
+  <button class="tool-btn help-btn" (click)="openShortcutsGuide()" matTooltip="Help" matTooltipPosition="right">
+    <mat-icon>help_outline</mat-icon>
+    <span class="tool-label">HELP</span>
+  </button>
+  <button class="tool-btn ai-btn" (click)="isChatOpen = !isChatOpen; hasUnreadMessages = false" [class.active]="isChatOpen" matTooltip="AI Assistant" matTooltipPosition="right">
+    <mat-icon fontSet="material-icons-outlined">smart_toy</mat-icon>
+    <span class="tool-label">AI</span>
+    @if (hasUnreadMessages && !isChatOpen) {
+      <span class="unread-badge"></span>
+    }
   </button>
 </div>
 
@@ -96,32 +125,11 @@
 
 <div class="bottom-right-controls floating">
   <div class="utility-toolbar">
-    <button class="select-mode-btn" mat-icon-button (click)="toggleSelectMode()" [class.active]="canvasService.isSelectMode" matTooltip="Select Mode"
-      matTooltipPosition="above">
-      <mat-icon svgIcon="arrow_selector_tool"></mat-icon>
-    </button>
-    <button class="pan-mode-btn" mat-icon-button (click)="togglePanMode()" [class.active]="canvasService.isPanningMode" matTooltip="Pan Mode"
-      matTooltipPosition="above">
-      <mat-icon>pan_tool</mat-icon>
-    </button>
-    <button mat-icon-button (click)="toggleConnectionMode()" [class.active]="canvasService.isDrawingConnection"
-      matTooltip="Connection Mode" matTooltipPosition="above">
-      <mat-icon>trending_flat</mat-icon>
-    </button>
     <button mat-icon-button (click)="canvasService.undo()" matTooltip="Undo" matTooltipPosition="above">
       <mat-icon>undo</mat-icon>
     </button>
     <button mat-icon-button (click)="canvasService.redo()" matTooltip="Redo" matTooltipPosition="above">
       <mat-icon>redo</mat-icon>
-    </button>
-    <button mat-icon-button (click)="openShortcutsGuide()" matTooltip="Keyboard Shortcuts (?)" matTooltipPosition="above">
-      <mat-icon>keyboard</mat-icon>
-    </button>
-    <button mat-icon-button (click)="isChatOpen = !isChatOpen; hasUnreadMessages = false" [class.active]="isChatOpen" matTooltip="AI Assistant" matTooltipPosition="above" class="ai-button">
-      <mat-icon fontSet="material-icons-outlined">smart_toy</mat-icon>
-      @if (hasUnreadMessages && !isChatOpen) {
-        <span class="unread-badge"></span>
-      }
     </button>
   </div>
 
@@ -137,6 +145,17 @@
     <input type="number" [(ngModel)]="canvasService.zoomPercentage" (change)="canvasService.setZoom()" min="20" max="500" step="10"
       matTooltip="Set Zoom Percentage" />
     <span>%</span>
+  </div>
+</div>
+
+<div class="bottom-status-bar">
+  <div class="status-left">
+    <span class="status-indicator">{{ canvasService.boardState.notes.length }} NOTES</span>
+    <span class="status-detail">{{ canvasService.boardState.connections.length }} CONNECTIONS</span>
+  </div>
+  <div class="status-right">
+    <span class="live-dot"></span>
+    <span class="live-label">LIVE</span>
   </div>
 </div>
 
