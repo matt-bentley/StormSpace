@@ -5,7 +5,7 @@ namespace EventStormingBoard.Server.Models
     public sealed class NoteMoveInput
     {
         [Description("The ID of the note to move")]
-        public Guid NoteId { get; set; }
+        public string NoteId { get; set; } = string.Empty;
 
         [Description("The target X coordinate")]
         public double X { get; set; }

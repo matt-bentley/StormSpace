@@ -237,21 +237,24 @@ namespace EventStormingBoard.Server.Plugins
 
         [Description("Creates a connection (arrow) between two existing notes on the board. Use note IDs from GetBoardState.")]
         public async Task<string> CreateConnection(
-            [Description("The ID of the source note (where the arrow starts)")] Guid fromNoteId,
-            [Description("The ID of the target note (where the arrow ends)")] Guid toNoteId)
+            [Description("The ID of the source note (where the arrow starts)")] string fromNoteId,
+            [Description("The ID of the target note (where the arrow ends)")] string toNoteId)
         {
+            if (!Guid.TryParse(fromNoteId, out var fromId)) return $"Invalid source note ID format: {fromNoteId}";
+            if (!Guid.TryParse(toNoteId, out var toId)) return $"Invalid target note ID format: {toNoteId}";
+
             var board = _repository.GetById(_boardId);
             if (board == null) return "Board not found.";
 
-            var fromNote = board.Notes.FirstOrDefault(n => n.Id == fromNoteId);
-            var toNote = board.Notes.FirstOrDefault(n => n.Id == toNoteId);
-            if (fromNote == null) return $"Source note {fromNoteId} not found.";
-            if (toNote == null) return $"Target note {toNoteId} not found.";
+            var fromNote = board.Notes.FirstOrDefault(n => n.Id == fromId);
+            var toNote = board.Notes.FirstOrDefault(n => n.Id == toId);
+            if (fromNote == null) return $"Source note {fromId} not found.";
+            if (toNote == null) return $"Target note {toId} not found.";
 
             var connDto = new ConnectionDto
             {
-                FromNoteId = fromNoteId,
-                ToNoteId = toNoteId
+                FromNoteId = fromId,
+                ToNoteId = toId
             };
 
             var @event = new ConnectionCreatedEvent
@@ -268,20 +271,22 @@ namespace EventStormingBoard.Server.Plugins
 
         [Description("Edits the text of an existing note. Use note IDs from GetBoardState.")]
         public async Task<string> EditNoteText(
-            [Description("The ID of the note to edit")] Guid noteId,
+            [Description("The ID of the note to edit")] string noteId,
             [Description("The new text for the note")] string newText)
         {
+            if (!Guid.TryParse(noteId, out var parsedNoteId)) return $"Invalid note ID format: {noteId}";
+
             var board = _repository.GetById(_boardId);
             if (board == null) return "Board not found.";
 
-            var note = board.Notes.FirstOrDefault(n => n.Id == noteId);
-            if (note == null) return $"Note {noteId} not found.";
+            var note = board.Notes.FirstOrDefault(n => n.Id == parsedNoteId);
+            if (note == null) return $"Note {parsedNoteId} not found.";
 
             var oldText = note.Text;
             var @event = new NoteTextEditedEvent
             {
                 BoardId = _boardId,
-                NoteId = noteId,
+                NoteId = parsedNoteId,
                 FromText = oldText,
                 ToText = newText
             };
@@ -307,7 +312,8 @@ namespace EventStormingBoard.Server.Plugins
 
             foreach (var move in moves)
             {
-                var note = board.Notes.FirstOrDefault(n => n.Id == move.NoteId);
+                if (!Guid.TryParse(move.NoteId, out var moveNoteId)) continue;
+                var note = board.Notes.FirstOrDefault(n => n.Id == moveNoteId);
                 if (note == null) continue;
 
                 from.Add(new NoteMoveDto
@@ -403,23 +409,34 @@ namespace EventStormingBoard.Server.Plugins
 
             foreach (var input in connections)
             {
-                var fromNote = board.Notes.FirstOrDefault(n => n.Id == input.FromNoteId);
-                var toNote = board.Notes.FirstOrDefault(n => n.Id == input.ToNoteId);
+                if (!Guid.TryParse(input.FromNoteId, out var fromId))
+                {
+                    results.AppendLine($"  - Skipped: invalid source note ID format: {input.FromNoteId}");
+                    continue;
+                }
+                if (!Guid.TryParse(input.ToNoteId, out var toId))
+                {
+                    results.AppendLine($"  - Skipped: invalid target note ID format: {input.ToNoteId}");
+                    continue;
+                }
+
+                var fromNote = board.Notes.FirstOrDefault(n => n.Id == fromId);
+                var toNote = board.Notes.FirstOrDefault(n => n.Id == toId);
                 if (fromNote == null)
                 {
-                    results.AppendLine($"  - Skipped: source note {input.FromNoteId} not found.");
+                    results.AppendLine($"  - Skipped: source note {fromId} not found.");
                     continue;
                 }
                 if (toNote == null)
                 {
-                    results.AppendLine($"  - Skipped: target note {input.ToNoteId} not found.");
+                    results.AppendLine($"  - Skipped: target note {toId} not found.");
                     continue;
                 }
 
                 var connDto = new ConnectionDto
                 {
-                    FromNoteId = input.FromNoteId,
-                    ToNoteId = input.ToNoteId
+                    FromNoteId = fromId,
+                    ToNoteId = toId
                 };
 
                 var @event = new ConnectionCreatedEvent
@@ -440,12 +457,18 @@ namespace EventStormingBoard.Server.Plugins
 
         [Description("Deletes one or more notes from the board and any connections involving those notes. Use note IDs from GetBoardState.")]
         public async Task<string> DeleteNotes(
-            [Description("The list of note IDs to delete")] List<Guid> noteIds)
+            [Description("The list of note IDs to delete")] List<string> noteIds)
         {
             var board = _repository.GetById(_boardId);
             if (board == null) return "Board not found.";
 
-            var notesToDelete = board.Notes.Where(n => noteIds.Contains(n.Id)).ToList();
+            var parsedIds = noteIds
+                .Select(id => Guid.TryParse(id, out var g) ? g : (Guid?)null)
+                .Where(g => g.HasValue)
+                .Select(g => g!.Value)
+                .ToList();
+
+            var notesToDelete = board.Notes.Where(n => parsedIds.Contains(n.Id)).ToList();
             if (notesToDelete.Count == 0)
                 return "No matching notes found.";
 

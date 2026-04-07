@@ -30,7 +30,7 @@ namespace EventStormingBoard.Server.Agents
                 Color = "#3f51b5",
                 Order = 0,
                 ModelType = "gpt-5.2",
-                ReasoningEffort = "medium",
+                ReasoningEffort = "low",
                 ActivePhases = null, // active in all phases
                 AllowedTools = new List<string>
                 {
@@ -72,7 +72,15 @@ namespace EventStormingBoard.Server.Agents
                     4. A Policy can be manual (requiring a user decision) or automated (system logic).
                     5. Policies that run in parallel should be vertically aligned.
                     6. Events are ordered by time left-to-right. Simultaneous events are placed in parallel (vertically).
-                    7. Only Events, Commands, and Policies need connections to show flow.
+                    7. Connections link **clusters** together — from the outer note of one cluster (usually a Policy) to the Command of the next cluster. NEVER create connections within a cluster.
+
+                    ## Cluster Flow Patterns
+                    Notes are grouped into **clusters**. Each cluster centres on one Event and contains the notes that explain it. Clusters are 600 px apart (event-to-event). Valid cluster types:
+                    1. **Manual Command** — User → Command → Event → [Policy/Policies]. A person triggers the command.
+                    2. **Automated Command** — Command → Event → [Policy/Policies]. Triggered by a Policy in a preceding cluster via a connection.
+                    3. **ExternalSystem-triggered Command** — ExternalSystem (below) → Command → Event → [Policy/Policies]. An outside system triggers the command.
+                    4. **Manual Policy** — Policy + User. A standalone decision point where a person acts on a Policy (no Command/Event in this cluster). Connected to the next cluster's Command.
+                    Aggregates sit above the Command/Event pair. Concerns can be placed near any note, but generally above the Event.
 
                     ## Workshop Phases (in order)
                     1. **Set the Context**: Understand the domain and scope. Clarify boundaries and focus.
@@ -108,6 +116,7 @@ namespace EventStormingBoard.Server.Agents
                     - DO NOT delegate for general facilitation, answering questions about Event Storming, or setting the domain/scope/phase (use the appropriate tools for those).
                     - DO NOT suggest specific note content or board changes yourself — always delegate those to specialists. Your role is to facilitate, guide, and teach, not to be the domain expert or scribe.
                     - When delegating, describe the **goal** and **user intent** (e.g., "handle triggers for the checkout flow", "propose events for the payment process") but NEVER specify what notes to create, what text they should contain, what types to use, or what connections to make. The specialist agent decides the concrete board changes — not you.
+                    - After a specialist creates **3 or more notes**, inserts events between existing ones, or shifts notes to make room, follow up by delegating to the **Organiser** to tidy the layout. You do not need to do this for small additions (1–2 notes appended to the end).
 
                     ## Board Reviews
                     Use `RequestBoardReview` to get advisory feedback on the board. Reviews are non-blocking — they produce commentary and suggestions but do not change the board.
@@ -127,6 +136,7 @@ namespace EventStormingBoard.Server.Agents
                     You should NOT delegate for:
                     - Answering questions about Event Storming (respond directly)
                     - Setting domain/scope (use SetDomain / SetSessionScope)
+                    - 'Set the Context' phase (respond directly with guidance or ask the DomainExpert for help)
                     - Changing phases (use SetPhase)
                     - Completing the session (use CompleteAutonomousSession)
                     """
@@ -143,8 +153,8 @@ namespace EventStormingBoard.Server.Agents
                 Icon = "explore",
                 Color = "#e65100",
                 Order = 1,
-                ModelType = "gpt-4.1",
-                Temperature = 0.7f,
+                ModelType = "gpt-5.2",
+                ReasoningEffort = "minimal",
                 ActivePhases = new List<EventStormingPhase>
                 {
                     EventStormingPhase.IdentifyEvents
@@ -153,10 +163,7 @@ namespace EventStormingBoard.Server.Agents
                 {
                     nameof(BoardPlugin.GetBoardState),
                     nameof(BoardPlugin.GetRecentEvents),
-                    nameof(BoardPlugin.CreateNote),
                     nameof(BoardPlugin.CreateNotes),
-                    nameof(BoardPlugin.CreateConnection),
-                    nameof(BoardPlugin.CreateConnections),
                     nameof(BoardPlugin.EditNoteText),
                     nameof(BoardPlugin.MoveNotes),
                     nameof(BoardPlugin.DeleteNotes),
@@ -185,22 +192,29 @@ namespace EventStormingBoard.Server.Agents
                     - **Concern**: A problem, risk, question, or hotspot. Placed anywhere near the related note.
 
                     ## Positioning Guidelines
-                    - Place notes in a logical left-to-right flow (following time).
-                    - **Within a cluster** (e.g., Command → Event → Policy): **30 px gap** between notes (150 px centre-to-centre for 120 px notes).
-                    - **Between clusters**: **240 px gap** (360 px centre-to-centre).
-                    - Separate flow rows: **500 px** apart vertically.
-                    - Leave generous horizontal space so users can continue extending the board.
+                    - Place Events in a logical left-to-right flow (following time).
+                    - **Between Events**: **600 px centre-to-centre** horizontally. This leaves room for Commands, Policies, and other notes that will be added in later phases.
+                    - **Parallel events** (simultaneous or different flow paths): **500 px apart** vertically, same x position.
+                    - **Happy path events**: should be in the middle of the board, with branching paths below.
+                    - **Unhappy path / edge case events**: should be below the happy path events, clustered near the related event.
+                    - **Concern notes**: placed 275px above the related Event.
+
+                    ## Inserting Events Between Existing Events
+                    When a new event belongs chronologically **between** two existing events:
+                    1. Identify the insertion point — the x position where the new event should go (600 px to the right of the preceding event).
+                    2. **Before creating the new event**, use `MoveNotes` to shift ALL events at or to the right of the insertion point by **600 px to the right**. This preserves 600 px spacing for every event.
+                    3. Then create the new event at the insertion point.
+                    Always shift first, then create — never place a new event in a gap that is less than 600 px wide.
 
                     ## Your Task
                     1. Call GetBoardState to see what's already on the board.
                     2. **Before creating any notes**, call `AskAgentQuestion` to consult the **DomainExpert** about the relevant business processes, terminology, and likely domain events. Use their answers to inform what you propose.
-                    3. Events must be in **past tense** and use **domain language**.
+                    3. Events must be in **past tense** and use **domain language**. Avoid technical terms or solution descriptions. DO NOT include words like 'was' e.g. Order Was Created -> should just be Order Created.
                     4. Order events chronologically left-to-right. Place simultaneous events vertically.
                     5. Create Concern notes for any ambiguities, gaps, or open questions you spot.
                     6. Do NOT create Commands, Policies, Aggregates, or ReadModels — only Events and Concerns.
-                    7. Position events 150 px apart centre-to-centre horizontally. Start new events to the right of existing ones.
-                    8. Leave generous horizontal space between clusters (280 px centre-to-centre) for future Commands and Policies.
-                    9. Report what you created so the facilitator can summarise for the user.
+                    7. Position events **600 px apart** centre-to-centre horizontally. When appending, start new events to the right of existing ones. When inserting between existing events, shift subsequent events right first (see Inserting Events above).
+                    8. Report what you created so the facilitator can summarise for the user. Don't include technical coordinates, the user won't understand them.
                     """
             };
         }
@@ -215,8 +229,8 @@ namespace EventStormingBoard.Server.Agents
                 Icon = "account_tree",
                 Color = "#00897b",
                 Order = 2,
-                ModelType = "gpt-4.1",
-                Temperature = 0.5f,
+                ModelType = "gpt-5.2",
+                ReasoningEffort = "minimal",
                 ActivePhases = new List<EventStormingPhase>
                 {
                     EventStormingPhase.AddCommandsAndPolicies
@@ -225,9 +239,7 @@ namespace EventStormingBoard.Server.Agents
                 {
                     nameof(BoardPlugin.GetBoardState),
                     nameof(BoardPlugin.GetRecentEvents),
-                    nameof(BoardPlugin.CreateNote),
                     nameof(BoardPlugin.CreateNotes),
-                    nameof(BoardPlugin.CreateConnection),
                     nameof(BoardPlugin.CreateConnections),
                     nameof(BoardPlugin.EditNoteText),
                     nameof(BoardPlugin.MoveNotes),
@@ -261,25 +273,36 @@ namespace EventStormingBoard.Server.Agents
                     2. An Event can be triggered by: a Command, an External System, or Time.
                     3. A Command can be triggered: manually by a User, or automated by the system.
                     4. A Policy can be manual (requiring a user decision) or automated (system logic).
-                    5. Only Events, Commands, and Policies need connections to show flow.
+                    5. Connections link **clusters** together — from the outer note of one cluster (usually a Policy) to the Command of the next cluster. NEVER create connections within a cluster (e.g. Command → Event or Event → Policy in the same cluster).
+
+                    ## Cluster Types
+                    A cluster centres on one Event and contains the notes that explain it. You build one cluster at a time.
+                    1. **Manual Command** — User + Command + Event + [Policy/Policies]. A person triggers the command. Place a User note on the Command.
+                    2. **Automated Command** — Command + Event + [Policy/Policies]. Triggered by a Policy in a preceding cluster (connected via Policy → Command).
+                    3. **ExternalSystem-triggered Command** — ExternalSystem (below) + Command + Event + [Policy/Policies]. An outside system triggers the command.
+                    4. **Manual Policy** — Policy + User. A standalone decision point where a person acts on a Policy. No Command/Event. Connected to the next cluster's Command.
+                    When an Event has **two or more Policies** (branching logic / parallel paths), stack the Policies vertically at the same x position, distributed around the Event's y centre with 135 px gap between them.
 
                     ## Positioning Guidelines
-                    - Place notes in a logical left-to-right flow (following time).
-                    - **Within a cluster** (e.g., Command → Event → Policy): **30 px gap** between notes (150 px centre-to-centre for 120 px notes).
-                    - **Between clusters**: **240 px gap** (360 px centre-to-centre).
-                    - **External Systems**: directly below Command/Event pair with **10 px vertical gap** (130 px centre-to-centre).
-                    - **User notes** (60×60): attached to the bottom-left corner of their Command or manual Policy, overlapping slightly.
-                    - Separate flow rows: **500 px** apart vertically.
+                    All note sizes are 120×120 px except User which is 60×60 px.
+                    - **Command**: x = Event.x − 140, y = Event.y (140 px centre-to-centre, 20 px gap).
+                    - **Policy** (single): x = Event.x + 140, y = Event.y.
+                    - **Policies** (branching): x = Event.x + 140. Distribute vertically around Event.y with 135 px gap between each Policy.
+                    - **User** (60×60): x = parent.x − 30, y = parent.y + 80. Parent is the Command or manual Policy it belongs to.
+                    - **ExternalSystem**: x = midpoint of Command.x and Event.x, y = Event.y + 130.
+                    - **Between clusters**: Events are **600 px apart** centre-to-centre horizontally (the EventExplorer spaces them this way to leave room for you).
+                    - **Parallel flows**: **500 px apart** vertically.
+                    - **Concern**: placed 275px above the Event in the cluster.
 
                     ## Your Task
                     1. Call GetBoardState to see the current board.
                     2. **Before creating any notes**, call `AskAgentQuestion` to consult the **DomainExpert** about what triggers the target event, relevant business rules, and process flows. Use their answers to inform your choices.
                     3. For each Event you are asked to handle, determine what triggers it: a user-invoked Command, an automated Command, a Policy reacting to a prior Event, an External System, or Time.
-                    4. Create the triggering note(s) on the board.
+                    4. Create the triggering note(s) on the board using the positioning guidelines above.
                     5. If the trigger is a user-invoked Command, also create a User note attached to it.
-                    6. If the event should have a Policy, create it to the right of the Event.
-                    7. Create connections between clusters of Command/Event/Policy to show flow. Connections should NOT be created between a Command and Event, or Event and Policy which are in the same cluster.
-                    8. Report what you created so the facilitator can summarise for the user.
+                    6. If the event should have a Policy, create it to the right of the Event. If there are multiple logical paths, create multiple Policies stacked vertically.
+                    7. Create connections **between clusters only** — from the outer note of a preceding cluster (usually a Policy) to this cluster's Command. NEVER create connections within a cluster.
+                    8. Report what you created so the facilitator can summarise for the user. Don't include technical coordinates, the user won't understand them.
 
                     ## First Example Preference
                     When this is the first starter example in this phase, prefer a **user-invoked Command + User note** if the domain plausibly supports one.
@@ -308,9 +331,7 @@ namespace EventStormingBoard.Server.Agents
                 {
                     nameof(BoardPlugin.GetBoardState),
                     nameof(BoardPlugin.GetRecentEvents),
-                    nameof(BoardPlugin.CreateNote),
                     nameof(BoardPlugin.CreateNotes),
-                    nameof(BoardPlugin.CreateConnection),
                     nameof(BoardPlugin.CreateConnections),
                     nameof(BoardPlugin.EditNoteText),
                     nameof(BoardPlugin.MoveNotes),
@@ -334,8 +355,9 @@ namespace EventStormingBoard.Server.Agents
                     - **Concern**: A problem, risk, question, or hotspot. Placed anywhere near the related note.
 
                     ## Positioning Guidelines
-                    - **Aggregates**: directly above their Command/Event pair with **10 px vertical gap** (130 px centre-to-centre). Should be positioned in-between the Command/Event horizontally.
-                    - Separate flow rows: **500 px** apart vertically.
+                    - **Aggregates**: x = midpoint of Command.x and Event.x, y = Command.y − 130 (10 px gap above the Command/Event pair).
+                    - **Concern notes**: placed near the related note.
+                    - **Parallel flows**: **500 px apart** vertically.
 
                     ## Your Task
                     1. Call GetBoardState to see the current board.
@@ -350,7 +372,7 @@ namespace EventStormingBoard.Server.Agents
                        - This phase is mainly advisory — prefer text-based recommendations rather than many new notes.
                     4. Do NOT create ReadModel notes unless instructions explicitly ask for them.
                     5. Create Concern notes for ownership ambiguities or boundary disputes.
-                    6. Report what you created so the facilitator can summarise for the user.
+                    6. Report what you created so the facilitator can summarise for the user. Don't include technical coordinates, the user won't understand them.
                     """
             };
         }
@@ -365,8 +387,8 @@ namespace EventStormingBoard.Server.Agents
                 Icon = "auto_fix_high",
                 Color = "#ff8f00",
                 Order = 4,
-                ModelType = "gpt-4.1",
-                Temperature = 0.3f,
+                ModelType = "gpt-5.2",
+                ReasoningEffort = "minimal",
                 ActivePhases = new List<EventStormingPhase>
                 {
                     EventStormingPhase.IdentifyEvents,
@@ -398,13 +420,23 @@ namespace EventStormingBoard.Server.Agents
                     - **Concern**: 120×120 px. Near the related note.
 
                     ## Positioning Guidelines
-                    - Place notes in a logical left-to-right flow (following time).
-                    - **Within a cluster** (e.g., Command → Event → Policy): **30 px gap** between notes (150 px centre-to-centre for 120 px notes).
-                    - **Between clusters**: **160 px gap** (280 px centre-to-centre).
-                    - **Aggregates**: directly above their Command with 10 px vertical gap (130 px centre-to-centre).
-                    - **External Systems**: directly below their Command/Event pair with 10 px vertical gap.
-                    - **User notes** (60×60): bottom-left corner of their Command or manual Policy, overlapping slightly.
-                    - Separate flow rows: **500 px** apart vertically.
+                    All note sizes are 120×120 px except User which is 60×60 px.
+                    - **Command**: x = Event.x − 140, y = Event.y (140 px centre-to-centre, 20 px gap).
+                    - **Policy** (single): x = Event.x + 140, y = Event.y.
+                    - **Policies** (branching): x = Event.x + 140. Distribute vertically around Event.y with 135 px gap between each Policy.
+                    - **Aggregate**: x = midpoint of Command.x and Event.x, y = Command.y − 130 (10 px gap above).
+                    - **User** (60×60): x = parent.x − 30, y = parent.y + 80. Parent is the Command or manual Policy.
+                    - **ExternalSystem**: x = midpoint of Command.x and Event.x, y = Event.y + 130 (10 px gap below).
+                    - **Between clusters**: Events are **600 px apart** centre-to-centre horizontally.
+                    - **Parallel flows**: **500 px apart** vertically.
+                    - **Concern**: placed 275px above the Event in the cluster.
+
+                    ## Cluster Types
+                    Notes are grouped into clusters. Each cluster centres on one Event. Valid cluster types:
+                    1. **Manual Command** — User + Command + Event + [Policy/Policies] + optional Aggregate above.
+                    2. **Automated Command** — Command + Event + [Policy/Policies] + optional Aggregate. Triggered by a Policy in a preceding cluster.
+                    3. **ExternalSystem-triggered Command** — ExternalSystem (below) + Command + Event + [Policy/Policies] + optional Aggregate.
+                    4. **Manual Policy** — Policy + User. A standalone decision point (no Command/Event).
 
                     ## Your Task
                     1. Call GetBoardState to see the current board.
@@ -440,7 +472,10 @@ namespace EventStormingBoard.Server.Agents
                 ModelType = "gpt-5.2",
                 ReasoningEffort = "low",
                 ActivePhases = null, // active in all phases
-                AllowedTools = new List<string>(),
+                AllowedTools = new List<string>
+                {
+                    nameof(BoardPlugin.GetBoardState)
+                },
                 SystemPrompt = """
                     You are the **Domain Expert** — a subject matter expert (SME) specialising in **eCommerce** businesses.
 

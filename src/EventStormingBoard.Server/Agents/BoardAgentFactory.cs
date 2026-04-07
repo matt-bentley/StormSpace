@@ -181,6 +181,7 @@ namespace EventStormingBoard.Server.Agents
             return effort?.Trim().ToLowerInvariant() switch
             {
                 "medium" => ReasoningEffort.Medium,
+                "minimal" => ReasoningEffort.None,
                 _ => ReasoningEffort.Low
             };
         }
