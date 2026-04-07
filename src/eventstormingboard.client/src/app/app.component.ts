@@ -2,9 +2,11 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import { Router, RouterOutlet } from '@angular/router';
 import { IconsService } from './_shared/services/icons.service';
 import { MatIconModule } from '@angular/material/icon';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { FormsModule } from '@angular/forms';
 import { UserService } from './_shared/services/user.service';
+import { ThemeService } from './_shared/services/theme.service';
 import { Subject, takeUntil } from 'rxjs';
 
 @Component({
@@ -12,6 +14,7 @@ import { Subject, takeUntil } from 'rxjs';
     imports: [
         RouterOutlet,
         MatIconModule,
+        MatSlideToggleModule,
         MatTooltipModule,
         FormsModule
     ],
@@ -20,12 +23,14 @@ import { Subject, takeUntil } from 'rxjs';
 })
 export class AppComponent implements OnInit, OnDestroy {
   public isUserMenuOpen = false;
+  public isSettingsMenuOpen = false;
   public userName: string = '';
   private destroy$ = new Subject<void>();
 
   constructor(private iconsService: IconsService,
     private router: Router,
-    private userService: UserService
+    private userService: UserService,
+    public themeService: ThemeService
   ) {
     this.iconsService.registerIcons();
   }
@@ -56,5 +61,9 @@ export class AppComponent implements OnInit, OnDestroy {
   public saveUserName(): void {
     this.userService.setDisplayName(this.userName);
     this.isUserMenuOpen = false;
+  }
+
+  public toggleSettingsMenu(): void {
+    this.isSettingsMenuOpen = !this.isSettingsMenuOpen;
   }
 }

@@ -100,3 +100,22 @@ kbd {
     text-align: left;
   }
 }
+
+// ── Light mode overrides ──
+
+:host-context([data-theme="light"]) {
+  .shortcuts-section {
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    background: rgba(255, 255, 255, 0.6);
+
+    li:not(:last-child) {
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    }
+  }
+
+  kbd {
+    border: 1px solid rgba(0, 131, 143, 0.18);
+    border-bottom-width: 3px;
+    background: rgba(0, 131, 143, 0.06);
+  }
+}

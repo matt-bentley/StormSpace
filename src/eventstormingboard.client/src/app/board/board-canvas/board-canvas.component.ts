@@ -14,6 +14,7 @@ import { KeyboardShortcutsModalComponent } from '../keyboard-shortcuts-modal/key
 import { BoardsSignalRService } from '../../_shared/services/boards-signalr.service';
 import { BoardUser } from '../../_shared/models/board-user.model';
 import { CursorPositionUpdatedEvent } from '../../_shared/models/board-events.model';
+import { ThemeService } from '../../_shared/services/theme.service';
 
 @Component({
     selector: 'app-board-canvas',
@@ -73,7 +74,8 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
   constructor(
     private dialog: MatDialog,
     private canvasService: BoardCanvasService,
-    private boardsHub: BoardsSignalRService
+    private boardsHub: BoardsSignalRService,
+    private themeService: ThemeService
   ) {
   }
 
@@ -407,6 +409,14 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
       .subscribe(() => {
         this.exportBoardAsImage();
       });
+
+    this.themeService.theme$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        if (this.ctx) {
+          this.drawCanvas();
+        }
+      });
   }
 
   public ngAfterViewInit(): void {
@@ -439,7 +449,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     tempCanvas.height = canvasEl.height;
 
     // Fill the temporary canvas with the dark theme background
-    tempCtx.fillStyle = BoardCanvasComponent.THEME.surface;
+    tempCtx.fillStyle = this.theme.surface;
     tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
 
     // Draw the original canvas content on top of the white background
@@ -453,7 +463,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   // ── Kinetic Ionization theme constants for Canvas API ──
-  private static readonly THEME = {
+  private static readonly DARK_THEME = {
     surface: '#10131c',
     surfaceDim: '#0d0f16',
     surfaceContainerLow: '#181c24',
@@ -471,13 +481,41 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     outlineVariant: '#44474e',
     gridLine: 'rgba(0, 240, 255, 0.05)',
     ghostBorder: 'rgba(68, 71, 78, 0.15)',
+    noteSurface: '#282c34',
     fontDisplay: "'Space Grotesk', system-ui, sans-serif",
     fontBody: "'Inter', -apple-system, sans-serif",
   };
 
+  private static readonly LIGHT_THEME = {
+    surface: '#f5f5f7',
+    surfaceDim: '#eaeaed',
+    surfaceContainerLow: '#eeeeef',
+    surfaceContainerLowest: '#e8e8eb',
+    surfaceContainerHigh: '#f5f5f7',
+    surfaceContainerHighest: '#fafafa',
+    primary: '#004d52',
+    primaryContainer: '#00838f',
+    onPrimary: '#ffffff',
+    secondary: '#7b1fa2',
+    secondaryContainer: '#9c27b0',
+    tertiary: '#c51162',
+    onSurface: '#1a1c1e',
+    onSurfaceVariant: '#44474e',
+    outlineVariant: '#c4c7ce',
+    gridLine: 'rgba(0, 131, 143, 0.08)',
+    ghostBorder: 'rgba(0, 0, 0, 0.12)',
+    noteSurface: '#ffffff',
+    fontDisplay: "'Space Grotesk', system-ui, sans-serif",
+    fontBody: "'Inter', -apple-system, sans-serif",
+  };
+
+  private get theme() {
+    return this.themeService.isDark ? BoardCanvasComponent.DARK_THEME : BoardCanvasComponent.LIGHT_THEME;
+  }
+
   private drawCanvas(): void {
     const canvasEl = this.canvas.nativeElement;
-    const T = BoardCanvasComponent.THEME;
+    const T = this.theme;
     this.ctx.setTransform(this.canvasService.scale, 0, 0, this.canvasService.scale, this.canvasService.originX, this.canvasService.originY);
 
     const vx = -this.canvasService.originX / this.canvasService.scale;
@@ -565,7 +603,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
       this.ctx.fill();
 
       // Thin border stroke
-      this.ctx.strokeStyle = BoardCanvasComponent.THEME.surfaceContainerLow;
+      this.ctx.strokeStyle = this.theme.surfaceContainerLow;
       this.ctx.lineWidth = 1.5;
       this.ctx.lineJoin = 'round';
       this.ctx.stroke();
@@ -573,7 +611,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
       // Remove shadow for text rendering clarity
       this.ctx.shadowColor = 'transparent';
 
-      const T = BoardCanvasComponent.THEME;
+      const T = this.theme;
       this.ctx.font = `700 11px ${T.fontDisplay}`;
       const textWidth = this.ctx.measureText(cursor.userName).width;
       const paddingX = 8;
@@ -628,7 +666,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private drawMinimap(): void {
-    const T = BoardCanvasComponent.THEME;
+    const T = this.theme;
     const minimapCanvas = this.minimap.nativeElement;
     const ctx = this.minimapCtx;
 
@@ -761,7 +799,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private drawNote(note: Note): void {
-    const T = BoardCanvasComponent.THEME;
+    const T = this.theme;
     const typeColor = getNoteColor(note.type);
 
     // Glow shadow — selected uses cyan, unselected uses type-color glow
@@ -781,7 +819,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     this.ctx.beginPath();
     this.ctx.rect(note.x, note.y, note.width, note.height);
     this.ctx.closePath();
-    this.ctx.fillStyle = '#282c34';
+    this.ctx.fillStyle = T.noteSurface;
     this.ctx.fill();
 
     // Type-color tint overlay
@@ -839,7 +877,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private drawNoteText(note: Note): void {
-    const T = BoardCanvasComponent.THEME;
+    const T = this.theme;
     const fontSize = note.width < 80 ? 12 : 14;
     this.ctx.fillStyle = T.onSurface;
     this.ctx.font = `600 ${fontSize}px ${T.fontBody}`;
@@ -897,7 +935,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     const headLength = 12;
     const angle = Math.atan2(toY - fromY, toX - fromX);
 
-    const T = BoardCanvasComponent.THEME;
+    const T = this.theme;
     const baseColor = T.onSurfaceVariant;
     const hoverColor = T.primary;
     const selectedColor = T.primaryContainer;

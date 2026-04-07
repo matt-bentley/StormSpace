@@ -567,3 +567,52 @@
     }
   }
 }
+
+// ── Light mode overrides ──
+
+:host-context([data-theme="light"]) {
+  .chat-panel {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: var(--shadow-glow-primary), 0 8px 32px rgba(0, 0, 0, 0.08);
+  }
+
+  .resize-handle {
+    &:hover,
+    .is-resizing & {
+      background: rgba(0, 131, 143, 0.15);
+    }
+  }
+
+  .chat-header {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  .autonomy-badge {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+  }
+
+  .chat-messages {
+    scrollbar-color: rgba(0, 131, 143, 0.2) transparent;
+  }
+
+  .chat-input-area {
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+
+    textarea {
+      border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    }
+  }
+
+  .tool-call-chip {
+    border: 1px solid rgba(156, 39, 176, 0.18);
+  }
+
+  ::ng-deep blockquote {
+    border-left: 3px solid rgba(0, 0, 0, 0.08);
+  }
+
+  ::ng-deep table th,
+  ::ng-deep table td {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+  }
+}

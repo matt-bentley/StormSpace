@@ -709,3 +709,111 @@
     font-size: 28px;
   }
 }
+
+// ── Light mode overrides ──
+
+:host-context([data-theme="light"]) {
+
+  // Background layers — muted for light
+  .bg-grid {
+    background-image:
+      linear-gradient(rgba(0, 131, 143, 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 131, 143, 0.06) 1px, transparent 1px);
+  }
+
+  .bg-scanlines {
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 131, 143, 0.015) 2px,
+      rgba(0, 131, 143, 0.015) 4px
+    );
+  }
+
+  .bg-glow {
+    &--cyan {
+      background: radial-gradient(circle, rgba(0, 131, 143, 0.06) 0%, transparent 70%);
+    }
+    &--purple {
+      background: radial-gradient(circle, rgba(156, 39, 176, 0.06) 0%, transparent 70%);
+    }
+    &--pink {
+      background: radial-gradient(circle, rgba(197, 17, 98, 0.03) 0%, transparent 70%);
+    }
+  }
+
+  // Hero heading glow — softer on light
+  .heading-storm {
+    text-shadow:
+      0 0 40px rgba(0, 131, 143, 0.2),
+      0 0 80px rgba(0, 131, 143, 0.08);
+  }
+
+  // Network lines
+  .net-line {
+    stroke: rgba(0, 131, 143, 0.2);
+
+    &--ring {
+      stroke: rgba(156, 39, 176, 0.12);
+    }
+  }
+
+  .pulse-ring {
+    stroke: rgba(0, 131, 143, 0.2);
+  }
+
+  // Nodes
+  .node--center {
+    border: 1px solid rgba(0, 131, 143, 0.2);
+  }
+
+  .node--orbit {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+  }
+
+  .node--secondary {
+    border-color: rgba(156, 39, 176, 0.15);
+  }
+
+  // Feature cards
+  .feature-card {
+    border: 1px solid rgba(0, 0, 0, 0.06);
+
+    &:hover {
+      box-shadow: 0 4px 20px rgba(0, 131, 143, 0.06);
+    }
+  }
+
+  .feature-icon {
+    background: rgba(0, 131, 143, 0.08);
+
+    &--secondary {
+      background: rgba(156, 39, 176, 0.06);
+    }
+
+    &--tertiary {
+      background: rgba(197, 17, 98, 0.06);
+    }
+  }
+
+  .btn-secondary {
+    border: 1px solid rgba(156, 39, 176, 0.15);
+  }
+
+  .input-field {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+
+    &:focus {
+      box-shadow: 0 2px 20px rgba(0, 131, 143, 0.08);
+    }
+  }
+
+  .stats-row {
+    border-left: 2px solid rgba(156, 39, 176, 0.3);
+  }
+
+  .stat-value {
+    text-shadow: none;
+  }
+}

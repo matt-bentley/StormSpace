@@ -617,3 +617,56 @@
     max-width: 100%;
   }
 }
+
+// ── Light mode overrides ──
+
+:host-context([data-theme="light"]) {
+  .floating {
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  }
+
+  .top-bar-divider,
+  .bottom-bar-divider {
+    background: rgba(0, 0, 0, 0.08);
+  }
+
+  .toolbar-divider {
+    background: rgba(0, 0, 0, 0.08);
+  }
+
+  .floating-toolbar {
+    scrollbar-color: rgba(0, 131, 143, 0.2) transparent;
+
+    &::-webkit-scrollbar-thumb {
+      background: rgba(0, 131, 143, 0.2);
+    }
+  }
+
+  .tool-btn.active {
+    background: rgba(0, 131, 143, 0.08);
+    box-shadow: var(--shadow-glow-primary);
+  }
+
+  .ai-btn.active {
+    background: rgba(0, 131, 143, 0.08);
+  }
+
+  .board-name-container input {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  }
+
+  .zoom-toolbar input {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  }
+
+  .bottom-status-bar {
+    background: rgba(255, 255, 255, 0.97);
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  .step-connector {
+    background: rgba(0, 131, 143, 0.15);
+  }
+}

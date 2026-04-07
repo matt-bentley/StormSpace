@@ -3,9 +3,27 @@
     <span class="nav-logo" (click)="home()">STORMSPACE</span>
   </div>
   <div class="nav-right">
-    <button class="nav-icon-btn" matTooltip="Settings">
-      <mat-icon>settings</mat-icon>
-    </button>
+    <div class="settings-wrapper">
+      <button class="nav-icon-btn" (click)="toggleSettingsMenu()" matTooltip="Settings" [class.active]="isSettingsMenuOpen">
+        <mat-icon>settings</mat-icon>
+      </button>
+
+      @if (isSettingsMenuOpen) {
+        <div class="settings-menu-backdrop" (click)="isSettingsMenuOpen = false"></div>
+        <div class="settings-menu">
+          <label class="settings-menu-label">APPEARANCE</label>
+          <div class="settings-menu-row">
+            <mat-icon class="settings-menu-icon">{{ themeService.isDark ? 'dark_mode' : 'light_mode' }}</mat-icon>
+            <span class="settings-menu-text">{{ themeService.isDark ? 'Dark' : 'Light' }}</span>
+            <mat-slide-toggle
+              [checked]="!themeService.isDark"
+              (change)="themeService.toggleTheme()"
+              aria-label="Toggle light mode">
+            </mat-slide-toggle>
+          </div>
+        </div>
+      }
+    </div>
     <div class="nav-avatar-wrapper">
       <div class="nav-avatar" (click)="toggleUserMenu()" [class.active]="isUserMenuOpen">
         @if (userInitial) {

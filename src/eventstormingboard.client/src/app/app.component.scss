@@ -206,6 +206,64 @@
   box-sizing: border-box;
 }
 
+// ── Settings menu ──
+
+.settings-wrapper {
+  position: relative;
+}
+
+.settings-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2999;
+}
+
+.settings-menu {
+  position: absolute;
+  top: calc(100% + var(--space-3));
+  right: 0;
+  width: 240px;
+  background: rgba(13, 15, 22, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(68, 71, 78, 0.15);
+  box-shadow: var(--shadow-glow-primary);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  z-index: 3000;
+}
+
+.settings-menu-label {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sys-on-surface-variant);
+}
+
+.settings-menu-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.settings-menu-icon {
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+  color: var(--sys-primary-fixed-dim);
+}
+
+.settings-menu-text {
+  flex: 1;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--sys-on-surface);
+}
+
 .content {
   height: 100%;
 }
@@ -251,4 +309,40 @@ main {
     img {
         height: 62px;
     }
+}
+
+// ── Light mode overrides ──
+
+:host-context([data-theme="light"]) {
+  .top-nav {
+    background: var(--sys-surface-dim);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  }
+
+  .nav-icon-btn:hover {
+    color: var(--sys-primary-container);
+  }
+
+  .nav-avatar {
+    background: var(--sys-surface-container-high);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+  }
+
+  .user-menu,
+  .settings-menu {
+    background: rgba(255, 255, 255, 0.97);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.10);
+  }
+
+  .user-menu-input {
+    background: var(--sys-surface-container-lowest);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+
+    &:focus {
+      border-bottom-color: var(--sys-primary-container);
+    }
+  }
 }

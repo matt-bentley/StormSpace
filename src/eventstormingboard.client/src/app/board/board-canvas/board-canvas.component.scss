@@ -28,3 +28,13 @@
     }
   }
 }
+
+// ── Light mode overrides ──
+
+:host-context([data-theme="light"]) {
+  .minimap {
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  }
+}

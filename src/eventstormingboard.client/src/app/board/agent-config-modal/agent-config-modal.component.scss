@@ -207,3 +207,21 @@
   margin-top: var(--space-4);
   width: 100%;
 }
+
+// ── Light mode overrides ──
+
+:host-context([data-theme="light"]) {
+  .view-toggle {
+    background: rgba(255, 255, 255, 0.6);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  .facilitator-badge {
+    border: 1px solid rgba(0, 131, 143, 0.18);
+    background: rgba(0, 131, 143, 0.06);
+  }
+
+  .icon-option {
+    background: rgba(255, 255, 255, 0.6);
+  }
+}
