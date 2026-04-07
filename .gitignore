@@ -401,3 +401,5 @@ FodyWeavers.xsd
 
 src/EventStormingBoard.Server/appsettings.Development.json
 /src/EventStormingBoard.Server/appsettings.Development.json
+src/EventStormingBoard.Server/EventStormingBoard.Server.csproj.lscache
+tests/EventStormingBoard.Server.Tests/EventStormingBoard.Server.Tests.csproj.lscache
