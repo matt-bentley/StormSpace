@@ -34,7 +34,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
   private minimapCtx!: CanvasRenderingContext2D;
 
   private currentMousePos: Coordinates = { x: 0, y: 0 };
-  private ctrlPressed = false;
+  private rafPending = false;
 
   private draggingNote: Note | null = null;
   private resizingNote: Note | null = null;
@@ -125,7 +125,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     // Reset selection unless Ctrl is pressed  
-    if (!this.ctrlPressed) {
+    if (!event.ctrlKey) {
       this.canvasService.boardState.notes.forEach(n => n.selected = false);
       this.canvasService.boardState.connections.forEach(c => c.selected = false);
     }
@@ -255,7 +255,6 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     this.draggingNote = null;
     this.resizingNote = null;
     this.resizeCorner = null;
-    this.panning = false;
 
     this.drawCanvas();
   }
@@ -347,22 +346,19 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
         selectedNoteIds.includes(c.fromNoteId) ||
         selectedNoteIds.includes(c.toNoteId)
       ))) as Connection[];
+      if (notes.length === 0 && connections.length === 0) return;
       const command = new DeleteNotesCommand(notes, connections);
       this.canvasService.executeCommand(command);
     }
 
-    if (event.key === 'Control') {
-      this.ctrlPressed = true;
-    }
-
     // Handle Ctrl+C (Copy)  
-    if (this.ctrlPressed && event.key.toLowerCase() === 'c') {
+    if (event.ctrlKey && event.key.toLowerCase() === 'c') {
       this.copySelectedNotes();
       event.preventDefault();
     }
 
     // Handle Ctrl+V (Paste)  
-    if (this.ctrlPressed && event.key.toLowerCase() === 'v') {
+    if (event.ctrlKey && event.key.toLowerCase() === 'v') {
       this.pasteCopiedNotes();
       event.preventDefault();
     }
@@ -373,23 +369,15 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     this.broadcastCursorPositionIfNeeded();
 
     if (this.handlePanning(event)) return;
-    if (this.handeResize()) return;
+    if (this.handleResize()) return;
     if (this.handleDragging()) return;
     if (this.handleSelection()) return;
     if (this.handleHover()) return;
     if (this.handleTemporaryArrow(event)) return;
 
-    const cursor = this.getCursorStyle();
-
-    this.canvas.nativeElement.style.cursor = cursor;
+    this.updateHoverState();
+    this.canvas.nativeElement.style.cursor = this.getCursorStyle();
     this.drawCanvas();
-  }
-
-  @HostListener('document:keyup', ['$event'])
-  public onKeyUp(event: KeyboardEvent): void {
-    if (event.key === 'Control') {
-      this.ctrlPressed = false;
-    }
   }
 
   @HostListener('window:resize')
@@ -516,6 +504,15 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private drawCanvas(): void {
+    if (this.rafPending) return;
+    this.rafPending = true;
+    requestAnimationFrame(() => {
+      this.rafPending = false;
+      this.drawCanvasFrame();
+    });
+  }
+
+  private drawCanvasFrame(): void {
     const canvasEl = this.canvas.nativeElement;
     const T = this.theme;
     this.ctx.setTransform(this.canvasService.scale, 0, 0, this.canvasService.scale, this.canvasService.originX, this.canvasService.originY);
@@ -731,10 +728,17 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     const padding = 20;
-    const minX = Math.min(...this.canvasService.boardState.notes.map(n => n.x)) - padding;
-    const minY = Math.min(...this.canvasService.boardState.notes.map(n => n.y)) - padding;
-    const maxX = Math.max(...this.canvasService.boardState.notes.map(n => n.x + n.width)) + padding;
-    const maxY = Math.max(...this.canvasService.boardState.notes.map(n => n.y + n.height)) + padding;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const n of this.canvasService.boardState.notes) {
+      if (n.x < minX) minX = n.x;
+      if (n.y < minY) minY = n.y;
+      if (n.x + n.width > maxX) maxX = n.x + n.width;
+      if (n.y + n.height > maxY) maxY = n.y + n.height;
+    }
+    minX -= padding;
+    minY -= padding;
+    maxX += padding;
+    maxY += padding;
 
     const usedWidth = maxX - minX;
     const usedHeight = maxY - minY;
@@ -921,9 +925,13 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private drawConnections(): void {
+    const noteMap = new Map<string, Note>();
+    for (const n of this.canvasService.boardState.notes) {
+      noteMap.set(n.id, n);
+    }
     this.canvasService.boardState.connections.forEach(connection => {
-      const fromNote = this.canvasService.boardState.notes.find(n => n.id === connection.fromNoteId);
-      const toNote = this.canvasService.boardState.notes.find(n => n.id === connection.toNoteId);
+      const fromNote = noteMap.get(connection.fromNoteId);
+      const toNote = noteMap.get(connection.toNoteId);
       if (fromNote && toNote) {
         const from = this.getClosestSideCenter(fromNote, toNote);
         const to = this.getClosestSideCenter(toNote, fromNote);
@@ -1084,7 +1092,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     return false;
   }
 
-  private handeResize(): boolean {
+  private handleResize(): boolean {
     if (this.resizingNote && this.resizeCorner) {
       const note = this.resizingNote;
 
@@ -1210,50 +1218,40 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     return false;
   }
 
+  private updateHoverState(): void {
+    this.hoveredNote = null;
+    this.hoveredConnection = null;
+
+    for (const note of [...this.canvasService.boardState.notes].reverse()) {
+      if (this.getResizeCorner(note, this.currentMousePos.x, this.currentMousePos.y) ||
+          this.isPointInsideNote(note, this.currentMousePos.x, this.currentMousePos.y)) {
+        this.hoveredNote = note;
+        return;
+      }
+    }
+
+    for (const connection of this.canvasService.boardState.connections) {
+      const fromNote = this.canvasService.boardState.notes.find(n => n.id === connection.fromNoteId);
+      const toNote = this.canvasService.boardState.notes.find(n => n.id === connection.toNoteId);
+      if (fromNote && toNote && this.isPointNearArrow(this.currentMousePos.x, this.currentMousePos.y, fromNote, toNote)) {
+        this.hoveredConnection = connection;
+        return;
+      }
+    }
+  }
+
   private getCursorStyle(): string {
-    // Existing logic: Hover logic for resize handles, notes, connections  
-    let cursor = 'default';
-    let foundHover = false;
-
-    for (let note of [...this.canvasService.boardState.notes].reverse()) {
-      const corner = this.getResizeCorner(note, this.currentMousePos.x, this.currentMousePos.y);
+    if (this.hoveredNote) {
+      const corner = this.getResizeCorner(this.hoveredNote, this.currentMousePos.x, this.currentMousePos.y);
       if (corner) {
-        switch (corner) {
-          case 'top-left':
-          case 'bottom-right':
-            cursor = 'nwse-resize';
-            break;
-          case 'top-right':
-          case 'bottom-left':
-            cursor = 'nesw-resize';
-            break;
-        }
-        foundHover = true;
-        this.hoveredNote = note;
-        break;
-      } else if (this.isPointInsideNote(note, this.currentMousePos.x, this.currentMousePos.y)) {
-        cursor = 'move';
-        foundHover = true;
-        this.hoveredNote = note;
-        break;
+        return (corner === 'top-left' || corner === 'bottom-right') ? 'nwse-resize' : 'nesw-resize';
       }
+      return 'move';
     }
-
-    if (!foundHover) {
-      this.hoveredNote = null;
-      for (let connection of this.canvasService.boardState.connections) {
-        const fromNote = this.canvasService.boardState.notes.find(n => n.id === connection.fromNoteId);
-        const toNote = this.canvasService.boardState.notes.find(n => n.id === connection.toNoteId);
-        if (fromNote && toNote && this.isPointNearArrow(this.currentMousePos.x, this.currentMousePos.y, fromNote, toNote)) {
-          cursor = 'pointer';
-          foundHover = true;
-          this.hoveredConnection = connection;
-          break;
-        }
-      }
+    if (this.hoveredConnection) {
+      return 'pointer';
     }
-
-    return cursor;
+    return 'default';
   }
 
   private editNoteText(note: Note): void {
