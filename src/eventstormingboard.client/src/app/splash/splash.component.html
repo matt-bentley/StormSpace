@@ -1,15 +1,125 @@
 <div class="splash-container">
-    <div class="splash-image"></div>
-    <div class="splash-content">
-        <h1>Welcome to StormSpace</h1>
-        <mat-form-field appearance="fill">
-            <mat-label>Enter your name</mat-label>
-            <input matInput [(ngModel)]="userName" name="userName" required />
-        </mat-form-field>
-        <div class="board-actions">
-            <button mat-raised-button color="primary" (click)="createNewBoard()">Create New Board</button>
-            <button mat-raised-button color="accent" [disabled]="!userName" (click)="selectExistingBoard()">Select
-                Existing Board</button>
+  <!-- Atmospheric background layers -->
+  <div class="bg-grid" aria-hidden="true"></div>
+  <div class="bg-scanlines" aria-hidden="true"></div>
+  <div class="bg-glow bg-glow--cyan" aria-hidden="true"></div>
+  <div class="bg-glow bg-glow--purple" aria-hidden="true"></div>
+  <div class="bg-glow bg-glow--pink" aria-hidden="true"></div>
+
+  <div class="splash-content">
+    <!-- Hero -->
+    <div class="hero-section">
+      <div class="hero-content">
+        <div class="hero-overline">
+          <span class="overline-marker"></span>
+          <span class="overline-highlight">AI-POWERED</span> EVENT STORMING
         </div>
+
+        <h1 class="hero-heading"><span class="heading-event">EVENT</span><br><span class="heading-storm">STORMING</span></h1>
+
+        <p class="hero-body">
+          Collaborate in real-time to explore complex business domains.
+          AI-powered facilitation guides your team through discovery.
+        </p>
+
+        <div class="hero-actions">
+          <button class="btn-primary" (click)="createNewBoard()">
+            <span class="btn-label">NEW BOARD</span>
+            <mat-icon>bolt</mat-icon>
+            <span class="btn-shine" aria-hidden="true"></span>
+          </button>
+          <button class="btn-secondary" [disabled]="!userName" (click)="selectExistingBoard()">
+            <span class="btn-label">JOIN BOARD</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="hero-visual">
+        <div class="network-container">
+          <!-- SVG network lines + pulse rings -->
+          <svg class="network-svg" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+            <!-- Hub-to-node connections -->
+            <line class="net-line" x1="200" y1="200" x2="200" y2="52" />
+            <line class="net-line" x1="200" y1="200" x2="328" y2="126" />
+            <line class="net-line" x1="200" y1="200" x2="328" y2="274" />
+            <line class="net-line" x1="200" y1="200" x2="200" y2="348" />
+            <line class="net-line" x1="200" y1="200" x2="72" y2="274" />
+            <line class="net-line" x1="200" y1="200" x2="72" y2="126" />
+            <!-- Outer ring connections -->
+            <line class="net-line net-line--ring" x1="200" y1="52" x2="328" y2="126" />
+            <line class="net-line net-line--ring" x1="328" y1="126" x2="328" y2="274" />
+            <line class="net-line net-line--ring" x1="328" y1="274" x2="200" y2="348" />
+            <line class="net-line net-line--ring" x1="200" y1="348" x2="72" y2="274" />
+            <line class="net-line net-line--ring" x1="72" y1="274" x2="72" y2="126" />
+            <line class="net-line net-line--ring" x1="72" y1="126" x2="200" y2="52" />
+            <!-- Expanding pulse rings -->
+            <circle class="pulse-ring" cx="200" cy="200" r="40" />
+            <circle class="pulse-ring pulse-ring--d1" cx="200" cy="200" r="40" />
+            <circle class="pulse-ring pulse-ring--d2" cx="200" cy="200" r="40" />
+          </svg>
+          <!-- Network nodes -->
+          <div class="node node--center"><mat-icon>hub</mat-icon></div>
+          <div class="node node--orbit node--1"><mat-icon>event_note</mat-icon></div>
+          <div class="node node--orbit node--2"><mat-icon>bolt</mat-icon></div>
+          <div class="node node--orbit node--3 node--secondary"><mat-icon>smart_toy</mat-icon></div>
+          <div class="node node--orbit node--4"><mat-icon>groups</mat-icon></div>
+          <div class="node node--orbit node--5"><mat-icon>account_tree</mat-icon></div>
+          <div class="node node--orbit node--6 node--secondary"><mat-icon>auto_awesome</mat-icon></div>
+        </div>
+      </div>
     </div>
+
+    <!-- Feature highlights -->
+    <div class="features-section">
+      <div class="feature-card">
+        <div class="feature-icon"><mat-icon>auto_awesome</mat-icon></div>
+        <div class="feature-text">
+          <span class="feature-title">AI FACILITATION</span>
+          <span class="feature-desc">Multi-agent system guides discovery with contextual intelligence</span>
+        </div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon feature-icon--secondary"><mat-icon>groups</mat-icon></div>
+        <div class="feature-text">
+          <span class="feature-title">REAL-TIME COLLABORATION</span>
+          <span class="feature-desc">See cursors, notes, and changes from your entire team instantly</span>
+        </div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon feature-icon--tertiary"><mat-icon>account_tree</mat-icon></div>
+        <div class="feature-text">
+          <span class="feature-title">STRUCTURED PHASES</span>
+          <span class="feature-desc">Five guided phases from context to bounded context breakdown</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Identity input -->
+    <div class="identity-section">
+      <div class="identity-field">
+        <label class="field-label">DISPLAY NAME</label>
+        <input class="input-field" [(ngModel)]="userName" (ngModelChange)="onUserNameChanged()" name="userName" placeholder="Enter your name" required />
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-row">
+      <div class="stat">
+        <span class="stat-value">5</span>
+        <span class="stat-label">PHASES</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value">8</span>
+        <span class="stat-label">NOTE TYPES</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value">4</span>
+        <span class="stat-label">AI AGENTS</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value stat-value--text">REAL-TIME</span>
+        <span class="stat-label">COLLABORATION</span>
+      </div>
+    </div>
+  </div>
 </div>

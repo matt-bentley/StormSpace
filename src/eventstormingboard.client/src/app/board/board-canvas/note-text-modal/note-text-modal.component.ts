@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, Inject, ViewChild } from '@angular/core';
+import { Component, Inject } from '@angular/core';
 import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -19,10 +19,7 @@ import { MatButtonModule } from '@angular/material/button';
     templateUrl: './note-text-modal.component.html',
     styleUrls: ['./note-text-modal.component.scss']
 })
-export class NoteTextModalComponent implements AfterViewInit {
-
-  @ViewChild('noteInput') 
-  public noteInput!: ElementRef<HTMLInputElement>;
+export class NoteTextModalComponent {
 
   constructor(
     public dialogRef: MatDialogRef<NoteTextModalComponent>,
@@ -35,9 +32,5 @@ export class NoteTextModalComponent implements AfterViewInit {
 
   public onSave(): void {
     this.dialogRef.close(this.data.text);
-  }
-
-  public ngAfterViewInit(): void {
-    setTimeout(() => this.noteInput.nativeElement.focus(), 500);
   }
 }

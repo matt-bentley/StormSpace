@@ -22,6 +22,19 @@ import { BoardContextModalComponent, BoardContextData } from './board-context-mo
 import { AgentConfigModalComponent, AgentConfigModalData } from './agent-config-modal/agent-config-modal.component';
 import { AgentConfiguration } from '../_shared/models/agent-configuration.model';
 import { EVENT_STORMING_PHASES } from '../_shared/models/board.model';
+import { UserService } from '../_shared/services/user.service';
+import { Connection } from '../_shared/models/connection.model';
+
+interface ImportedBoardState {
+  boardName?: unknown;
+  domain?: unknown;
+  sessionScope?: unknown;
+  phase?: unknown;
+  autonomousEnabled?: unknown;
+  notes?: unknown;
+  connections?: unknown;
+  agentConfigurations?: unknown;
+}
 
 @Component({
     selector: 'app-board',
@@ -51,7 +64,8 @@ export class BoardComponent implements OnInit, OnDestroy {
     public canvasService: BoardCanvasService,
     private activatedRoute: ActivatedRoute,
     private boardsService: BoardsService,
-    private dialog: MatDialog
+    private dialog: MatDialog,
+    private userService: UserService
   ) {
     this.canvasService.boardState = {
       name: '',
@@ -60,7 +74,7 @@ export class BoardComponent implements OnInit, OnDestroy {
       notes: []
     };
     this.id = this.activatedRoute.snapshot.paramMap.get('id') || '';
-    this.userName = localStorage.getItem('userName') ?? 'Anonymous'
+    this.userName = this.userService.displayName || 'Anonymous';
     this.previousName = this.canvasService.boardState.name;
   }
 
@@ -115,20 +129,232 @@ export class BoardComponent implements OnInit, OnDestroy {
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const boardState = JSON.parse(reader.result as string);
-        this.canvasService.boardState.name = boardState.boardName || 'Untitled Board';
-        this.canvasService.boardState.domain = boardState.domain;
-        this.canvasService.boardState.sessionScope = boardState.sessionScope;
-        this.canvasService.boardState.phase = boardState.phase;
-        this.canvasService.boardState.autonomousEnabled = !!boardState.autonomousEnabled;
-        this.canvasService.boardState.notes = boardState.notes || [];
-        this.canvasService.boardState.connections = boardState.connections || [];
-        this.canvasService.drawCanvas(); // Redraw the canvas with the imported state
+        const parsed = JSON.parse(reader.result as string) as unknown;
+        if (!this.isRecord(parsed)) {
+          throw new Error('Invalid board JSON shape.');
+        }
+
+        const boardState = parsed as ImportedBoardState;
+        const importedNotes = this.normalizeImportedNotes(boardState.notes);
+        const importedNoteIds = new Set(importedNotes.map(note => note.id));
+        const importedConnections = this.normalizeImportedConnections(boardState.connections, importedNoteIds);
+
+        const oldName = this.canvasService.boardState.name;
+        const importedName = typeof boardState.boardName === 'string' && boardState.boardName.trim().length > 0
+          ? boardState.boardName.trim()
+          : 'Untitled Board';
+
+        if (importedName !== oldName) {
+          this.canvasService.executeCommand(new UpdateBoardNameCommand(importedName, oldName));
+        }
+        this.previousName = importedName;
+
+        const oldDomain = this.canvasService.boardState.domain;
+        const oldSessionScope = this.canvasService.boardState.sessionScope;
+        const oldPhase = this.canvasService.boardState.phase;
+        const oldAutonomousEnabled = this.canvasService.boardState.autonomousEnabled;
+
+        const newDomain = typeof boardState.domain === 'string' && boardState.domain.trim().length > 0
+          ? boardState.domain.trim()
+          : undefined;
+        const newSessionScope = typeof boardState.sessionScope === 'string' && boardState.sessionScope.trim().length > 0
+          ? boardState.sessionScope.trim()
+          : undefined;
+        const newPhase = typeof boardState.phase === 'string' && boardState.phase.trim().length > 0
+          ? boardState.phase.trim()
+          : undefined;
+        const newAutonomousEnabled = boardState.autonomousEnabled === true;
+
+        if (
+          oldDomain !== newDomain ||
+          oldSessionScope !== newSessionScope ||
+          oldPhase !== newPhase ||
+          oldAutonomousEnabled !== newAutonomousEnabled
+        ) {
+          this.canvasService.executeCommand(new UpdateBoardContextCommand(
+            newDomain,
+            oldDomain,
+            newSessionScope,
+            oldSessionScope,
+            newPhase,
+            oldPhase,
+            newAutonomousEnabled,
+            oldAutonomousEnabled
+          ));
+        }
+
+        if (this.canvasService.boardState.notes.length > 0 || this.canvasService.boardState.connections.length > 0) {
+          this.canvasService.executeCommand(new DeleteNotesCommand(
+            [...this.canvasService.boardState.notes],
+            [...this.canvasService.boardState.connections]
+          ));
+        }
+
+        if (importedNotes.length > 0 || importedConnections.length > 0) {
+          this.canvasService.executeCommand(new PasteCommand(importedNotes, importedConnections));
+          // Keep imported content deselected; selection state is local-only UI state.
+          this.canvasService.boardState.notes.forEach(note => note.selected = false);
+          this.canvasService.boardState.connections.forEach(connection => connection.selected = false);
+          this.canvasService.drawCanvas();
+        }
+
+        const importedAgents = this.normalizeImportedAgentConfigurations(boardState.agentConfigurations);
+        if (importedAgents) {
+          this.saveAgentConfigurations(importedAgents);
+        }
       } catch (error) {
         console.error('Invalid JSON file:', error);
+      } finally {
+        input.value = '';
       }
     };
+
+    reader.onerror = () => {
+      console.error('Failed to read JSON file.');
+      input.value = '';
+    };
+
     reader.readAsText(file);
+  }
+
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+  }
+
+  private normalizeImportedNotes(value: unknown): Note[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    const notes: Note[] = [];
+    for (const entry of value) {
+      if (!this.isRecord(entry)) {
+        continue;
+      }
+
+      const id = entry['id'];
+      const text = entry['text'];
+      const type = entry['type'];
+      const x = entry['x'];
+      const y = entry['y'];
+      const width = entry['width'];
+      const height = entry['height'];
+
+      if (
+        typeof id !== 'string' ||
+        typeof text !== 'string' ||
+        typeof type !== 'string' ||
+        typeof x !== 'number' ||
+        typeof y !== 'number' ||
+        typeof width !== 'number' ||
+        typeof height !== 'number' ||
+        !Number.isFinite(x) ||
+        !Number.isFinite(y) ||
+        !Number.isFinite(width) ||
+        !Number.isFinite(height)
+      ) {
+        continue;
+      }
+
+      notes.push({
+        id,
+        text,
+        type: type as Note['type'],
+        x,
+        y,
+        width,
+        height,
+        selected: false
+      });
+    }
+
+    return notes;
+  }
+
+  private normalizeImportedConnections(value: unknown, noteIds: Set<string>): Connection[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    const connections: Connection[] = [];
+    for (const entry of value) {
+      if (!this.isRecord(entry)) {
+        continue;
+      }
+
+      const fromNoteId = entry['fromNoteId'];
+      const toNoteId = entry['toNoteId'];
+      if (typeof fromNoteId !== 'string' || typeof toNoteId !== 'string') {
+        continue;
+      }
+      if (!noteIds.has(fromNoteId) || !noteIds.has(toNoteId)) {
+        continue;
+      }
+
+      connections.push({
+        fromNoteId,
+        toNoteId,
+        selected: false
+      });
+    }
+
+    return connections;
+  }
+
+  private normalizeImportedAgentConfigurations(value: unknown): AgentConfiguration[] | undefined {
+    if (value === undefined) {
+      return undefined;
+    }
+    if (!Array.isArray(value)) {
+      return undefined;
+    }
+
+    const agents: AgentConfiguration[] = [];
+    for (const entry of value) {
+      if (!this.isRecord(entry)) {
+        continue;
+      }
+
+      const id = typeof entry['id'] === 'string' ? entry['id'] : uuid();
+      const name = typeof entry['name'] === 'string' ? entry['name'] : 'Agent';
+      const isFacilitator = entry['isFacilitator'] === true;
+      const systemPrompt = typeof entry['systemPrompt'] === 'string' ? entry['systemPrompt'] : '';
+      const icon = typeof entry['icon'] === 'string' ? entry['icon'] : 'smart_toy';
+      const color = typeof entry['color'] === 'string' ? entry['color'] : '#999999';
+      const allowedTools = Array.isArray(entry['allowedTools'])
+        ? entry['allowedTools'].filter(tool => typeof tool === 'string')
+        : [];
+      const order = typeof entry['order'] === 'number' && Number.isFinite(entry['order'])
+        ? entry['order']
+        : 0;
+      const modelType = typeof entry['modelType'] === 'string' ? entry['modelType'] : 'gpt-4.1-mini';
+      const activePhases = Array.isArray(entry['activePhases'])
+        ? entry['activePhases'].filter(phase => typeof phase === 'string') as AgentConfiguration['activePhases']
+        : undefined;
+      const temperature = typeof entry['temperature'] === 'number' && Number.isFinite(entry['temperature'])
+        ? entry['temperature']
+        : undefined;
+      const reasoningEffort = typeof entry['reasoningEffort'] === 'string'
+        ? entry['reasoningEffort']
+        : undefined;
+
+      agents.push({
+        id,
+        name,
+        isFacilitator,
+        systemPrompt,
+        icon,
+        color,
+        activePhases,
+        allowedTools,
+        order,
+        modelType,
+        temperature,
+        reasoningEffort
+      });
+    }
+
+    return agents;
   }
 
   public onBoardNameUpdated(): void {

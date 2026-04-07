@@ -43,25 +43,22 @@ export class BoardCanvasService {
   public scaleFactor = 1.1;
 
   public zoomIn(): void {
-    const zoomFactor = 1.1;
-    this.scale *= zoomFactor;
+    this.scale *= this.scaleFactor;
     this.drawCanvas();
     this.updateZoomPercentage();
   }
 
   public zoomOut(): void {
-    const zoomFactor = 1.1;
-    this.scale /= zoomFactor;
+    this.scale /= this.scaleFactor;
     this.drawCanvas();
     this.updateZoomPercentage();
   }
 
   public setZoom(): void {
-    const newScale = this.zoomPercentage / 100;
-    if (newScale >= 0.2 && newScale <= 5) {
-      this.scale = newScale;
-      this.drawCanvas();
-    }
+    const newScale = Math.min(5, Math.max(0.2, this.zoomPercentage / 100));
+    this.scale = newScale;
+    this.updateZoomPercentage();
+    this.drawCanvas();
   }
 
   private updateZoomPercentage(): void {

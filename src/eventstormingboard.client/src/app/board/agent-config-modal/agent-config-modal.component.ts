@@ -67,6 +67,7 @@ export class AgentConfigModalComponent implements OnInit {
   ];
 
   public readonly REASONING_EFFORTS = [
+    { value: 'minimal', label: 'Minimal' },
     { value: 'low', label: 'Low' },
     { value: 'medium', label: 'Medium' }
   ];

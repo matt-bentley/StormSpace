@@ -1,11 +1,57 @@
-﻿<div class="logo" (click)="home()">
-  <img src="images/logo.png" alt="Logo" class="angular-logo" />
-</div>
+﻿<nav class="top-nav">
+  <div class="nav-left">
+    <span class="nav-logo" (click)="home()">STORMSPACE</span>
+  </div>
+  <div class="nav-right">
+    <div class="settings-wrapper">
+      <button class="nav-icon-btn" (click)="toggleSettingsMenu()" matTooltip="Settings" [class.active]="isSettingsMenuOpen">
+        <mat-icon>settings</mat-icon>
+      </button>
+
+      @if (isSettingsMenuOpen) {
+        <div class="settings-menu-backdrop" (click)="isSettingsMenuOpen = false"></div>
+        <div class="settings-menu">
+          <label class="settings-menu-label">APPEARANCE</label>
+          <div class="settings-menu-row">
+            <mat-icon class="settings-menu-icon">{{ themeService.isDark ? 'dark_mode' : 'light_mode' }}</mat-icon>
+            <span class="settings-menu-text">{{ themeService.isDark ? 'Dark' : 'Light' }}</span>
+            <mat-slide-toggle
+              [checked]="!themeService.isDark"
+              (change)="themeService.toggleTheme()"
+              aria-label="Toggle light mode">
+            </mat-slide-toggle>
+          </div>
+        </div>
+      }
+    </div>
+    <div class="nav-avatar-wrapper">
+      <div class="nav-avatar" (click)="toggleUserMenu()" [class.active]="isUserMenuOpen">
+        @if (userInitial) {
+          <span>{{ userInitial }}</span>
+        } @else {
+          <mat-icon>person</mat-icon>
+        }
+      </div>
+
+      @if (isUserMenuOpen) {
+        <div class="user-menu-backdrop" (click)="isUserMenuOpen = false"></div>
+        <div class="user-menu">
+          <label class="user-menu-label">DISPLAY NAME</label>
+          <input
+            class="user-menu-input"
+            [(ngModel)]="userName"
+            placeholder="Enter your name"
+            (keydown.enter)="saveUserName()" />
+          <button class="user-menu-save" (click)="saveUserName()">SAVE</button>
+        </div>
+      }
+    </div>
+  </div>
+</nav>
 <main class="main">
   <div class="content">
     <div class="container">
       <router-outlet></router-outlet>
     </div>
   </div>
-  
 </main>
