@@ -269,32 +269,51 @@ namespace EventStormingBoard.Server.Plugins
             return $"Connected \"{fromNote.Text}\" → \"{toNote.Text}\"";
         }
 
-        [Description("Edits the text of an existing note. Use note IDs from GetBoardState.")]
-        public async Task<string> EditNoteText(
-            [Description("The ID of the note to edit")] string noteId,
-            [Description("The new text for the note")] string newText)
+        [Description("Edits the text of one or more existing notes in a single call. Use note IDs from GetBoardState.")]
+        public async Task<string> EditNoteTexts(
+            [Description("The list of note text edits specifying each note's ID and new text")] List<EditNoteTextInput> edits)
         {
-            if (!Guid.TryParse(noteId, out var parsedNoteId)) return $"Invalid note ID format: {noteId}";
-
             var board = _repository.GetById(_boardId);
             if (board == null) return "Board not found.";
 
-            var note = board.Notes.FirstOrDefault(n => n.Id == parsedNoteId);
-            if (note == null) return $"Note {parsedNoteId} not found.";
+            if (edits.Count == 0)
+                return "No edits provided.";
 
-            var oldText = note.Text;
-            var @event = new NoteTextEditedEvent
+            var results = new StringBuilder();
+            var edited = 0;
+
+            foreach (var input in edits)
             {
-                BoardId = _boardId,
-                NoteId = parsedNoteId,
-                FromText = oldText,
-                ToText = newText
-            };
+                if (!Guid.TryParse(input.NoteId, out var parsedNoteId))
+                {
+                    results.AppendLine($"  - Skipped: invalid note ID format: {input.NoteId}");
+                    continue;
+                }
 
-            _boardEventPipeline.ApplyAndLog(@event, "AI Agent");
-            await _hubContext.Clients.Group(_boardId.ToString()).SendAsync("NoteTextEdited", @event).ConfigureAwait(false);
+                var note = board.Notes.FirstOrDefault(n => n.Id == parsedNoteId);
+                if (note == null)
+                {
+                    results.AppendLine($"  - Skipped: note {parsedNoteId} not found.");
+                    continue;
+                }
 
-            return $"Updated note text from \"{oldText}\" to \"{newText}\"";
+                var oldText = note.Text;
+                var @event = new NoteTextEditedEvent
+                {
+                    BoardId = _boardId,
+                    NoteId = parsedNoteId,
+                    FromText = oldText,
+                    ToText = input.NewText
+                };
+
+                _boardEventPipeline.ApplyAndLog(@event, "AI Agent");
+                await _hubContext.Clients.Group(_boardId.ToString()).SendAsync("NoteTextEdited", @event).ConfigureAwait(false);
+
+                results.AppendLine($"  - \"{oldText}\" → \"{input.NewText}\"");
+                edited++;
+            }
+
+            return $"Edited {edited} note(s):\n{results}";
         }
 
         [Description("Moves one or more notes to new positions on the board. Use this to reorganise the board layout. Use note IDs from GetBoardState.")]

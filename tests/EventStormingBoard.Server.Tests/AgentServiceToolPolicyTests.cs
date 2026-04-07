@@ -43,7 +43,7 @@ public class AgentServiceToolPolicyTests
         Assert.DoesNotContain(nameof(BoardPlugin.CreateNotes), tools);
         Assert.DoesNotContain(nameof(BoardPlugin.CreateConnection), tools);
         Assert.DoesNotContain(nameof(BoardPlugin.CreateConnections), tools);
-        Assert.DoesNotContain(nameof(BoardPlugin.EditNoteText), tools);
+        Assert.DoesNotContain(nameof(BoardPlugin.EditNoteTexts), tools);
         Assert.DoesNotContain(nameof(BoardPlugin.MoveNotes), tools);
         Assert.DoesNotContain(nameof(BoardPlugin.DeleteNotes), tools);
     }
@@ -60,7 +60,7 @@ public class AgentServiceToolPolicyTests
             Assert.Contains(nameof(BoardPlugin.CreateNotes), tools);
             Assert.Contains(nameof(BoardPlugin.CreateConnection), tools);
             Assert.Contains(nameof(BoardPlugin.CreateConnections), tools);
-            Assert.Contains(nameof(BoardPlugin.EditNoteText), tools);
+            Assert.Contains(nameof(BoardPlugin.EditNoteTexts), tools);
             Assert.Contains(nameof(BoardPlugin.MoveNotes), tools);
             Assert.Contains(nameof(BoardPlugin.DeleteNotes), tools);
             Assert.Contains(nameof(DelegationPlugin.AskAgentQuestion), tools);
@@ -87,7 +87,7 @@ public class AgentServiceToolPolicyTests
         Assert.DoesNotContain(nameof(BoardPlugin.CreateNotes), tools);
         Assert.DoesNotContain(nameof(BoardPlugin.CreateConnection), tools);
         Assert.DoesNotContain(nameof(BoardPlugin.CreateConnections), tools);
-        Assert.DoesNotContain(nameof(BoardPlugin.EditNoteText), tools);
+        Assert.DoesNotContain(nameof(BoardPlugin.EditNoteTexts), tools);
         Assert.DoesNotContain(nameof(BoardPlugin.DeleteNotes), tools);
     }
 }

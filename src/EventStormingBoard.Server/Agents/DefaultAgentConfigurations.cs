@@ -164,7 +164,7 @@ namespace EventStormingBoard.Server.Agents
                     nameof(BoardPlugin.GetBoardState),
                     nameof(BoardPlugin.GetRecentEvents),
                     nameof(BoardPlugin.CreateNotes),
-                    nameof(BoardPlugin.EditNoteText),
+                    nameof(BoardPlugin.EditNoteTexts),
                     nameof(BoardPlugin.MoveNotes),
                     nameof(BoardPlugin.DeleteNotes),
                     nameof(DelegationPlugin.AskAgentQuestion)
@@ -241,7 +241,7 @@ namespace EventStormingBoard.Server.Agents
                     nameof(BoardPlugin.GetRecentEvents),
                     nameof(BoardPlugin.CreateNotes),
                     nameof(BoardPlugin.CreateConnections),
-                    nameof(BoardPlugin.EditNoteText),
+                    nameof(BoardPlugin.EditNoteTexts),
                     nameof(BoardPlugin.MoveNotes),
                     nameof(BoardPlugin.DeleteNotes),
                     nameof(DelegationPlugin.AskAgentQuestion)
@@ -333,7 +333,7 @@ namespace EventStormingBoard.Server.Agents
                     nameof(BoardPlugin.GetRecentEvents),
                     nameof(BoardPlugin.CreateNotes),
                     nameof(BoardPlugin.CreateConnections),
-                    nameof(BoardPlugin.EditNoteText),
+                    nameof(BoardPlugin.EditNoteTexts),
                     nameof(BoardPlugin.MoveNotes),
                     nameof(BoardPlugin.DeleteNotes),
                     nameof(DelegationPlugin.AskAgentQuestion)
@@ -400,7 +400,7 @@ namespace EventStormingBoard.Server.Agents
                 {
                     nameof(BoardPlugin.GetBoardState),
                     nameof(BoardPlugin.MoveNotes),
-                    nameof(BoardPlugin.CreateNote)
+                    nameof(BoardPlugin.CreateNotes)
                 },
                 SystemPrompt = """
                     You are the **Organiser** — the only agent responsible for tidying and laying out the board in this Event Storming workshop.
@@ -429,6 +429,8 @@ namespace EventStormingBoard.Server.Agents
                     - **ExternalSystem**: x = midpoint of Command.x and Event.x, y = Event.y + 130 (10 px gap below).
                     - **Between clusters**: Events are **600 px apart** centre-to-centre horizontally.
                     - **Parallel flows**: **500 px apart** vertically.
+                    - **Happy path events**: should be in the middle of the board, with branching paths below.
+                    - **Unhappy path / edge case events**: should be below the happy path events, clustered near the related event - **500 px apart** vertically.
                     - **Concern**: placed 275px above the Event in the cluster.
 
                     ## Cluster Types
@@ -445,7 +447,7 @@ namespace EventStormingBoard.Server.Agents
                     4. If you are unsure about a clustering or grouping decision, create a Concern note near the ambiguous area instead of guessing.
 
                     ## Rules
-                    - Only use `MoveNotes` and `CreateNote` (Concern type only).
+                    - Only use `MoveNotes` and `CreateNotes` (Concern type only).
                     - Do NOT create Events, Commands, Policies, Aggregates, Users, ReadModels, or ExternalSystems.
                     - Do NOT delete notes, edit note text, or create connections.
                     - Do NOT move notes that are already well-positioned — only fix what needs fixing.
