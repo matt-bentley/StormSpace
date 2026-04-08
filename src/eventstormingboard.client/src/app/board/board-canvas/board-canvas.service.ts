@@ -3,8 +3,8 @@ import { BoardState } from '../../_shared/models/board-state.model';
 import { Subject } from 'rxjs';
 import { BoardsSignalRService } from '../../_shared/services/boards-signalr.service';
 import { Command } from '../../_shared/models/command.model';
-import { CreateConnectionCommand, CreateNoteCommand, DeleteNotesCommand, EditNoteTextCommand, MoveNotesCommand, PasteCommand, ResizeNoteCommand, UpdateBoardContextCommand, UpdateBoardNameCommand } from '../board.commands';
-import { BoardContextUpdatedEvent, BoardEvent, BoardNameUpdatedEvent, ConnectionCreatedEvent, NoteCreatedEvent, NoteResizedEvent, NotesDeletedEvent, NotesMovedEvent, NoteTextEditedEvent, PastedEvent } from '../../_shared/models/board-events.model';
+import { CreateBoundedContextCommand, CreateConnectionCommand, CreateNoteCommand, DeleteBoundedContextCommand, DeleteNotesCommand, EditNoteTextCommand, MoveBoundedContextCommand, MoveNotesCommand, PasteCommand, ResizeBoundedContextCommand, ResizeNoteCommand, UpdateBoardContextCommand, UpdateBoardNameCommand, UpdateBoundedContextCommand } from '../board.commands';
+import { BoardContextUpdatedEvent, BoardEvent, BoardNameUpdatedEvent, BoundedContextCreatedEvent, BoundedContextDeletedEvent, BoundedContextUpdatedEvent, ConnectionCreatedEvent, NoteCreatedEvent, NoteResizedEvent, NotesDeletedEvent, NotesMovedEvent, NoteTextEditedEvent, PastedEvent } from '../../_shared/models/board-events.model';
 import { RemoteCursorState } from '../../_shared/models/remote-cursor-state.model';
 
 @Injectable()
@@ -21,6 +21,7 @@ export class BoardCanvasService {
   public boardState: BoardState = {
     notes: [],
     connections: [],
+    boundedContexts: [],
     name: 'Untitled Board',
     autonomousEnabled: false
   };
@@ -29,6 +30,7 @@ export class BoardCanvasService {
 
   public id!: string;
   public isDrawingConnection = false;
+  public isDrawingBoundedContext = false;
   public isPanningMode = false;
   public isSelectMode = true;
 
@@ -100,6 +102,16 @@ export class BoardCanvasService {
       this.boardsHub.broadcastBoardNameUpdated(this.toEvent<BoardNameUpdatedEvent>(command, isUndo));
     } else if (command instanceof UpdateBoardContextCommand) {
       this.boardsHub.broadcastBoardContextUpdated(this.toEvent<BoardContextUpdatedEvent>(command, isUndo));
+    } else if (command instanceof CreateBoundedContextCommand) {
+      this.boardsHub.broadcastBoundedContextCreated(this.toEvent<BoundedContextCreatedEvent>(command, isUndo));
+    } else if (command instanceof UpdateBoundedContextCommand) {
+      this.boardsHub.broadcastBoundedContextUpdated(this.toEvent<BoundedContextUpdatedEvent>(command, isUndo));
+    } else if (command instanceof DeleteBoundedContextCommand) {
+      this.boardsHub.broadcastBoundedContextDeleted(this.toEvent<BoundedContextDeletedEvent>(command, isUndo));
+    } else if (command instanceof MoveBoundedContextCommand) {
+      this.boardsHub.broadcastBoundedContextUpdated(this.toEvent<BoundedContextUpdatedEvent>(command, isUndo));
+    } else if (command instanceof ResizeBoundedContextCommand) {
+      this.boardsHub.broadcastBoundedContextUpdated(this.toEvent<BoundedContextUpdatedEvent>(command, isUndo));
     }
   }
 
@@ -132,10 +144,12 @@ export class BoardCanvasService {
 
   public reset(): void {
     this.isDrawingConnection = false;
+    this.isDrawingBoundedContext = false;
     this.isSelectMode = false;
     this.isPanningMode = false;
     this.boardState.connections.forEach(c => c.selected = false);
     this.boardState.notes.forEach(n => n.selected = false);
+    this.boardState.boundedContexts.forEach(bc => bc.selected = false);
   }
 
   public drawCanvas(): void {

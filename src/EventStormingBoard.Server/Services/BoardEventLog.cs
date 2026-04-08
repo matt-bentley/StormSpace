@@ -69,6 +69,9 @@ namespace EventStormingBoard.Server.Services
                 ConnectionCreatedEvent e => $"Connected {e.Connection.FromNoteId} → {e.Connection.ToNoteId}",
                 PastedEvent e => $"Pasted {e.Notes.Count} note(s) and {e.Connections.Count} connection(s)",
                 BoardNameUpdatedEvent e => $"Renamed board to \"{e.NewName}\"",
+                BoundedContextCreatedEvent e => $"Created bounded context \"{e.BoundedContext.Name}\"",
+                BoundedContextUpdatedEvent e => $"Updated bounded context {e.BoundedContextId}",
+                BoundedContextDeletedEvent e => $"Deleted bounded context \"{e.BoundedContext.Name}\"",
                 _ => @event.GetType().Name
             };
         }

@@ -1,6 +1,6 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { Note, getNoteColor } from '../_shared/models/note.model';
-import { CreateConnectionCommand, CreateNoteCommand, DeleteNotesCommand, EditNoteTextCommand, MoveNotesCommand, PasteCommand, ResizeNoteCommand, UpdateBoardContextCommand, UpdateBoardNameCommand } from './board.commands';
+import { CreateConnectionCommand, CreateBoundedContextCommand, CreateNoteCommand, DeleteBoundedContextCommand, DeleteNotesCommand, EditNoteTextCommand, MoveBoundedContextCommand, MoveNotesCommand, PasteCommand, ResizeBoundedContextCommand, ResizeNoteCommand, UpdateBoardContextCommand, UpdateBoardNameCommand, UpdateBoundedContextCommand } from './board.commands';
 import { v4 as uuid } from 'uuid';
 import { AutonomousFacilitatorStatus, BoardsSignalRService } from '../_shared/services/boards-signalr.service';
 import { Subject, takeUntil } from 'rxjs';
@@ -24,6 +24,7 @@ import { AgentConfiguration } from '../_shared/models/agent-configuration.model'
 import { EVENT_STORMING_PHASES } from '../_shared/models/board.model';
 import { UserService } from '../_shared/services/user.service';
 import { Connection } from '../_shared/models/connection.model';
+import { BoundedContext } from '../_shared/models/bounded-context.model';
 
 interface ImportedBoardState {
   boardName?: unknown;
@@ -33,6 +34,7 @@ interface ImportedBoardState {
   autonomousEnabled?: unknown;
   notes?: unknown;
   connections?: unknown;
+  boundedContexts?: unknown;
   agentConfigurations?: unknown;
 }
 
@@ -71,7 +73,8 @@ export class BoardComponent implements OnInit, OnDestroy {
       name: '',
       autonomousEnabled: false,
       connections: [],
-      notes: []
+      notes: [],
+      boundedContexts: []
     };
     this.id = this.activatedRoute.snapshot.paramMap.get('id') || '';
     this.userName = this.userService.displayName || 'Anonymous';
@@ -108,6 +111,7 @@ export class BoardComponent implements OnInit, OnDestroy {
       autonomousEnabled: this.canvasService.boardState.autonomousEnabled,
       notes: this.canvasService.boardState.notes,
       connections: this.canvasService.boardState.connections,
+      boundedContexts: this.canvasService.boardState.boundedContexts,
       agentConfigurations: this.agentConfigurations
     };
 
@@ -190,6 +194,11 @@ export class BoardComponent implements OnInit, OnDestroy {
           ));
         }
 
+        // Delete existing bounded contexts
+        for (const bc of [...this.canvasService.boardState.boundedContexts]) {
+          this.canvasService.executeCommand(new DeleteBoundedContextCommand(bc));
+        }
+
         if (importedNotes.length > 0 || importedConnections.length > 0) {
           this.canvasService.executeCommand(new PasteCommand(importedNotes, importedConnections));
           // Keep imported content deselected; selection state is local-only UI state.
@@ -197,6 +206,15 @@ export class BoardComponent implements OnInit, OnDestroy {
           this.canvasService.boardState.connections.forEach(connection => connection.selected = false);
           this.canvasService.drawCanvas();
         }
+
+        // Restore imported bounded contexts
+        const importedBCs = this.normalizeImportedBoundedContexts(boardState.boundedContexts);
+        for (const bc of importedBCs) {
+          this.canvasService.executeCommand(new CreateBoundedContextCommand(bc));
+        }
+        // Deselect imported BCs
+        this.canvasService.boardState.boundedContexts.forEach(bc => bc.selected = false);
+        this.canvasService.drawCanvas();
 
         const importedAgents = this.normalizeImportedAgentConfigurations(boardState.agentConfigurations);
         if (importedAgents) {
@@ -301,6 +319,53 @@ export class BoardComponent implements OnInit, OnDestroy {
     return connections;
   }
 
+  private normalizeImportedBoundedContexts(value: unknown): BoundedContext[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    const boundedContexts: BoundedContext[] = [];
+    for (const entry of value) {
+      if (!this.isRecord(entry)) {
+        continue;
+      }
+
+      const id = entry['id'];
+      const name = entry['name'];
+      const x = entry['x'];
+      const y = entry['y'];
+      const width = entry['width'];
+      const height = entry['height'];
+
+      if (
+        typeof id !== 'string' ||
+        typeof name !== 'string' ||
+        typeof x !== 'number' ||
+        typeof y !== 'number' ||
+        typeof width !== 'number' ||
+        typeof height !== 'number' ||
+        !Number.isFinite(x) ||
+        !Number.isFinite(y) ||
+        !Number.isFinite(width) ||
+        !Number.isFinite(height)
+      ) {
+        continue;
+      }
+
+      boundedContexts.push({
+        id,
+        name,
+        x,
+        y,
+        width,
+        height,
+        selected: false
+      });
+    }
+
+    return boundedContexts;
+  }
+
   private normalizeImportedAgentConfigurations(value: unknown): AgentConfiguration[] | undefined {
     if (value === undefined) {
       return undefined;
@@ -384,6 +449,12 @@ export class BoardComponent implements OnInit, OnDestroy {
   public toggleConnectionMode(): void {
     this.canvasService.reset()
     this.canvasService.isDrawingConnection = true;
+    this.canvasService.drawCanvas();
+  }
+
+  public toggleBoundedContextMode(): void {
+    this.canvasService.reset();
+    this.canvasService.isDrawingBoundedContext = true;
     this.canvasService.drawCanvas();
   }
 
@@ -608,6 +679,10 @@ export class BoardComponent implements OnInit, OnDestroy {
           selected: false // default, or preserve if needed
         }));
         this.canvasService.boardState.connections = board.connections;
+        this.canvasService.boardState.boundedContexts = (board.boundedContexts ?? []).map(bc => ({
+          ...bc,
+          selected: false
+        }));
         this.canvasService.drawCanvas();
       });
 
@@ -717,6 +792,32 @@ export class BoardComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(event => {
         this.canvasService.executeCommand(new PasteCommand(event.notes, event.connections), true, event.isUndo);
+      });
+
+    this.boardsHub.boundedContextCreated$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(event => {
+        this.canvasService.executeCommand(new CreateBoundedContextCommand(event.boundedContext), true, event.isUndo);
+      });
+
+    this.boardsHub.boundedContextUpdated$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(event => {
+        this.canvasService.executeCommand(
+          new UpdateBoundedContextCommand(
+            event.boundedContextId,
+            event.oldName, event.newName,
+            event.oldX, event.newX,
+            event.oldY, event.newY,
+            event.oldWidth, event.newWidth,
+            event.oldHeight, event.newHeight
+          ), true, event.isUndo);
+      });
+
+    this.boardsHub.boundedContextDeleted$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(event => {
+        this.canvasService.executeCommand(new DeleteBoundedContextCommand(event.boundedContext), true, event.isUndo);
       });
 
     this.boardsHub.agentUserMessage$

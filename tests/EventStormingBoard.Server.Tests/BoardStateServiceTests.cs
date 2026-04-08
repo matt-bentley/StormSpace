@@ -459,6 +459,187 @@ public class BoardStateServiceTests
         Assert.Empty(_board.Connections);
     }
 
+    // ── BoundedContextCreated ───────────────────────────────
+
+    [Fact]
+    public void ApplyBoundedContextCreated_AddsBoundedContext()
+    {
+        var bcId = Guid.NewGuid();
+        var @event = new BoundedContextCreatedEvent
+        {
+            BoardId = _board.Id,
+            BoundedContext = new BoundedContextDto
+            {
+                Id = bcId,
+                Name = "Orders",
+                X = 100, Y = 200,
+                Width = 800, Height = 600,
+                Color = "#00bcd4"
+            }
+        };
+
+        _service.ApplyBoundedContextCreated(@event);
+
+        Assert.Single(_board.BoundedContexts);
+        var bc = _board.BoundedContexts[0];
+        Assert.Equal(bcId, bc.Id);
+        Assert.Equal("Orders", bc.Name);
+        Assert.Equal(100, bc.X);
+        Assert.Equal(200, bc.Y);
+        Assert.Equal(800, bc.Width);
+        Assert.Equal(600, bc.Height);
+    }
+
+    [Fact]
+    public void ApplyBoundedContextCreated_Undo_RemovesBoundedContext()
+    {
+        var bcId = Guid.NewGuid();
+        _board.BoundedContexts.Add(new BoundedContext { Id = bcId, Name = "Orders" });
+
+        var @event = new BoundedContextCreatedEvent
+        {
+            BoardId = _board.Id,
+            IsUndo = true,
+            BoundedContext = new BoundedContextDto { Id = bcId, Name = "Orders" }
+        };
+
+        _service.ApplyBoundedContextCreated(@event);
+
+        Assert.Empty(_board.BoundedContexts);
+    }
+
+    // ── BoundedContextUpdated ───────────────────────────────
+
+    [Fact]
+    public void ApplyBoundedContextUpdated_UpdatesName()
+    {
+        var bcId = Guid.NewGuid();
+        _board.BoundedContexts.Add(new BoundedContext { Id = bcId, Name = "Orders", X = 100, Y = 200, Width = 800, Height = 600 });
+
+        var @event = new BoundedContextUpdatedEvent
+        {
+            BoardId = _board.Id,
+            BoundedContextId = bcId,
+            OldName = "Orders",
+            NewName = "Order Management"
+        };
+
+        _service.ApplyBoundedContextUpdated(@event);
+
+        Assert.Equal("Order Management", _board.BoundedContexts[0].Name);
+    }
+
+    [Fact]
+    public void ApplyBoundedContextUpdated_UpdatesPosition()
+    {
+        var bcId = Guid.NewGuid();
+        _board.BoundedContexts.Add(new BoundedContext { Id = bcId, Name = "Orders", X = 100, Y = 200, Width = 800, Height = 600 });
+
+        var @event = new BoundedContextUpdatedEvent
+        {
+            BoardId = _board.Id,
+            BoundedContextId = bcId,
+            OldX = 100, NewX = 300,
+            OldY = 200, NewY = 400,
+            OldWidth = 800, NewWidth = 1000,
+            OldHeight = 600, NewHeight = 700
+        };
+
+        _service.ApplyBoundedContextUpdated(@event);
+
+        var bc = _board.BoundedContexts[0];
+        Assert.Equal(300, bc.X);
+        Assert.Equal(400, bc.Y);
+        Assert.Equal(1000, bc.Width);
+        Assert.Equal(700, bc.Height);
+    }
+
+    [Fact]
+    public void ApplyBoundedContextUpdated_Undo_RevertsToOldValues()
+    {
+        var bcId = Guid.NewGuid();
+        _board.BoundedContexts.Add(new BoundedContext { Id = bcId, Name = "Order Management", X = 300, Y = 400, Width = 1000, Height = 700 });
+
+        var @event = new BoundedContextUpdatedEvent
+        {
+            BoardId = _board.Id,
+            BoundedContextId = bcId,
+            IsUndo = true,
+            OldName = "Orders",
+            NewName = "Order Management",
+            OldX = 100, NewX = 300,
+            OldY = 200, NewY = 400,
+            OldWidth = 800, NewWidth = 1000,
+            OldHeight = 600, NewHeight = 700
+        };
+
+        _service.ApplyBoundedContextUpdated(@event);
+
+        var bc = _board.BoundedContexts[0];
+        Assert.Equal("Orders", bc.Name);
+        Assert.Equal(100, bc.X);
+        Assert.Equal(200, bc.Y);
+        Assert.Equal(800, bc.Width);
+        Assert.Equal(600, bc.Height);
+    }
+
+    // ── BoundedContextDeleted ───────────────────────────────
+
+    [Fact]
+    public void ApplyBoundedContextDeleted_RemovesBoundedContext()
+    {
+        var bcId = Guid.NewGuid();
+        _board.BoundedContexts.Add(new BoundedContext { Id = bcId, Name = "Orders", X = 100, Y = 200, Width = 800, Height = 600 });
+
+        var @event = new BoundedContextDeletedEvent
+        {
+            BoardId = _board.Id,
+            BoundedContext = new BoundedContextDto { Id = bcId, Name = "Orders", X = 100, Y = 200, Width = 800, Height = 600 }
+        };
+
+        _service.ApplyBoundedContextDeleted(@event);
+
+        Assert.Empty(_board.BoundedContexts);
+    }
+
+    [Fact]
+    public void ApplyBoundedContextDeleted_Undo_RestoresBoundedContext()
+    {
+        var bcId = Guid.NewGuid();
+
+        var @event = new BoundedContextDeletedEvent
+        {
+            BoardId = _board.Id,
+            IsUndo = true,
+            BoundedContext = new BoundedContextDto { Id = bcId, Name = "Orders", X = 100, Y = 200, Width = 800, Height = 600, Color = "#00bcd4" }
+        };
+
+        _service.ApplyBoundedContextDeleted(@event);
+
+        Assert.Single(_board.BoundedContexts);
+        var bc = _board.BoundedContexts[0];
+        Assert.Equal(bcId, bc.Id);
+        Assert.Equal("Orders", bc.Name);
+    }
+
+    [Fact]
+    public void ApplyBoundedContextDeleted_Undo_DoesNotDuplicateExisting()
+    {
+        var bcId = Guid.NewGuid();
+        _board.BoundedContexts.Add(new BoundedContext { Id = bcId, Name = "Orders" });
+
+        var @event = new BoundedContextDeletedEvent
+        {
+            BoardId = _board.Id,
+            IsUndo = true,
+            BoundedContext = new BoundedContextDto { Id = bcId, Name = "Orders" }
+        };
+
+        _service.ApplyBoundedContextDeleted(@event);
+
+        Assert.Single(_board.BoundedContexts);
+    }
+
     // ── Edge cases ──────────────────────────────────────────
 
     [Fact]

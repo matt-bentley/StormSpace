@@ -71,6 +71,16 @@ namespace EventStormingBoard.Server.Controllers
                     FromNoteId = c.FromNoteId,
                     ToNoteId = c.ToNoteId
                 }).ToList(),
+                BoundedContexts = board.BoundedContexts.Select(bc => new BoundedContextDto
+                {
+                    Id = bc.Id,
+                    Name = bc.Name,
+                    X = bc.X,
+                    Y = bc.Y,
+                    Width = bc.Width,
+                    Height = bc.Height,
+                    Color = bc.Color
+                }).ToList(),
                 AgentConfigurations = board.AgentConfigurations.Select(MapAgentConfigurationDto).ToList()
             };
             return Ok(boardDto);
@@ -109,6 +119,7 @@ namespace EventStormingBoard.Server.Controllers
                 AutonomousEnabled = board.AutonomousEnabled,
                 Notes = new List<NoteDto>(),
                 Connections = new List<ConnectionDto>(),
+                BoundedContexts = new List<BoundedContextDto>(),
                 AgentConfigurations = board.AgentConfigurations.Select(MapAgentConfigurationDto).ToList()
             };
             return CreatedAtAction(nameof(GetById), new { id = board.Id }, boardDto);

@@ -46,6 +46,65 @@ public class BoardEventPipelineTests
     }
 
     [Fact]
+    public void ApplyAndLog_BoundedContextCreated_AppliesStateAndAppendsLog()
+    {
+        var state = new SpyBoardStateService();
+        var log = new SpyBoardEventLog();
+        var pipeline = new BoardEventPipeline(state, log);
+        var @event = new BoundedContextCreatedEvent
+        {
+            BoardId = Guid.NewGuid(),
+            BoundedContext = new BoundedContextDto { Id = Guid.NewGuid(), Name = "Orders" }
+        };
+
+        pipeline.ApplyAndLog(@event, "Alice");
+
+        Assert.Equal(nameof(IBoardStateService.ApplyBoundedContextCreated), state.LastApplyCall);
+        Assert.Same(@event, state.LastEvent);
+        Assert.Equal(1, log.AppendCount);
+    }
+
+    [Fact]
+    public void ApplyAndLog_BoundedContextUpdated_AppliesStateAndAppendsLog()
+    {
+        var state = new SpyBoardStateService();
+        var log = new SpyBoardEventLog();
+        var pipeline = new BoardEventPipeline(state, log);
+        var @event = new BoundedContextUpdatedEvent
+        {
+            BoardId = Guid.NewGuid(),
+            BoundedContextId = Guid.NewGuid(),
+            OldName = "Orders",
+            NewName = "Order Management"
+        };
+
+        pipeline.ApplyAndLog(@event, "Bob");
+
+        Assert.Equal(nameof(IBoardStateService.ApplyBoundedContextUpdated), state.LastApplyCall);
+        Assert.Same(@event, state.LastEvent);
+        Assert.Equal(1, log.AppendCount);
+    }
+
+    [Fact]
+    public void ApplyAndLog_BoundedContextDeleted_AppliesStateAndAppendsLog()
+    {
+        var state = new SpyBoardStateService();
+        var log = new SpyBoardEventLog();
+        var pipeline = new BoardEventPipeline(state, log);
+        var @event = new BoundedContextDeletedEvent
+        {
+            BoardId = Guid.NewGuid(),
+            BoundedContext = new BoundedContextDto { Id = Guid.NewGuid(), Name = "Payments" }
+        };
+
+        pipeline.ApplyAndLog(@event, "Charlie");
+
+        Assert.Equal(nameof(IBoardStateService.ApplyBoundedContextDeleted), state.LastApplyCall);
+        Assert.Same(@event, state.LastEvent);
+        Assert.Equal(1, log.AppendCount);
+    }
+
+    [Fact]
     public void ApplyAndLog_UnsupportedEvent_ThrowsAndDoesNotAppend()
     {
         var state = new SpyBoardStateService();
@@ -116,6 +175,24 @@ public class BoardEventPipelineTests
         public void ApplyPasted(PastedEvent @event)
         {
             LastApplyCall = nameof(ApplyPasted);
+            LastEvent = @event;
+        }
+
+        public void ApplyBoundedContextCreated(BoundedContextCreatedEvent @event)
+        {
+            LastApplyCall = nameof(ApplyBoundedContextCreated);
+            LastEvent = @event;
+        }
+
+        public void ApplyBoundedContextUpdated(BoundedContextUpdatedEvent @event)
+        {
+            LastApplyCall = nameof(ApplyBoundedContextUpdated);
+            LastEvent = @event;
+        }
+
+        public void ApplyBoundedContextDeleted(BoundedContextDeletedEvent @event)
+        {
+            LastApplyCall = nameof(ApplyBoundedContextDeleted);
             LastEvent = @event;
         }
     }

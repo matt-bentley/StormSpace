@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import * as signalR from '@microsoft/signalr';
 import { Subject } from 'rxjs';
-import { BoardContextUpdatedEvent, BoardNameUpdatedEvent, ConnectionCreatedEvent, CursorPositionUpdatedEvent, NoteCreatedEvent, NoteResizedEvent, NotesDeletedEvent, NotesMovedEvent, NoteTextEditedEvent, PastedEvent, UserJoinedBoardEvent, UserLeftBoardEvent } from '../models/board-events.model';
+import { BoardContextUpdatedEvent, BoardNameUpdatedEvent, BoundedContextCreatedEvent, BoundedContextDeletedEvent, BoundedContextUpdatedEvent, ConnectionCreatedEvent, CursorPositionUpdatedEvent, NoteCreatedEvent, NoteResizedEvent, NotesDeletedEvent, NotesMovedEvent, NoteTextEditedEvent, PastedEvent, UserJoinedBoardEvent, UserLeftBoardEvent } from '../models/board-events.model';
 import { BoardUser } from '../models/board-user.model';
 import { AgentConfiguration } from '../models/agent-configuration.model';
 
@@ -60,6 +60,9 @@ export class BoardsSignalRService {
   public connectionCreated$ = new Subject<ConnectionCreatedEvent>();
   public noteTextEdited$ = new Subject<NoteTextEditedEvent>();
   public pasted$ = new Subject<PastedEvent>();
+  public boundedContextCreated$ = new Subject<BoundedContextCreatedEvent>();
+  public boundedContextUpdated$ = new Subject<BoundedContextUpdatedEvent>();
+  public boundedContextDeleted$ = new Subject<BoundedContextDeletedEvent>();
   public agentUserMessage$ = new Subject<AgentChatMessage>();
   public agentResponse$ = new Subject<AgentChatMessage>();
   public agentStepUpdate$ = new Subject<AgentChatMessage>();
@@ -115,6 +118,15 @@ export class BoardsSignalRService {
     });
     this.hubConnection.on('Pasted', (event) => {
       this.pasted$.next(event);
+    });
+    this.hubConnection.on('BoundedContextCreated', (event) => {
+      this.boundedContextCreated$.next(event);
+    });
+    this.hubConnection.on('BoundedContextUpdated', (event) => {
+      this.boundedContextUpdated$.next(event);
+    });
+    this.hubConnection.on('BoundedContextDeleted', (event) => {
+      this.boundedContextDeleted$.next(event);
     });
     this.hubConnection.on('AgentUserMessage', (event) => {
       const message = this.mapAgentChatMessage(event);
@@ -226,6 +238,21 @@ export class BoardsSignalRService {
 
   public broadcastPasted(event: PastedEvent) {
     this.hubConnection.invoke('BroadcastPasted', event)
+      .catch(err => console.error(err));
+  }
+
+  public broadcastBoundedContextCreated(event: BoundedContextCreatedEvent) {
+    this.hubConnection.invoke('BroadcastBoundedContextCreated', event)
+      .catch(err => console.error(err));
+  }
+
+  public broadcastBoundedContextUpdated(event: BoundedContextUpdatedEvent) {
+    this.hubConnection.invoke('BroadcastBoundedContextUpdated', event)
+      .catch(err => console.error(err));
+  }
+
+  public broadcastBoundedContextDeleted(event: BoundedContextDeletedEvent) {
+    this.hubConnection.invoke('BroadcastBoundedContextDeleted', event)
       .catch(err => console.error(err));
   }
 

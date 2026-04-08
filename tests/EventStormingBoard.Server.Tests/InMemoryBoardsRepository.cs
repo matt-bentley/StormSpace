@@ -27,6 +27,7 @@ public sealed class InMemoryBoardsRepository : IBoardsRepository
         board.AutonomousEnabled = boardUpdate.AutonomousEnabled;
         board.Notes = boardUpdate.Notes;
         board.Connections = boardUpdate.Connections;
+        board.BoundedContexts = boardUpdate.BoundedContexts;
         board.AgentConfigurations = boardUpdate.AgentConfigurations;
         return true;
     }

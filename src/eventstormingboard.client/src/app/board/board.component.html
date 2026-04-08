@@ -105,6 +105,10 @@
     <mat-icon>warning</mat-icon>
     <span class="tool-label">CONC</span>
   </button>
+  <button class="tool-btn" [class.active]="canvasService.isDrawingBoundedContext" (click)="toggleBoundedContextMode()" matTooltip="Draw Bounded Context" matTooltipPosition="right">
+    <mat-icon>crop_free</mat-icon>
+    <span class="tool-label">CONTEXT</span>
+  </button>
 
   <div class="toolbar-divider"></div>
 

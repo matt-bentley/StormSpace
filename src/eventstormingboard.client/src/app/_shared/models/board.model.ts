@@ -24,6 +24,7 @@ export interface BoardDto {
   autonomousEnabled: boolean;
   notes: NoteDto[];
   connections: ConnectionDto[];
+  boundedContexts: BoundedContextDto[];
   agentConfigurations: AgentConfiguration[];
 }
 
@@ -54,4 +55,14 @@ export interface NoteDto {
 export interface ConnectionDto {
   fromNoteId: string;
   toNoteId: string;
+}
+
+export interface BoundedContextDto {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  color?: string;
 }

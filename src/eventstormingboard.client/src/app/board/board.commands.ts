@@ -1,4 +1,5 @@
 import { BoardState } from "../_shared/models/board-state.model";
+import { BoundedContext } from "../_shared/models/bounded-context.model";
 import { Command } from "../_shared/models/command.model";
 import { Connection } from "../_shared/models/connection.model";
 import { NoteMove } from "../_shared/models/note-move.model";
@@ -242,5 +243,148 @@ export class PasteCommand extends Command<BoardState> {
             const index = this.state.notes.findIndex(n => n.id === note.id);
             if (index !== -1) this.state.notes.splice(index, 1);
         });
+    }
+}
+
+export class CreateBoundedContextCommand extends Command<BoardState> {
+
+    constructor(public boundedContext: BoundedContext) {
+        super();
+    }
+
+    execute() {
+        if (!this.state.boundedContexts.some(bc => bc.id === this.boundedContext.id)) {
+            this.state.boundedContexts.push(this.boundedContext);
+        }
+    }
+
+    undo() {
+        const index = this.state.boundedContexts.findIndex(bc => bc.id === this.boundedContext.id);
+        if (index !== -1) this.state.boundedContexts.splice(index, 1);
+    }
+}
+
+export class UpdateBoundedContextCommand extends Command<BoardState> {
+
+    constructor(
+        public boundedContextId: string,
+        public oldName: string | undefined,
+        public newName: string | undefined,
+        public oldX: number | undefined,
+        public newX: number | undefined,
+        public oldY: number | undefined,
+        public newY: number | undefined,
+        public oldWidth: number | undefined,
+        public newWidth: number | undefined,
+        public oldHeight: number | undefined,
+        public newHeight: number | undefined
+    ) {
+        super();
+    }
+
+    execute() {
+        const bc = this.state.boundedContexts.find(bc => bc.id === this.boundedContextId);
+        if (bc) {
+            if (this.newName !== undefined) bc.name = this.newName;
+            if (this.newX !== undefined) bc.x = this.newX;
+            if (this.newY !== undefined) bc.y = this.newY;
+            if (this.newWidth !== undefined) bc.width = this.newWidth;
+            if (this.newHeight !== undefined) bc.height = this.newHeight;
+        }
+    }
+
+    undo() {
+        const bc = this.state.boundedContexts.find(bc => bc.id === this.boundedContextId);
+        if (bc) {
+            if (this.oldName !== undefined) bc.name = this.oldName;
+            if (this.oldX !== undefined) bc.x = this.oldX;
+            if (this.oldY !== undefined) bc.y = this.oldY;
+            if (this.oldWidth !== undefined) bc.width = this.oldWidth;
+            if (this.oldHeight !== undefined) bc.height = this.oldHeight;
+        }
+    }
+}
+
+export class DeleteBoundedContextCommand extends Command<BoardState> {
+
+    constructor(public boundedContext: BoundedContext) {
+        super();
+    }
+
+    execute() {
+        const index = this.state.boundedContexts.findIndex(bc => bc.id === this.boundedContext.id);
+        if (index !== -1) this.state.boundedContexts.splice(index, 1);
+    }
+
+    undo() {
+        if (!this.state.boundedContexts.some(bc => bc.id === this.boundedContext.id)) {
+            this.state.boundedContexts.push(this.boundedContext);
+        }
+    }
+}
+
+export class MoveBoundedContextCommand extends Command<BoardState> {
+
+    constructor(
+        public boundedContextId: string,
+        public oldX: number,
+        public newX: number,
+        public oldY: number,
+        public newY: number
+    ) {
+        super();
+    }
+
+    execute() {
+        const bc = this.state.boundedContexts.find(bc => bc.id === this.boundedContextId);
+        if (bc) {
+            bc.x = this.newX;
+            bc.y = this.newY;
+        }
+    }
+
+    undo() {
+        const bc = this.state.boundedContexts.find(bc => bc.id === this.boundedContextId);
+        if (bc) {
+            bc.x = this.oldX;
+            bc.y = this.oldY;
+        }
+    }
+}
+
+export class ResizeBoundedContextCommand extends Command<BoardState> {
+
+    constructor(
+        public boundedContextId: string,
+        public oldX: number,
+        public newX: number,
+        public oldY: number,
+        public newY: number,
+        public oldWidth: number,
+        public newWidth: number,
+        public oldHeight: number,
+        public newHeight: number
+    ) {
+        super();
+    }
+
+    execute() {
+        const bc = this.state.boundedContexts.find(bc => bc.id === this.boundedContextId);
+        if (bc) {
+            bc.x = this.newX;
+            bc.y = this.newY;
+            bc.width = this.newWidth;
+            bc.height = this.newHeight;
+        }
+    }
+
+    undo() {
+        const bc = this.state.boundedContexts.find(bc => bc.id === this.boundedContextId);
+        if (bc) {
+            bc.x = this.oldX;
+            bc.y = this.oldY;
+            bc.width = this.oldWidth;
+            bc.height = this.oldHeight;
+        }
     }
 }

@@ -237,4 +237,46 @@ public class BoardEventLogTests
         var entry = _log.GetRecent(_boardId)[0];
         Assert.Equal("Renamed board to \"My Board\"", entry.Summary);
     }
+
+    [Fact]
+    public void Summary_BoundedContextCreated()
+    {
+        _log.Append(_boardId, new BoundedContextCreatedEvent
+        {
+            BoardId = _boardId,
+            BoundedContext = new BoundedContextDto { Id = Guid.NewGuid(), Name = "Orders" }
+        }, null);
+
+        var entry = _log.GetRecent(_boardId)[0];
+        Assert.Equal("Created bounded context \"Orders\"", entry.Summary);
+    }
+
+    [Fact]
+    public void Summary_BoundedContextUpdated()
+    {
+        var bcId = Guid.NewGuid();
+        _log.Append(_boardId, new BoundedContextUpdatedEvent
+        {
+            BoardId = _boardId,
+            BoundedContextId = bcId,
+            OldName = "Orders",
+            NewName = "Order Management"
+        }, null);
+
+        var entry = _log.GetRecent(_boardId)[0];
+        Assert.Contains(bcId.ToString(), entry.Summary);
+    }
+
+    [Fact]
+    public void Summary_BoundedContextDeleted()
+    {
+        _log.Append(_boardId, new BoundedContextDeletedEvent
+        {
+            BoardId = _boardId,
+            BoundedContext = new BoundedContextDto { Id = Guid.NewGuid(), Name = "Payments" }
+        }, null);
+
+        var entry = _log.GetRecent(_boardId)[0];
+        Assert.Equal("Deleted bounded context \"Payments\"", entry.Summary);
+    }
 }

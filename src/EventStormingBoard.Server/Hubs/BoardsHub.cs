@@ -151,6 +151,27 @@ namespace EventStormingBoard.Server.Hubs
             await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("Pasted", @event);
         }
 
+        public async Task BroadcastBoundedContextCreated(BoundedContextCreatedEvent @event)
+        {
+            _boardEventPipeline.ApplyAndLog(@event, GetUserName(@event.BoardId));
+            _coordinator.RecordUserActivity(@event.BoardId);
+            await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("BoundedContextCreated", @event);
+        }
+
+        public async Task BroadcastBoundedContextUpdated(BoundedContextUpdatedEvent @event)
+        {
+            _boardEventPipeline.ApplyAndLog(@event, GetUserName(@event.BoardId));
+            _coordinator.RecordUserActivity(@event.BoardId);
+            await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("BoundedContextUpdated", @event);
+        }
+
+        public async Task BroadcastBoundedContextDeleted(BoundedContextDeletedEvent @event)
+        {
+            _boardEventPipeline.ApplyAndLog(@event, GetUserName(@event.BoardId));
+            _coordinator.RecordUserActivity(@event.BoardId);
+            await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("BoundedContextDeleted", @event);
+        }
+
         public async Task BroadcastCursorPositionUpdated(CursorPositionUpdatedEvent @event)
         {
             if (!double.IsFinite(@event.X) || !double.IsFinite(@event.Y))

@@ -12,6 +12,7 @@ namespace EventStormingBoard.Server.Entities
         public bool AutonomousEnabled { get; set; }
         public List<Note> Notes { get; set; } = new();
         public List<Connection> Connections { get; set; } = new();
+        public List<BoundedContext> BoundedContexts { get; set; } = new();
         public List<AgentConfiguration> AgentConfigurations { get; set; } = new();
     }
 }

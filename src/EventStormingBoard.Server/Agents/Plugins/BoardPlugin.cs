@@ -50,7 +50,7 @@ namespace EventStormingBoard.Server.Plugins
             sb.AppendLine($"Notes ({board.Notes.Count}):");
             foreach (var note in board.Notes)
             {
-                sb.AppendLine($"  - [{note.Type}] \"{note.Text}\" (id: {note.Id}, position: {note.X:F0},{note.Y:F0})");
+                sb.AppendLine($"  - [{note.Type}] \"{note.Text}\" (id: {note.Id}, position: {note.X:F0},{note.Y:F0}, size: {note.Width:F0}x{note.Height:F0})");
             }
             sb.AppendLine($"Connections ({board.Connections.Count}):");
             foreach (var conn in board.Connections)
@@ -58,6 +58,11 @@ namespace EventStormingBoard.Server.Plugins
                 var fromNote = board.Notes.FirstOrDefault(n => n.Id == conn.FromNoteId);
                 var toNote = board.Notes.FirstOrDefault(n => n.Id == conn.ToNoteId);
                 sb.AppendLine($"  - \"{fromNote?.Text}\" → \"{toNote?.Text}\"");
+            }
+            sb.AppendLine($"Bounded Contexts ({board.BoundedContexts.Count}):");
+            foreach (var bc in board.BoundedContexts)
+            {
+                sb.AppendLine($"  - \"{bc.Name}\" (id: {bc.Id}, position: {bc.X:F0},{bc.Y:F0}, size: {bc.Width:F0}×{bc.Height:F0})");
             }
             return sb.ToString();
         }
@@ -520,6 +525,154 @@ namespace EventStormingBoard.Server.Plugins
             await _hubContext.Clients.Group(_boardId.ToString()).SendAsync("NotesDeleted", @event).ConfigureAwait(false);
 
             return $"Deleted {notesToDelete.Count} note(s) and {connectionsToDelete.Count} connection(s)";
+        }
+
+        [Description("Creates a bounded context frame on the board. Bounded contexts are visual dashed-border frames used in the BreakItDown phase to group related clusters into logical boundaries.")]
+        public async Task<string> CreateBoundedContext(
+            [Description("The name/title of the bounded context")] string name,
+            [Description("X coordinate for the top-left corner of the frame")] double x,
+            [Description("Y coordinate for the top-left corner of the frame")] double y,
+            [Description("Width of the bounded context frame")] double width,
+            [Description("Height of the bounded context frame")] double height)
+        {
+            var bcId = Guid.NewGuid();
+
+            var bcDto = new BoundedContextDto
+            {
+                Id = bcId,
+                Name = name,
+                X = x,
+                Y = y,
+                Width = width,
+                Height = height
+            };
+
+            var @event = new BoundedContextCreatedEvent
+            {
+                BoardId = _boardId,
+                BoundedContext = bcDto
+            };
+
+            _boardEventPipeline.ApplyAndLog(@event, "AI Agent");
+            await _hubContext.Clients.Group(_boardId.ToString()).SendAsync("BoundedContextCreated", @event).ConfigureAwait(false);
+
+            return $"Created bounded context \"{name}\" (id: {bcId})";
+        }
+
+        [Description("Creates multiple bounded context frames on the board in a single call. Prefer this over CreateBoundedContext when adding more than one frame.")]
+        public async Task<string> CreateBoundedContexts(
+            [Description("The list of bounded contexts to create")] List<CreateBoundedContextInput> boundedContexts)
+        {
+            if (boundedContexts.Count == 0)
+                return "No bounded contexts provided.";
+
+            var results = new StringBuilder();
+            var created = 0;
+
+            foreach (var input in boundedContexts)
+            {
+                var bcId = Guid.NewGuid();
+
+                var bcDto = new BoundedContextDto
+                {
+                    Id = bcId,
+                    Name = input.Name,
+                    X = input.X,
+                    Y = input.Y,
+                    Width = input.Width,
+                    Height = input.Height
+                };
+
+                var @event = new BoundedContextCreatedEvent
+                {
+                    BoardId = _boardId,
+                    BoundedContext = bcDto
+                };
+
+                _boardEventPipeline.ApplyAndLog(@event, "AI Agent");
+                await _hubContext.Clients.Group(_boardId.ToString()).SendAsync("BoundedContextCreated", @event).ConfigureAwait(false);
+
+                results.AppendLine($"  - \"{input.Name}\" (id: {bcId})");
+                created++;
+            }
+
+            return $"Created {created} bounded context(s):\n{results}";
+        }
+
+        [Description("Updates an existing bounded context frame. Only the provided fields will be changed. Use the ID from GetBoardState.")]
+        public async Task<string> UpdateBoundedContext(
+            [Description("The ID of the bounded context to update")] string boundedContextId,
+            [Description("New name/title for the bounded context (optional)")] string? name = null,
+            [Description("New X coordinate (optional)")] double? x = null,
+            [Description("New Y coordinate (optional)")] double? y = null,
+            [Description("New width (optional)")] double? width = null,
+            [Description("New height (optional)")] double? height = null)
+        {
+            if (!Guid.TryParse(boundedContextId, out var bcId))
+                return $"Invalid bounded context ID format: {boundedContextId}";
+
+            var board = _repository.GetById(_boardId);
+            if (board == null) return "Board not found.";
+
+            var bc = board.BoundedContexts.FirstOrDefault(b => b.Id == bcId);
+            if (bc == null) return $"Bounded context {bcId} not found.";
+
+            var @event = new BoundedContextUpdatedEvent
+            {
+                BoardId = _boardId,
+                BoundedContextId = bcId,
+                OldName = name != null ? bc.Name : null,
+                NewName = name,
+                OldX = x.HasValue ? bc.X : null,
+                NewX = x,
+                OldY = y.HasValue ? bc.Y : null,
+                NewY = y,
+                OldWidth = width.HasValue ? bc.Width : null,
+                NewWidth = width,
+                OldHeight = height.HasValue ? bc.Height : null,
+                NewHeight = height
+            };
+
+            _boardEventPipeline.ApplyAndLog(@event, "AI Agent");
+            await _hubContext.Clients.Group(_boardId.ToString()).SendAsync("BoundedContextUpdated", @event).ConfigureAwait(false);
+
+            return $"Updated bounded context \"{bc.Name}\"";
+        }
+
+        [Description("Deletes a bounded context frame from the board. Use the ID from GetBoardState.")]
+        public async Task<string> DeleteBoundedContext(
+            [Description("The ID of the bounded context to delete")] string boundedContextId)
+        {
+            if (!Guid.TryParse(boundedContextId, out var bcId))
+                return $"Invalid bounded context ID format: {boundedContextId}";
+
+            var board = _repository.GetById(_boardId);
+            if (board == null) return "Board not found.";
+
+            var bc = board.BoundedContexts.FirstOrDefault(b => b.Id == bcId);
+            if (bc == null) return $"Bounded context {bcId} not found.";
+
+            var bcDto = new BoundedContextDto
+            {
+                Id = bc.Id,
+                Name = bc.Name,
+                X = bc.X,
+                Y = bc.Y,
+                Width = bc.Width,
+                Height = bc.Height,
+                Color = bc.Color
+            };
+
+            var @event = new BoundedContextDeletedEvent
+            {
+                BoardId = _boardId,
+                BoundedContext = bcDto
+            };
+
+            _boardEventPipeline.ApplyAndLog(@event, "AI Agent");
+            await _hubContext.Clients.Group(_boardId.ToString()).SendAsync("BoundedContextDeleted", @event).ConfigureAwait(false);
+
+            return $"Deleted bounded context \"{bc.Name}\"";
         }
 
         private static string? NormalizeOptional(string? value)

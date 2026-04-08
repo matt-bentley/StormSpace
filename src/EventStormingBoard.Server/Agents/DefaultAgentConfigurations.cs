@@ -30,7 +30,7 @@ namespace EventStormingBoard.Server.Agents
                 Color = "#3f51b5",
                 Order = 0,
                 ModelType = "gpt-5.2",
-                ReasoningEffort = "low",
+                ReasoningEffort = "medium",
                 ActivePhases = null, // active in all phases
                 AllowedTools = new List<string>
                 {
@@ -154,7 +154,7 @@ namespace EventStormingBoard.Server.Agents
                 Color = "#e65100",
                 Order = 1,
                 ModelType = "gpt-5.2",
-                ReasoningEffort = "minimal",
+                ReasoningEffort = "low",
                 ActivePhases = new List<EventStormingPhase>
                 {
                     EventStormingPhase.IdentifyEvents
@@ -230,7 +230,7 @@ namespace EventStormingBoard.Server.Agents
                 Color = "#00897b",
                 Order = 2,
                 ModelType = "gpt-5.2",
-                ReasoningEffort = "minimal",
+                ReasoningEffort = "low",
                 ActivePhases = new List<EventStormingPhase>
                 {
                     EventStormingPhase.AddCommandsAndPolicies
@@ -321,7 +321,7 @@ namespace EventStormingBoard.Server.Agents
                 Color = "#7b1fa2",
                 Order = 3,
                 ModelType = "gpt-5.2",
-                ReasoningEffort = "low",
+                ReasoningEffort = "medium",
                 ActivePhases = new List<EventStormingPhase>
                 {
                     EventStormingPhase.DefineAggregates,
@@ -336,6 +336,10 @@ namespace EventStormingBoard.Server.Agents
                     nameof(BoardPlugin.EditNoteTexts),
                     nameof(BoardPlugin.MoveNotes),
                     nameof(BoardPlugin.DeleteNotes),
+                    nameof(BoardPlugin.CreateBoundedContext),
+                    nameof(BoardPlugin.CreateBoundedContexts),
+                    nameof(BoardPlugin.UpdateBoundedContext),
+                    nameof(BoardPlugin.DeleteBoundedContext),
                     nameof(DelegationPlugin.AskAgentQuestion)
                 },
                 CanAskAgents = new List<string> { "DomainExpert" },
@@ -359,6 +363,16 @@ namespace EventStormingBoard.Server.Agents
                     - **Concern notes**: placed near the related note.
                     - **Parallel flows**: **500 px apart** vertically.
 
+                    ## Bounded Context Frames
+                    In the **BreakItDown** phase, use bounded context frames to visually group related clusters into logical boundaries.
+                    - A bounded context frame is a dashed-border rectangle with a title, drawn behind notes on the canvas.
+                    - Use `CreateBoundedContext` or `CreateBoundedContexts` to create frames.
+                    - Use `UpdateBoundedContext` to rename or reposition/resize a frame.
+                    - Use `DeleteBoundedContext` to remove a frame.
+                    - **Sizing**: The frame must enclose all notes fully. For each note, its bottom-right corner is at (x + width, y + height). Calculate: frame x = min(note.x) − 40, frame y = min(note.y) − 40, frame width = max(note.x + note.width) − frame x + 40, frame height = max(note.y + note.height) − frame y + 40. Use the note sizes from GetBoardState — do NOT assume all notes are the same size.
+                    - **Naming**: Use clear domain names (e.g., "Order Management", "Payment Processing", "Shipping & Delivery"). Avoid technical names.
+                    - **Only create bounded context frames during the BreakItDown phase.** In DefineAggregates, focus on aggregates only.
+
                     ## Your Task
                     1. Call GetBoardState to see the current board.
                     2. **Before creating any notes**, call `AskAgentQuestion` to consult the **DomainExpert** about aggregate boundaries, domain object ownership, and relationships between concepts. Use their answers to inform your choices.
@@ -366,13 +380,13 @@ namespace EventStormingBoard.Server.Agents
                        - Place Aggregates above their Command/Event pair, between them horizontally.
                        - Explain which Commands and Events the Aggregate owns.
                        - The same Aggregate may appear multiple times if multiple Commands interact with it.
-                    3. In **BreakItDown** phase:
-                       - Recommend Bounded Contexts and Subdomains groupings.
+                    4. In **BreakItDown** phase:
+                       - Create bounded context frames around related clusters using the tools.
                        - Identify Integration Events that flow between contexts.
-                       - This phase is mainly advisory — prefer text-based recommendations rather than many new notes.
-                    4. Do NOT create ReadModel notes unless instructions explicitly ask for them.
-                    5. Create Concern notes for ownership ambiguities or boundary disputes.
-                    6. Report what you created so the facilitator can summarise for the user. Don't include technical coordinates, the user won't understand them.
+                       - Recommend Subdomains groupings.
+                    5. Do NOT create ReadModel notes unless instructions explicitly ask for them.
+                    6. Create Concern notes for ownership ambiguities or boundary disputes.
+                    7. Report what you created so the facilitator can summarise for the user. Don't include technical coordinates, the user won't understand them.
                     """
             };
         }
@@ -388,7 +402,7 @@ namespace EventStormingBoard.Server.Agents
                 Color = "#ff8f00",
                 Order = 4,
                 ModelType = "gpt-5.2",
-                ReasoningEffort = "minimal",
+                ReasoningEffort = "low",
                 ActivePhases = new List<EventStormingPhase>
                 {
                     EventStormingPhase.IdentifyEvents,
@@ -472,7 +486,7 @@ namespace EventStormingBoard.Server.Agents
                 Color = "#41adc7",
                 Order = 5,
                 ModelType = "gpt-5.2",
-                ReasoningEffort = "low",
+                ReasoningEffort = "medium",
                 ActivePhases = null, // active in all phases
                 AllowedTools = new List<string>
                 {

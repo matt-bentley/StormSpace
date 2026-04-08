@@ -1,13 +1,15 @@
 import { AfterViewInit, Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { Note, getNoteColor } from '../../_shared/models/note.model';
 import { Connection } from '../../_shared/models/connection.model';
-import { CreateConnectionCommand, DeleteNotesCommand, EditNoteTextCommand, MoveNotesCommand, PasteCommand, ResizeNoteCommand } from '../board.commands';
+import { BoundedContext } from '../../_shared/models/bounded-context.model';
+import { CreateConnectionCommand, CreateBoundedContextCommand, DeleteNotesCommand, DeleteBoundedContextCommand, EditNoteTextCommand, MoveBoundedContextCommand, MoveNotesCommand, PasteCommand, ResizeBoundedContextCommand, ResizeNoteCommand, UpdateBoundedContextCommand } from '../board.commands';
 import { v4 as uuid } from 'uuid';
 import { Coordinates } from '../../_shared/models/coordinates.model';
 import { NoteSize } from '../../_shared/models/note-size.model';
 import { NoteMove } from '../../_shared/models/note-move.model';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { NoteTextModalComponent } from './note-text-modal/note-text-modal.component';
+import { BcNameModalComponent } from './bc-name-modal/bc-name-modal.component';
 import { BoardCanvasService } from './board-canvas.service';
 import { Subject, takeUntil } from 'rxjs';
 import { KeyboardShortcutsModalComponent } from '../keyboard-shortcuts-modal/keyboard-shortcuts-modal.component';
@@ -62,8 +64,20 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private hoveredNote: Note | null = null;
   private hoveredConnection: Connection | null = null;
+  private hoveredBoundedContext: BoundedContext | null = null;
   private lastCursorBroadcastAt = 0;
   private readonly localUserName = localStorage.getItem('userName') ?? 'Anonymous';
+
+  // Bounded context interaction state
+  private bcDrawStart: Coordinates | null = null;
+  private bcDrawPreview: { x: number; y: number; width: number; height: number } | null = null;
+  private draggingBoundedContext: BoundedContext | null = null;
+  private bcDragOffsetX = 0;
+  private bcDragOffsetY = 0;
+  private resizingBoundedContext: BoundedContext | null = null;
+  private bcResizeCorner: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | null = null;
+  private bcInitialResizeState: { x: number; y: number; width: number; height: number } | null = null;
+  private bcInitialDragPosition: { x: number; y: number } | null = null;
 
   @ViewChild('canvas', { static: true })
   public canvas!: ElementRef<HTMLCanvasElement>;
@@ -124,10 +138,18 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     }
 
+    // Bounded context draw-to-create mode
+    if (this.canvasService.isDrawingBoundedContext) {
+      this.bcDrawStart = { x, y };
+      this.bcDrawPreview = { x, y, width: 0, height: 0 };
+      return;
+    }
+
     // Reset selection unless Ctrl is pressed  
     if (!event.ctrlKey) {
       this.canvasService.boardState.notes.forEach(n => n.selected = false);
       this.canvasService.boardState.connections.forEach(c => c.selected = false);
+      this.canvasService.boardState.boundedContexts.forEach(bc => bc.selected = false);
     }
 
     this.resizingNote = null;
@@ -169,6 +191,38 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Check clicking on connections  
     if (!clickedOnNote) {
+      // Check bounded context resize corners first, then drag
+      let clickedOnBC = false;
+      for (const bc of [...this.canvasService.boardState.boundedContexts].reverse()) {
+        const bcCorner = this.getBCResizeCorner(bc, x, y);
+        if (bcCorner) {
+          this.resizingBoundedContext = bc;
+          this.bcResizeCorner = bcCorner;
+          this.bcInitialResizeState = { x: bc.x, y: bc.y, width: bc.width, height: bc.height };
+          if (!event.ctrlKey) {
+            this.canvasService.boardState.boundedContexts.forEach(b => b.selected = false);
+          }
+          bc.selected = true;
+          clickedOnBC = true;
+          break;
+        }
+        if (this.isPointInsideBCBorder(bc, x, y)) {
+          this.draggingBoundedContext = bc;
+          this.bcDragOffsetX = x - bc.x;
+          this.bcDragOffsetY = y - bc.y;
+          this.bcInitialDragPosition = { x: bc.x, y: bc.y };
+          if (!event.ctrlKey) {
+            this.canvasService.boardState.boundedContexts.forEach(b => b.selected = false);
+          }
+          bc.selected = true;
+          clickedOnBC = true;
+          break;
+        }
+      }
+      if (clickedOnBC) {
+        this.drawCanvas();
+        return;
+      }
       for (let connection of this.canvasService.boardState.connections) {
         const fromNote = this.canvasService.boardState.notes.find(n => n.id === connection.fromNoteId);
         const toNote = this.canvasService.boardState.notes.find(n => n.id === connection.toNoteId);
@@ -176,6 +230,20 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
           connection.selected = true;
           clickedOnConnection = true;
           break;
+        }
+      }
+    }
+
+    // Check if clicking inside a bounded context interior (for selection without drag)
+    if (!clickedOnNote && !clickedOnConnection) {
+      for (const bc of [...this.canvasService.boardState.boundedContexts].reverse()) {
+        if (this.isPointInsideBCInterior(bc, x, y)) {
+          if (!event.ctrlKey) {
+            this.canvasService.boardState.boundedContexts.forEach(b => b.selected = false);
+          }
+          bc.selected = true;
+          this.drawCanvas();
+          return;
         }
       }
     }
@@ -194,6 +262,25 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
 
     if (this.panning) {
       this.panning = false;
+      return;
+    }
+
+    // Bounded context draw-to-create completion
+    if (this.bcDrawStart && this.bcDrawPreview) {
+      const preview = this.bcDrawPreview;
+      this.bcDrawStart = null;
+      this.bcDrawPreview = null;
+
+      if (Math.abs(preview.width) > 40 && Math.abs(preview.height) > 40) {
+        const normalizedX = preview.width < 0 ? preview.x + preview.width : preview.x;
+        const normalizedY = preview.height < 0 ? preview.y + preview.height : preview.y;
+        const normalizedW = Math.abs(preview.width);
+        const normalizedH = Math.abs(preview.height);
+
+        this.promptBoundedContextName(normalizedX, normalizedY, normalizedW, normalizedH);
+      }
+
+      this.drawCanvas();
       return;
     }
 
@@ -252,6 +339,39 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
       this.canvasService.executeCommand(command);
     }
 
+    if (this.draggingBoundedContext && this.bcInitialDragPosition) {
+      const bc = this.draggingBoundedContext;
+      const initial = this.bcInitialDragPosition;
+      if (bc.x !== initial.x || bc.y !== initial.y) {
+        const command = new MoveBoundedContextCommand(
+          bc.id,
+          initial.x, bc.x,
+          initial.y, bc.y
+        );
+        this.canvasService.executeCommand(command);
+      }
+      this.draggingBoundedContext = null;
+      this.bcInitialDragPosition = null;
+    }
+
+    if (this.resizingBoundedContext && this.bcInitialResizeState) {
+      const bc = this.resizingBoundedContext;
+      const initial = this.bcInitialResizeState;
+      if (bc.x !== initial.x || bc.y !== initial.y || bc.width !== initial.width || bc.height !== initial.height) {
+        const command = new ResizeBoundedContextCommand(
+          bc.id,
+          initial.x, bc.x,
+          initial.y, bc.y,
+          initial.width, bc.width,
+          initial.height, bc.height
+        );
+        this.canvasService.executeCommand(command);
+      }
+      this.resizingBoundedContext = null;
+      this.bcResizeCorner = null;
+      this.bcInitialResizeState = null;
+    }
+
     this.draggingNote = null;
     this.resizingNote = null;
     this.resizeCorner = null;
@@ -264,6 +384,13 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     for (let note of [...this.canvasService.boardState.notes].reverse()) {
       if (this.isPointInsideNote(note, x, y)) {
         this.editNoteText(note);
+        return;
+      }
+    }
+    // Double-click on BC border to edit name
+    for (const bc of [...this.canvasService.boardState.boundedContexts].reverse()) {
+      if (this.isPointInsideBCBorder(bc, x, y)) {
+        this.editBoundedContextName(bc);
         return;
       }
     }
@@ -339,6 +466,20 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     if ((event.key === 'Delete' || event.key === 'Backspace') && !this.canvasService.isDrawingConnection) {
+      // Delete selected bounded contexts
+      const selectedBCs = this.canvasService.boardState.boundedContexts.filter(bc => bc.selected);
+      for (const bc of selectedBCs) {
+        const command = new DeleteBoundedContextCommand({
+          id: bc.id,
+          name: bc.name,
+          x: bc.x,
+          y: bc.y,
+          width: bc.width,
+          height: bc.height
+        });
+        this.canvasService.executeCommand(command);
+      }
+
       const selectedNoteIds = this.canvasService.boardState.notes.filter(n => n.selected).map(n => n.id);
       const notes = JSON.parse(JSON.stringify(this.canvasService.boardState.notes.filter(n => n.selected))) as Note[];
       const connections = JSON.parse(JSON.stringify(this.canvasService.boardState.connections.filter(c =>
@@ -346,9 +487,10 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
         selectedNoteIds.includes(c.fromNoteId) ||
         selectedNoteIds.includes(c.toNoteId)
       ))) as Connection[];
-      if (notes.length === 0 && connections.length === 0) return;
-      const command = new DeleteNotesCommand(notes, connections);
-      this.canvasService.executeCommand(command);
+      if (notes.length > 0 || connections.length > 0) {
+        const command = new DeleteNotesCommand(notes, connections);
+        this.canvasService.executeCommand(command);
+      }
     }
 
     // Handle Ctrl+C (Copy)  
@@ -369,6 +511,37 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     this.broadcastCursorPositionIfNeeded();
 
     if (this.handlePanning(event)) return;
+
+    // BC draw preview
+    if (this.bcDrawStart && this.bcDrawPreview) {
+      const { x, y } = this.currentMousePos;
+      this.bcDrawPreview = {
+        x: this.bcDrawStart.x,
+        y: this.bcDrawStart.y,
+        width: x - this.bcDrawStart.x,
+        height: y - this.bcDrawStart.y
+      };
+      this.drawCanvas();
+      return;
+    }
+
+    // BC resize
+    if (this.resizingBoundedContext && this.bcResizeCorner && this.bcInitialResizeState) {
+      const { x, y } = this.currentMousePos;
+      this.applyBCResize(this.resizingBoundedContext, this.bcResizeCorner, this.bcInitialResizeState, x, y);
+      this.drawCanvas();
+      return;
+    }
+
+    // BC drag
+    if (this.draggingBoundedContext) {
+      const { x, y } = this.currentMousePos;
+      this.draggingBoundedContext.x = x - this.bcDragOffsetX;
+      this.draggingBoundedContext.y = y - this.bcDragOffsetY;
+      this.drawCanvas();
+      return;
+    }
+
     if (this.handleResize()) return;
     if (this.handleDragging()) return;
     if (this.handleSelection()) return;
@@ -543,6 +716,11 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.ctx.stroke();
 
+    // Draw bounded contexts BEFORE notes (renders behind)
+    this.canvasService.boardState.boundedContexts.forEach(bc => {
+      this.drawBoundedContext(bc);
+    });
+
     this.canvasService.boardState.notes.forEach(note => {
       this.drawNote(note);
     });
@@ -556,6 +734,19 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
       this.ctx.lineWidth = 1;
       this.ctx.setLineDash([4, 2]);
       this.ctx.strokeRect(this.selectionRect.x, this.selectionRect.y, this.selectionRect.width, this.selectionRect.height);
+      this.ctx.restore();
+    }
+
+    // Draw bounded context creation preview
+    if (this.bcDrawPreview && (Math.abs(this.bcDrawPreview.width) > 5 || Math.abs(this.bcDrawPreview.height) > 5)) {
+      this.ctx.save();
+      this.ctx.fillStyle = 'rgba(0, 188, 212, 0.08)';
+      this.ctx.fillRect(this.bcDrawPreview.x, this.bcDrawPreview.y, this.bcDrawPreview.width, this.bcDrawPreview.height);
+      this.ctx.setLineDash([8, 4]);
+      this.ctx.lineWidth = 2;
+      this.ctx.strokeStyle = T.primary;
+      this.ctx.strokeRect(this.bcDrawPreview.x, this.bcDrawPreview.y, this.bcDrawPreview.width, this.bcDrawPreview.height);
+      this.ctx.setLineDash([]);
       this.ctx.restore();
     }
 
@@ -664,6 +855,68 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     this.lastCursorBroadcastAt = now;
   }
 
+  private drawBoundedContext(bc: BoundedContext): void {
+    const T = this.theme;
+    this.ctx.save();
+
+    // Semi-transparent fill (~8% opacity)
+    this.ctx.fillStyle = 'rgba(0, 188, 212, 0.08)';
+    this.ctx.fillRect(bc.x, bc.y, bc.width, bc.height);
+
+    // Dashed border
+    this.ctx.setLineDash([8, 4]);
+
+    if (bc.selected) {
+      // Selected: thicker border + cyan glow
+      this.ctx.lineWidth = 3;
+      this.ctx.shadowColor = T.primary;
+      this.ctx.shadowBlur = 16;
+      this.ctx.strokeStyle = T.primary;
+    } else {
+      this.ctx.lineWidth = 2;
+      this.ctx.strokeStyle = T.onSurfaceVariant;
+    }
+
+    this.ctx.strokeRect(bc.x, bc.y, bc.width, bc.height);
+
+    // Reset line dash and shadow
+    this.ctx.setLineDash([]);
+    this.ctx.shadowColor = 'transparent';
+    this.ctx.shadowBlur = 0;
+
+    // Title above top-left corner
+    if (bc.name) {
+      this.ctx.font = `700 13px ${T.fontDisplay}`;
+      this.ctx.letterSpacing = '1.3px';
+      this.ctx.fillStyle = bc.selected ? T.primary : T.onSurfaceVariant;
+      this.ctx.textAlign = 'left';
+      this.ctx.textBaseline = 'bottom';
+      this.ctx.fillText(bc.name.toUpperCase(), bc.x + 4, bc.y - 6);
+      this.ctx.letterSpacing = '0px';
+    }
+
+    // Draw resize handles when selected
+    if (bc.selected) {
+      const handleSize = 12;
+      const half = handleSize / 2;
+      const corners = [
+        { x: bc.x, y: bc.y },
+        { x: bc.x + bc.width, y: bc.y },
+        { x: bc.x, y: bc.y + bc.height },
+        { x: bc.x + bc.width, y: bc.y + bc.height }
+      ];
+      for (const c of corners) {
+        this.ctx.fillStyle = T.primary;
+        this.ctx.fillRect(c.x - half, c.y - half, handleSize, handleSize);
+        this.ctx.strokeStyle = T.surface;
+        this.ctx.lineWidth = 1.5;
+        this.ctx.strokeRect(c.x - half, c.y - half, handleSize, handleSize);
+      }
+    }
+
+    this.ctx.restore();
+  }
+
   private drawMinimap(): void {
     const T = this.theme;
     const minimapCanvas = this.minimap.nativeElement;
@@ -701,6 +954,20 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     });
 
+    // Draw bounded context outlines on minimap
+    this.canvasService.boardState.boundedContexts.forEach(bc => {
+      ctx.strokeStyle = T.onSurfaceVariant;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 2]);
+      ctx.strokeRect(
+        (bc.x - minX) * dynamicScale,
+        (bc.y - minY) * dynamicScale,
+        bc.width * dynamicScale,
+        bc.height * dynamicScale
+      );
+      ctx.setLineDash([]);
+    });
+
     const viewportRect = {
       x: (-this.canvasService.originX) / this.canvasService.scale,
       y: (-this.canvasService.originY) / this.canvasService.scale,
@@ -721,7 +988,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
   private getCanvasBoundsAndScale() {
     const minimapCanvas = this.minimap.nativeElement;
 
-    if (this.canvasService.boardState.notes.length === 0) {
+    if (this.canvasService.boardState.notes.length === 0 && this.canvasService.boardState.boundedContexts.length === 0) {
       return {
         minX: 0, minY: 0, dynamicScale: 1
       };
@@ -734,6 +1001,12 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
       if (n.y < minY) minY = n.y;
       if (n.x + n.width > maxX) maxX = n.x + n.width;
       if (n.y + n.height > maxY) maxY = n.y + n.height;
+    }
+    for (const bc of this.canvasService.boardState.boundedContexts) {
+      if (bc.x < minX) minX = bc.x;
+      if (bc.y - 20 < minY) minY = bc.y - 20; // account for title above
+      if (bc.x + bc.width > maxX) maxX = bc.x + bc.width;
+      if (bc.y + bc.height > maxY) maxY = bc.y + bc.height;
     }
     minX -= padding;
     minY -= padding;
@@ -1055,6 +1328,100 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     return x >= note.x && x <= note.x + note.width && y >= note.y && y <= note.y + note.height;
   }
 
+  private isPointInsideBCBorder(bc: BoundedContext, x: number, y: number): boolean {
+    const borderWidth = 12; // Detection tolerance for the border area
+    const titleHeight = 24; // Title label area above the frame
+    const inOuter = x >= bc.x - borderWidth && x <= bc.x + bc.width + borderWidth &&
+                    y >= bc.y - titleHeight - borderWidth && y <= bc.y + bc.height + borderWidth;
+    const inInner = x >= bc.x + borderWidth && x <= bc.x + bc.width - borderWidth &&
+                    y >= bc.y + borderWidth && y <= bc.y + bc.height - borderWidth;
+    return inOuter && !inInner;
+  }
+
+  private isPointInsideBCInterior(bc: BoundedContext, x: number, y: number): boolean {
+    return x >= bc.x && x <= bc.x + bc.width && y >= bc.y && y <= bc.y + bc.height;
+  }
+
+  private getBCResizeCorner(bc: BoundedContext, x: number, y: number): 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | null {
+    const handleSize = 14;
+    type CornerName = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+    const corners: { name: CornerName; cx: number; cy: number }[] = [
+      { name: 'top-left', cx: bc.x, cy: bc.y },
+      { name: 'top-right', cx: bc.x + bc.width, cy: bc.y },
+      { name: 'bottom-left', cx: bc.x, cy: bc.y + bc.height },
+      { name: 'bottom-right', cx: bc.x + bc.width, cy: bc.y + bc.height }
+    ];
+    for (const corner of corners) {
+      if (Math.abs(x - corner.cx) < handleSize && Math.abs(y - corner.cy) < handleSize) {
+        return corner.name;
+      }
+    }
+    return null;
+  }
+
+  private applyBCResize(bc: BoundedContext, corner: string, initial: { x: number; y: number; width: number; height: number }, mx: number, my: number): void {
+    const minSize = 100;
+    switch (corner) {
+      case 'top-left':
+        bc.width = Math.max(minSize, initial.x + initial.width - mx);
+        bc.height = Math.max(minSize, initial.y + initial.height - my);
+        bc.x = initial.x + initial.width - bc.width;
+        bc.y = initial.y + initial.height - bc.height;
+        break;
+      case 'top-right':
+        bc.width = Math.max(minSize, mx - initial.x);
+        bc.height = Math.max(minSize, initial.y + initial.height - my);
+        bc.y = initial.y + initial.height - bc.height;
+        break;
+      case 'bottom-left':
+        bc.width = Math.max(minSize, initial.x + initial.width - mx);
+        bc.height = Math.max(minSize, my - initial.y);
+        bc.x = initial.x + initial.width - bc.width;
+        break;
+      case 'bottom-right':
+        bc.width = Math.max(minSize, mx - initial.x);
+        bc.height = Math.max(minSize, my - initial.y);
+        break;
+    }
+  }
+
+  private promptBoundedContextName(x: number, y: number, width: number, height: number): void {
+    const dialogRef = this.dialog.open(BcNameModalComponent, {
+      width: '400px',
+      data: { name: '' }
+    });
+
+    dialogRef.afterClosed().subscribe((name: string | undefined) => {
+      if (name && name.trim()) {
+        const command = new CreateBoundedContextCommand({
+          id: uuid(),
+          name: name.trim(),
+          x, y, width, height
+        });
+        this.canvasService.executeCommand(command);
+      }
+    });
+    this.canvasService.isDrawingBoundedContext = false;
+  }
+
+  private editBoundedContextName(bc: BoundedContext): void {
+    const dialogRef = this.dialog.open(BcNameModalComponent, {
+      width: '400px',
+      data: { name: bc.name }
+    });
+
+    dialogRef.afterClosed().subscribe((newName: string | undefined) => {
+      if (newName !== undefined && newName.trim() && newName.trim() !== bc.name) {
+        const command = new UpdateBoundedContextCommand(
+          bc.id, bc.name, newName.trim(),
+          undefined, undefined, undefined, undefined,
+          undefined, undefined, undefined, undefined
+        );
+        this.canvasService.executeCommand(command);
+      }
+    });
+  }
+
   private selectNotesAndConnectionsInRect(): void {
     const rect = this.selectionRect;
 
@@ -1221,6 +1588,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
   private updateHoverState(): void {
     this.hoveredNote = null;
     this.hoveredConnection = null;
+    this.hoveredBoundedContext = null;
 
     for (const note of [...this.canvasService.boardState.notes].reverse()) {
       if (this.getResizeCorner(note, this.currentMousePos.x, this.currentMousePos.y) ||
@@ -1238,9 +1606,20 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
         return;
       }
     }
+
+    for (const bc of [...this.canvasService.boardState.boundedContexts].reverse()) {
+      if (this.getBCResizeCorner(bc, this.currentMousePos.x, this.currentMousePos.y) ||
+          this.isPointInsideBCBorder(bc, this.currentMousePos.x, this.currentMousePos.y)) {
+        this.hoveredBoundedContext = bc;
+        return;
+      }
+    }
   }
 
   private getCursorStyle(): string {
+    if (this.canvasService.isDrawingBoundedContext) {
+      return 'crosshair';
+    }
     if (this.hoveredNote) {
       const corner = this.getResizeCorner(this.hoveredNote, this.currentMousePos.x, this.currentMousePos.y);
       if (corner) {
@@ -1250,6 +1629,13 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     if (this.hoveredConnection) {
       return 'pointer';
+    }
+    if (this.hoveredBoundedContext) {
+      const bcCorner = this.getBCResizeCorner(this.hoveredBoundedContext, this.currentMousePos.x, this.currentMousePos.y);
+      if (bcCorner) {
+        return (bcCorner === 'top-left' || bcCorner === 'bottom-right') ? 'nwse-resize' : 'nesw-resize';
+      }
+      return 'move';
     }
     return 'default';
   }

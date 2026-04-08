@@ -10,6 +10,7 @@
         public bool AutonomousEnabled { get; set; }
         public List<NoteDto> Notes { get; set; } = new List<NoteDto>();
         public List<ConnectionDto> Connections { get; set; } = new List<ConnectionDto>();
+        public List<BoundedContextDto> BoundedContexts { get; set; } = new List<BoundedContextDto>();
         public List<AgentConfigurationDto> AgentConfigurations { get; set; } = new List<AgentConfigurationDto>();
     }
 }

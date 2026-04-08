@@ -1,0 +1,18 @@
+<h1 mat-dialog-title>Bounded Context Name</h1>
+<form (ngSubmit)="onSave()" #bcForm="ngForm">
+  <div mat-dialog-content>
+    <mat-form-field>
+      <mat-label>Name</mat-label>
+      <input matInput [(ngModel)]="data.name" name="bcName" required cdkFocusInitial/>
+      @if (bcForm.controls['bcName']?.invalid && bcForm.controls['bcName']?.touched) {
+        <mat-error>
+          Name is required.
+        </mat-error>
+      }
+    </mat-form-field>
+  </div>
+  <div mat-dialog-actions>
+    <button mat-button color="warn" type="button" (click)="onCancel()">Cancel</button>
+    <button mat-button color="primary" type="submit" [disabled]="bcForm.invalid">Save</button>
+  </div>
+</form>

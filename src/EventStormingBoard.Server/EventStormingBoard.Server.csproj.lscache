@@ -69,12 +69,16 @@ Controllers/BoardsController.cs
 Entities/
  AgentConfiguration.cs
  Board.cs
+ BoundedContext.cs
  Connection.cs
  Note.cs
 Events/
  BoardContextUpdatedEvent.cs
  BoardEvent.cs
  BoardNameUpdatedEvent.cs
+ BoundedContextCreatedEvent.cs
+ BoundedContextDeletedEvent.cs
+ BoundedContextUpdatedEvent.cs
  ConnectionCreatedEvent.cs
  CursorPositionUpdatedEvent.cs
  NoteCreatedEvent.cs
@@ -97,8 +101,10 @@ Models/
  BoardSummaryDto.cs
  BoardUpdateDto.cs
  BoardUserDto.cs
+ BoundedContextDto.cs
  ConnectionDto.cs
  CoordinatesDto.cs
+ CreateBoundedContextInput.cs
  CreateConnectionInput.cs
  CreateNoteInput.cs
  EditNoteTextInput.cs

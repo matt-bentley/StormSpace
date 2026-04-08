@@ -1,3 +1,4 @@
+import { BoundedContext } from "./bounded-context.model";
 import { Connection } from "./connection.model";
 import { NoteMove } from "./note-move.model";
 import { NoteSize } from "./note-size.model";
@@ -73,4 +74,26 @@ export interface ConnectionCreatedEvent extends BoardEvent {
 export interface PastedEvent extends BoardEvent {
     notes: Note[];
     connections: Connection[];
+}
+
+export interface BoundedContextCreatedEvent extends BoardEvent {
+    boundedContext: BoundedContext;
+}
+
+export interface BoundedContextUpdatedEvent extends BoardEvent {
+    boundedContextId: string;
+    oldName?: string;
+    newName?: string;
+    oldX?: number;
+    newX?: number;
+    oldY?: number;
+    newY?: number;
+    oldWidth?: number;
+    newWidth?: number;
+    oldHeight?: number;
+    newHeight?: number;
+}
+
+export interface BoundedContextDeletedEvent extends BoardEvent {
+    boundedContext: BoundedContext;
 }

@@ -55,6 +55,15 @@ namespace EventStormingBoard.Server.Services
                 case PastedEvent e:
                     _boardStateService.ApplyPasted(e);
                     break;
+                case BoundedContextCreatedEvent e:
+                    _boardStateService.ApplyBoundedContextCreated(e);
+                    break;
+                case BoundedContextUpdatedEvent e:
+                    _boardStateService.ApplyBoundedContextUpdated(e);
+                    break;
+                case BoundedContextDeletedEvent e:
+                    _boardStateService.ApplyBoundedContextDeleted(e);
+                    break;
                 default:
                     throw new InvalidOperationException($"Unsupported board event type: {@event.GetType().Name}");
             }

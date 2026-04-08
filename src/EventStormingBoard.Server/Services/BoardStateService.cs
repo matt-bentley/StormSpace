@@ -17,6 +17,9 @@ namespace EventStormingBoard.Server.Services
         void ApplyNoteTextEdited(NoteTextEditedEvent @event);
         void ApplyConnectionCreated(ConnectionCreatedEvent @event);
         void ApplyPasted(PastedEvent @event);
+        void ApplyBoundedContextCreated(BoundedContextCreatedEvent @event);
+        void ApplyBoundedContextUpdated(BoundedContextUpdatedEvent @event);
+        void ApplyBoundedContextDeleted(BoundedContextDeletedEvent @event);
     }
 
     public sealed class BoardStateService : IBoardStateService
@@ -224,6 +227,83 @@ namespace EventStormingBoard.Server.Services
                             ToNoteId = connDto.ToNoteId
                         });
                     }
+                }
+            });
+        }
+
+        public void ApplyBoundedContextCreated(BoundedContextCreatedEvent @event)
+        {
+            WithBoard(@event.BoardId, board =>
+            {
+                if (@event.IsUndo)
+                {
+                    board.BoundedContexts.RemoveAll(bc => bc.Id == @event.BoundedContext.Id);
+                }
+                else
+                {
+                    board.BoundedContexts.Add(new BoundedContext
+                    {
+                        Id = @event.BoundedContext.Id,
+                        Name = @event.BoundedContext.Name,
+                        X = @event.BoundedContext.X,
+                        Y = @event.BoundedContext.Y,
+                        Width = @event.BoundedContext.Width,
+                        Height = @event.BoundedContext.Height,
+                        Color = @event.BoundedContext.Color
+                    });
+                }
+            });
+        }
+
+        public void ApplyBoundedContextUpdated(BoundedContextUpdatedEvent @event)
+        {
+            WithBoard(@event.BoardId, board =>
+            {
+                var bc = board.BoundedContexts.FirstOrDefault(b => b.Id == @event.BoundedContextId);
+                if (bc == null) return;
+
+                if (@event.IsUndo)
+                {
+                    if (@event.OldName != null) bc.Name = @event.OldName;
+                    if (@event.OldX.HasValue) bc.X = @event.OldX.Value;
+                    if (@event.OldY.HasValue) bc.Y = @event.OldY.Value;
+                    if (@event.OldWidth.HasValue) bc.Width = @event.OldWidth.Value;
+                    if (@event.OldHeight.HasValue) bc.Height = @event.OldHeight.Value;
+                }
+                else
+                {
+                    if (@event.NewName != null) bc.Name = @event.NewName;
+                    if (@event.NewX.HasValue) bc.X = @event.NewX.Value;
+                    if (@event.NewY.HasValue) bc.Y = @event.NewY.Value;
+                    if (@event.NewWidth.HasValue) bc.Width = @event.NewWidth.Value;
+                    if (@event.NewHeight.HasValue) bc.Height = @event.NewHeight.Value;
+                }
+            });
+        }
+
+        public void ApplyBoundedContextDeleted(BoundedContextDeletedEvent @event)
+        {
+            WithBoard(@event.BoardId, board =>
+            {
+                if (@event.IsUndo)
+                {
+                    if (!board.BoundedContexts.Any(bc => bc.Id == @event.BoundedContext.Id))
+                    {
+                        board.BoundedContexts.Add(new BoundedContext
+                        {
+                            Id = @event.BoundedContext.Id,
+                            Name = @event.BoundedContext.Name,
+                            X = @event.BoundedContext.X,
+                            Y = @event.BoundedContext.Y,
+                            Width = @event.BoundedContext.Width,
+                            Height = @event.BoundedContext.Height,
+                            Color = @event.BoundedContext.Color
+                        });
+                    }
+                }
+                else
+                {
+                    board.BoundedContexts.RemoveAll(bc => bc.Id == @event.BoundedContext.Id);
                 }
             });
         }

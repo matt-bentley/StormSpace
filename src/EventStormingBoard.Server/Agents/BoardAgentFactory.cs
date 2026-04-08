@@ -96,6 +96,9 @@ namespace EventStormingBoard.Server.Agents
                 if (!allowDestructiveChanges && toolName == nameof(BoardPlugin.DeleteNotes))
                     continue;
 
+                if (!allowDestructiveChanges && toolName == nameof(BoardPlugin.DeleteBoundedContext))
+                    continue;
+
                 var tool = TryCreateTool(toolName, boardPlugin, delegationPlugin);
                 if (tool != null)
                     tools.Add(tool);

@@ -1,3 +1,4 @@
+import { BoundedContext } from "./bounded-context.model";
 import { Connection } from "./connection.model";
 import { Note } from "./note.model";
 
@@ -9,4 +10,5 @@ export interface BoardState {
     autonomousEnabled: boolean;
     notes: Note[];
     connections: Connection[];
+    boundedContexts: BoundedContext[];
 }

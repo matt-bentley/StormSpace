@@ -61,6 +61,59 @@ docker run -it -p 8080:8080 --rm mabentley/stormspace
 - **Manual DI**: Direct construction, no DI container in tests
 - **No frontend tests** currently exist
 
+## Event Storming Domain
+
+### Sticky Note Types
+
+Notes are 120×120 px (except User at 60×60 px). Each type has a specific colour and role:
+
+| Type | Role | Placement |
+|------|------|-----------|
+| **Event** | Something that happened (past tense, e.g. "Order Created"). Unique. | Ordered left-to-right chronologically, 600 px apart centre-to-centre |
+| **Command** | Action/intent that triggers an Event. Unique. | 140 px left of its Event |
+| **Aggregate** | Cluster of domain objects treated as one unit. May be duplicated. | Above the Command/Event pair (midpoint x, 130 px above) |
+| **User** | Actor/persona who triggers a Command or manual Policy. 60×60 px. May be duplicated. | Bottom-left of parent (x − 30, y + 80) |
+| **Policy** | Business rule or automated reaction following an Event. | 140 px right of its Event. Multiple policies stack vertically (135 px gap) |
+| **ReadModel** | Data view for UI. Only added when explicitly requested. | Left of the Command |
+| **ExternalSystem** | Outside dependency. May be duplicated. | Below the Command/Event pair (130 px below) |
+| **Concern** | Problem, risk, question, or hotspot. | Near the related note (typically 275 px above) |
+
+### Cluster Patterns
+
+Notes group into **clusters**, each centred on one Event:
+
+1. **Manual Command** — User → Command → Event → [Policy/Policies] (person triggers the command)
+2. **Automated Command** — Command → Event → [Policy/Policies] (triggered by a Policy in a preceding cluster via connection)
+3. **ExternalSystem-triggered** — ExternalSystem → Command → Event → [Policy/Policies]
+4. **Manual Policy** — Policy + User (standalone decision point, no Command/Event)
+
+Connections link clusters together (outer note of one cluster → Command of next). Never connect notes within the same cluster.
+
+### Workshop Phases
+
+Phases progress in order. Each phase has specialist agents that are active during it.
+
+1. **SetContext** — Understand the domain and scope. Facilitator guides directly; no board changes yet.
+2. **IdentifyEvents** — Brainstorm Events, order chronologically. Active agent: `EventExplorer`.
+3. **AddCommandsAndPolicies** — Determine what triggers each Event (Commands, Policies, Users, ExternalSystems). Active agent: `TriggerMapper`.
+4. **DefineAggregates** — Place Aggregates above Command/Event pairs. Active agent: `DomainDesigner`.
+5. **BreakItDown** — Group flows into Bounded Contexts and Subdomains. Active agent: `DomainDesigner`.
+
+The `Organiser` agent is active in phases 2–5 for layout tidying. The `DomainExpert` agent is active in all phases for domain Q&A (read-only, no board changes).
+
+### AI Agent Roles
+
+| Agent | Role | Tools |
+|-------|------|-------|
+| **Facilitator** | Guides the workshop, delegates to specialists, never modifies the board directly | `GetBoardState`, `SetDomain`, `SetPhase`, `DelegateToAgent`, `RequestBoardReview`, `AskAgentQuestion` |
+| **EventExplorer** | Creates Events and Concerns during IdentifyEvents phase | `CreateNotes`, `EditNoteTexts`, `MoveNotes`, `DeleteNotes` |
+| **TriggerMapper** | Builds clusters (Commands, Policies, Users, ExternalSystems) around Events | `CreateNotes`, `CreateConnections`, `EditNoteTexts`, `MoveNotes`, `DeleteNotes` |
+| **DomainDesigner** | Places Aggregates, recommends Bounded Contexts | `CreateNotes`, `CreateConnections`, `EditNoteTexts`, `MoveNotes`, `DeleteNotes` |
+| **Organiser** | Tidies board layout only — moves notes, creates Concerns | `MoveNotes`, `CreateNotes` (Concern only) |
+| **DomainExpert** | Answers domain questions (eCommerce SME) — read-only | `GetBoardState` |
+
+All specialist agents can also call `GetBoardState`, `GetRecentEvents`, and some can use `AskAgentQuestion` to consult the DomainExpert.
+
 ## Conventions
 
 - **Event pipeline**: All board mutations must go through `IBoardEventPipeline.ApplyAndLog()` — never mutate state directly

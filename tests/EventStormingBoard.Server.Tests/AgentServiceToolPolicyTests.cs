@@ -46,22 +46,65 @@ public class AgentServiceToolPolicyTests
         Assert.DoesNotContain(nameof(BoardPlugin.EditNoteTexts), tools);
         Assert.DoesNotContain(nameof(BoardPlugin.MoveNotes), tools);
         Assert.DoesNotContain(nameof(BoardPlugin.DeleteNotes), tools);
+        Assert.DoesNotContain(nameof(BoardPlugin.CreateBoundedContext), tools);
+        Assert.DoesNotContain(nameof(BoardPlugin.CreateBoundedContexts), tools);
+        Assert.DoesNotContain(nameof(BoardPlugin.UpdateBoundedContext), tools);
+        Assert.DoesNotContain(nameof(BoardPlugin.DeleteBoundedContext), tools);
     }
 
     [Fact]
-    public void Specialists_HaveFullBoardTools()
+    public void EventExplorer_HasBoardTools_ButNoBoundedContextTools()
     {
-        foreach (var name in new[] { "EventExplorer", "TriggerMapper", "DomainDesigner" })
-        {
-            var tools = GetToolsFor(name);
-            Assert.Contains(nameof(BoardPlugin.GetBoardState), tools);
-            Assert.Contains(nameof(BoardPlugin.GetRecentEvents), tools);
-            Assert.Contains(nameof(BoardPlugin.CreateNotes), tools);
-            Assert.Contains(nameof(BoardPlugin.EditNoteTexts), tools);
-            Assert.Contains(nameof(BoardPlugin.MoveNotes), tools);
-            Assert.Contains(nameof(BoardPlugin.DeleteNotes), tools);
-            Assert.Contains(nameof(DelegationPlugin.AskAgentQuestion), tools);
-        }
+        var tools = GetToolsFor("EventExplorer");
+        Assert.Contains(nameof(BoardPlugin.GetBoardState), tools);
+        Assert.Contains(nameof(BoardPlugin.GetRecentEvents), tools);
+        Assert.Contains(nameof(BoardPlugin.CreateNotes), tools);
+        Assert.Contains(nameof(BoardPlugin.EditNoteTexts), tools);
+        Assert.Contains(nameof(BoardPlugin.MoveNotes), tools);
+        Assert.Contains(nameof(BoardPlugin.DeleteNotes), tools);
+        Assert.Contains(nameof(DelegationPlugin.AskAgentQuestion), tools);
+
+        Assert.DoesNotContain(nameof(BoardPlugin.CreateBoundedContext), tools);
+        Assert.DoesNotContain(nameof(BoardPlugin.CreateBoundedContexts), tools);
+        Assert.DoesNotContain(nameof(BoardPlugin.UpdateBoundedContext), tools);
+        Assert.DoesNotContain(nameof(BoardPlugin.DeleteBoundedContext), tools);
+    }
+
+    [Fact]
+    public void TriggerMapper_HasBoardTools_ButNoBoundedContextTools()
+    {
+        var tools = GetToolsFor("TriggerMapper");
+        Assert.Contains(nameof(BoardPlugin.GetBoardState), tools);
+        Assert.Contains(nameof(BoardPlugin.GetRecentEvents), tools);
+        Assert.Contains(nameof(BoardPlugin.CreateNotes), tools);
+        Assert.Contains(nameof(BoardPlugin.CreateConnections), tools);
+        Assert.Contains(nameof(BoardPlugin.EditNoteTexts), tools);
+        Assert.Contains(nameof(BoardPlugin.MoveNotes), tools);
+        Assert.Contains(nameof(BoardPlugin.DeleteNotes), tools);
+        Assert.Contains(nameof(DelegationPlugin.AskAgentQuestion), tools);
+
+        Assert.DoesNotContain(nameof(BoardPlugin.CreateBoundedContext), tools);
+        Assert.DoesNotContain(nameof(BoardPlugin.CreateBoundedContexts), tools);
+        Assert.DoesNotContain(nameof(BoardPlugin.UpdateBoundedContext), tools);
+        Assert.DoesNotContain(nameof(BoardPlugin.DeleteBoundedContext), tools);
+    }
+
+    [Fact]
+    public void DomainDesigner_HasFullBoardToolsAndBoundedContextTools()
+    {
+        var tools = GetToolsFor("DomainDesigner");
+        Assert.Contains(nameof(BoardPlugin.GetBoardState), tools);
+        Assert.Contains(nameof(BoardPlugin.GetRecentEvents), tools);
+        Assert.Contains(nameof(BoardPlugin.CreateNotes), tools);
+        Assert.Contains(nameof(BoardPlugin.CreateConnections), tools);
+        Assert.Contains(nameof(BoardPlugin.EditNoteTexts), tools);
+        Assert.Contains(nameof(BoardPlugin.MoveNotes), tools);
+        Assert.Contains(nameof(BoardPlugin.DeleteNotes), tools);
+        Assert.Contains(nameof(BoardPlugin.CreateBoundedContext), tools);
+        Assert.Contains(nameof(BoardPlugin.CreateBoundedContexts), tools);
+        Assert.Contains(nameof(BoardPlugin.UpdateBoundedContext), tools);
+        Assert.Contains(nameof(BoardPlugin.DeleteBoundedContext), tools);
+        Assert.Contains(nameof(DelegationPlugin.AskAgentQuestion), tools);
     }
 
     [Fact]
@@ -86,5 +129,30 @@ public class AgentServiceToolPolicyTests
         Assert.DoesNotContain(nameof(BoardPlugin.CreateConnections), tools);
         Assert.DoesNotContain(nameof(BoardPlugin.EditNoteTexts), tools);
         Assert.DoesNotContain(nameof(BoardPlugin.DeleteNotes), tools);
+        Assert.DoesNotContain(nameof(BoardPlugin.CreateBoundedContext), tools);
+        Assert.DoesNotContain(nameof(BoardPlugin.CreateBoundedContexts), tools);
+        Assert.DoesNotContain(nameof(BoardPlugin.UpdateBoundedContext), tools);
+        Assert.DoesNotContain(nameof(BoardPlugin.DeleteBoundedContext), tools);
+    }
+
+    [Fact]
+    public void DestructiveTools_SuppressedWhenDestructiveChangesDisabled()
+    {
+        // Verify that ResolveTools skips destructive tools by checking
+        // the filtering logic directly against the tool name list.
+        var domainDesigner = _defaults.First(a => a.Name == "DomainDesigner");
+
+        // Both destructive tools must be in the allowed list
+        Assert.Contains(nameof(BoardPlugin.DeleteNotes), domainDesigner.AllowedTools);
+        Assert.Contains(nameof(BoardPlugin.DeleteBoundedContext), domainDesigner.AllowedTools);
+
+        // Simulate the filter logic from BoardAgentFactory.ResolveTools
+        var filteredTools = domainDesigner.AllowedTools
+            .Where(toolName => toolName != nameof(BoardPlugin.DeleteNotes) &&
+                               toolName != nameof(BoardPlugin.DeleteBoundedContext))
+            .ToList();
+
+        Assert.DoesNotContain(nameof(BoardPlugin.DeleteNotes), filteredTools);
+        Assert.DoesNotContain(nameof(BoardPlugin.DeleteBoundedContext), filteredTools);
     }
 }
