@@ -39,59 +39,76 @@ namespace EventStormingBoard.Server.Services
 
             while (await timer.WaitForNextTickAsync(stoppingToken))
             {
-                foreach (var board in _boardsRepository.GetAll().Where(b => b.AutonomousEnabled).ToList())
+                var boards = _boardsRepository.GetAll().Where(b => b.AutonomousEnabled).ToList();
+                var tasks = boards.Select(board => ProcessBoardAsync(board, stoppingToken));
+                await Task.WhenAll(tasks).ConfigureAwait(false);
+            }
+        }
+
+        private async Task ProcessBoardAsync(Entities.Board board, CancellationToken stoppingToken)
+        {
+            try
+            {
+                _coordinator.SyncBoardSettings(board.Id, board.AutonomousEnabled);
+
+                if (!_boardPresenceService.HasActiveUsers(board.Id))
                 {
-                    _coordinator.SyncBoardSettings(board.Id, board.AutonomousEnabled);
-
-                    if (!_boardPresenceService.HasActiveUsers(board.Id))
-                    {
-                        await DisableAutonomousModeAsync(board.Id, "noActiveUsers", stoppingToken);
-                        continue;
-                    }
-
-                    var now = DateTimeOffset.UtcNow;
-                    var triggerReason = _coordinator.GetTriggerReason(board.Id, now);
-                    if (triggerReason is null || !_coordinator.TryStartRun(board.Id, triggerReason, now, out var runningStatus))
-                    {
-                        continue;
-                    }
-
-                    await BroadcastStatusAsync(runningStatus, stoppingToken);
-
-                    AutonomousAgentResult result;
-                    try
-                    {
-                        result = await _agentService.RunAutonomousTurnAsync(board.Id, triggerReason, stoppingToken);
-                    }
-                    catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-                    {
-                        throw;
-                    }
-                    catch (Exception ex)
-                    {
-                        result = new AutonomousAgentResult
-                        {
-                            Status = AutonomousAgentStatus.Failed,
-                            TriggerReason = triggerReason,
-                            Diagnostics = ex.Message
-                        };
-                    }
-
-                    var completedStatus = _coordinator.CompleteRun(board.Id, result, DateTimeOffset.UtcNow);
-                    if (!completedStatus.IsEnabled)
-                    {
-                        await DisableAutonomousModeAsync(board.Id, completedStatus.StopReason ?? "stopped", stoppingToken);
-                        completedStatus = _coordinator.GetStatus(board.Id, false);
-                    }
-
-                    // Always signal completion so clients know the autonomous turn finished,
-                    // even if no steps were broadcast (e.g. Idle, Failed, or exception during pipeline).
-                    // Agent steps were already broadcast in real-time via AgentStepUpdate during pipeline.
-                    await _hubContext.Clients.Group(board.Id.ToString())
-                        .SendAsync("AgentChatComplete", stoppingToken);
-
-                    await BroadcastStatusAsync(completedStatus, stoppingToken);
+                    await DisableAutonomousModeAsync(board.Id, "noActiveUsers", stoppingToken);
+                    return;
                 }
+
+                var now = DateTimeOffset.UtcNow;
+                var triggerReason = _coordinator.GetTriggerReason(board.Id, now);
+                if (triggerReason is null || !_coordinator.TryStartRun(board.Id, triggerReason, now, out var runningStatus))
+                {
+                    return;
+                }
+
+                await BroadcastStatusAsync(runningStatus, stoppingToken);
+
+                AutonomousAgentResult result;
+                try
+                {
+                    result = await _agentService.RunAutonomousTurnAsync(board.Id, triggerReason, stoppingToken);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    result = new AutonomousAgentResult
+                    {
+                        Status = AutonomousAgentStatus.Failed,
+                        TriggerReason = triggerReason,
+                        Diagnostics = ex.Message
+                    };
+                }
+
+                var completedStatus = _coordinator.CompleteRun(board.Id, result, DateTimeOffset.UtcNow);
+                if (!completedStatus.IsEnabled)
+                {
+                    await DisableAutonomousModeAsync(board.Id, completedStatus.StopReason ?? "stopped", stoppingToken);
+                    completedStatus = _coordinator.GetStatus(board.Id, false);
+                }
+
+                // Always signal completion so clients know the autonomous turn finished,
+                // even if no steps were broadcast (e.g. Idle, Failed, or exception during pipeline).
+                // Agent steps were already broadcast in real-time via AgentStepUpdate during pipeline.
+                await _hubContext.Clients.Group(board.Id.ToString())
+                    .SendAsync("AgentChatComplete", stoppingToken);
+
+                await BroadcastStatusAsync(completedStatus, stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                // Host is shutting down — let the exception propagate naturally.
+                throw;
+            }
+            catch
+            {
+                // Swallow per-board exceptions so one board's failure
+                // doesn't prevent other boards from being processed.
             }
         }
 

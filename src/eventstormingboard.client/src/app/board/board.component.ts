@@ -443,15 +443,16 @@ export class BoardComponent implements OnInit, OnDestroy {
   }
 
   private saveAgentConfigurations(agents: AgentConfiguration[]): void {
+    const normalizedAgents = this.normalizeAgentsForSave(agents);
     const existingIds = new Set(this.agentConfigurations.map(a => a.id));
-    const newIds = new Set(agents.map(a => a.id));
+    const newIds = new Set(normalizedAgents.map(a => a.id));
 
     // Delete removed agents
     const toDelete = this.agentConfigurations.filter(a => !newIds.has(a.id) && !a.isFacilitator);
     // Add new agents
-    const toAdd = agents.filter(a => !existingIds.has(a.id));
+    const toAdd = normalizedAgents.filter(a => !a.isFacilitator && !existingIds.has(a.id));
     // Update existing agents
-    const toUpdate = agents.filter(a => existingIds.has(a.id));
+    const toUpdate = normalizedAgents.filter(a => existingIds.has(a.id));
 
     const ops: Promise<void>[] = [];
 
@@ -502,6 +503,36 @@ export class BoardComponent implements OnInit, OnDestroy {
         error: err => console.error('Failed to refresh agent configs:', err)
       });
     }).catch(err => console.error('Failed to save agent configurations:', err));
+  }
+
+  private normalizeAgentsForSave(agents: AgentConfiguration[]): AgentConfiguration[] {
+    const existingFacilitator = this.agentConfigurations.find(agent => agent.isFacilitator);
+    const normalized: AgentConfiguration[] = [];
+    let facilitatorSeen = false;
+
+    for (const agent of agents) {
+      if (!agent.isFacilitator) {
+        normalized.push(agent);
+        continue;
+      }
+
+      if (facilitatorSeen) {
+        continue;
+      }
+
+      facilitatorSeen = true;
+      if (existingFacilitator) {
+        normalized.push({
+          ...agent,
+          id: existingFacilitator.id,
+          isFacilitator: true
+        });
+      } else {
+        normalized.push(agent);
+      }
+    }
+
+    return normalized;
   }
 
   public addNote(type: string): void {

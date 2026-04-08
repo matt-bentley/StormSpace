@@ -118,4 +118,37 @@ public class AutonomousFacilitatorCoordinatorTests
         Assert.Equal("failureLimitExceeded", status.StopReason);
         Assert.Equal("failed", status.LastResultStatus);
     }
+
+    [Fact]
+    public void TryStartRun_MultipleBoardsConcurrently_EachBoardRunsIndependently()
+    {
+        var coordinator = new AutonomousFacilitatorCoordinator();
+        var boardA = Guid.NewGuid();
+        var boardB = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+
+        coordinator.SyncBoardSettings(boardA, enabled: true);
+        coordinator.SyncBoardSettings(boardB, enabled: true);
+
+        var startedA = coordinator.TryStartRun(boardA, "enabled", now, out var statusA);
+        var startedB = coordinator.TryStartRun(boardB, "enabled", now, out var statusB);
+
+        Assert.True(startedA);
+        Assert.True(startedB);
+        Assert.True(statusA.IsRunning);
+        Assert.True(statusB.IsRunning);
+
+        // Complete Board A — Board B should still be running.
+        coordinator.CompleteRun(boardA, new AutonomousAgentResult
+        {
+            Status = AutonomousAgentStatus.Acted,
+            TriggerReason = "enabled"
+        }, now.AddSeconds(5));
+
+        var statusAAfter = coordinator.GetStatus(boardA, enabled: true);
+        var statusBDuring = coordinator.GetStatus(boardB, enabled: true);
+
+        Assert.False(statusAAfter.IsRunning);
+        Assert.True(statusBDuring.IsRunning);
+    }
 }

@@ -56,10 +56,7 @@ public class AgentServiceToolPolicyTests
             var tools = GetToolsFor(name);
             Assert.Contains(nameof(BoardPlugin.GetBoardState), tools);
             Assert.Contains(nameof(BoardPlugin.GetRecentEvents), tools);
-            Assert.Contains(nameof(BoardPlugin.CreateNote), tools);
             Assert.Contains(nameof(BoardPlugin.CreateNotes), tools);
-            Assert.Contains(nameof(BoardPlugin.CreateConnection), tools);
-            Assert.Contains(nameof(BoardPlugin.CreateConnections), tools);
             Assert.Contains(nameof(BoardPlugin.EditNoteTexts), tools);
             Assert.Contains(nameof(BoardPlugin.MoveNotes), tools);
             Assert.Contains(nameof(BoardPlugin.DeleteNotes), tools);
@@ -68,10 +65,11 @@ public class AgentServiceToolPolicyTests
     }
 
     [Fact]
-    public void DomainExpert_HasNoTools()
+    public void DomainExpert_HasReadOnlyTools_Only()
     {
         var tools = GetToolsFor("DomainExpert");
-        Assert.Empty(tools);
+        Assert.Contains(nameof(BoardPlugin.GetBoardState), tools);
+        Assert.Equal(1, tools.Count);
     }
 
     [Fact]
@@ -81,10 +79,9 @@ public class AgentServiceToolPolicyTests
 
         Assert.Contains(nameof(BoardPlugin.GetBoardState), tools);
         Assert.Contains(nameof(BoardPlugin.MoveNotes), tools);
-        Assert.Contains(nameof(BoardPlugin.CreateNote), tools);
+        Assert.Contains(nameof(BoardPlugin.CreateNotes), tools);
         Assert.Equal(3, tools.Count);
 
-        Assert.DoesNotContain(nameof(BoardPlugin.CreateNotes), tools);
         Assert.DoesNotContain(nameof(BoardPlugin.CreateConnection), tools);
         Assert.DoesNotContain(nameof(BoardPlugin.CreateConnections), tools);
         Assert.DoesNotContain(nameof(BoardPlugin.EditNoteTexts), tools);
