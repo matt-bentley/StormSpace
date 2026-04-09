@@ -5,20 +5,18 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { BoardsSignalRService, AgentChatMessage, AgentToolCallStartedEvent, AutonomousFacilitatorStatus } from '../../_shared/services/boards-signalr.service';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Subject, takeUntil } from 'rxjs';
 import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 import { AgentConfiguration } from '../../_shared/models/agent-configuration.model';
 
 marked.setOptions({ breaks: true, gfm: true });
 
 @Pipe({ name: 'markdown' })
 export class MarkdownPipe implements PipeTransform {
-  constructor(private sanitizer: DomSanitizer) { }
-
-  transform(value: string): SafeHtml {
+  transform(value: string): string {
     const html = marked.parse(value, { async: false }) as string;
-    return this.sanitizer.bypassSecurityTrustHtml(html);
+    return DOMPurify.sanitize(html);
   }
 }
 
@@ -28,6 +26,7 @@ export interface ChatMessage {
   agentName?: string;
   text: string;
   prompt?: string;
+  stepId?: string;
   toolCalls?: { name: string; arguments: string }[];
 }
 
@@ -88,23 +87,19 @@ export class AiChatPanelComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   ngOnInit(): void {
-    // Load existing history from the service cache, or request from server
-    if (this.signalRService.agentChatHistory.length > 0) {
-      this.messages = this.signalRService.agentChatHistory.map(m => this.mapToDisplayMessage(m));
-      this.scrollToBottom();
-    } else {
-      // Request history from server (response arrives via AgentChatHistory listener)
-      this.signalRService.getAgentHistory(this.boardId).then(() => {
-        if (this.signalRService.agentChatHistory.length > 0) {
-          this.messages = this.signalRService.agentChatHistory.map(m => this.mapToDisplayMessage(m));
-          this.scrollToBottom();
-        }
-      });
-    }
+    // Always request fresh history from server for the current board.
+    this.signalRService.getAgentHistory(this.boardId).then(() => {
+      const cached = this.signalRService.getHistoryForBoard(this.boardId);
+      if (cached.length > 0) {
+        this.messages = cached.map(m => this.mapToDisplayMessage(m));
+        this.scrollToBottom();
+      }
+    });
 
     this.signalRService.agentUserMessage$
       .pipe(takeUntil(this.destroy$))
       .subscribe(msg => {
+        if (msg.boardId && msg.boardId !== this.boardId) return;
         this.messages.push(this.mapToDisplayMessage(msg));
         this.scrollToBottom();
       });
@@ -112,6 +107,7 @@ export class AiChatPanelComponent implements OnInit, OnDestroy, OnChanges {
     this.signalRService.agentResponse$
       .pipe(takeUntil(this.destroy$))
       .subscribe(msg => {
+        if (msg.boardId && msg.boardId !== this.boardId) return;
         this.loading = false;
         this.activeToolCalls = [];
         this.messages.push(this.mapToDisplayMessage(msg));
@@ -121,13 +117,25 @@ export class AiChatPanelComponent implements OnInit, OnDestroy, OnChanges {
     this.signalRService.agentStepUpdate$
       .pipe(takeUntil(this.destroy$))
       .subscribe(msg => {
-        this.messages.push(this.mapToDisplayMessage(msg));
+        if (msg.boardId && msg.boardId !== this.boardId) return;
+        const display = this.mapToDisplayMessage(msg);
+        // Replace-or-append: if a message with this stepId exists, replace it in-place.
+        if (display.stepId) {
+          const existingIndex = this.messages.findIndex(m => m.stepId === display.stepId);
+          if (existingIndex >= 0) {
+            this.messages[existingIndex] = display;
+            this.scrollToBottom();
+            return;
+          }
+        }
+        this.messages.push(display);
         this.scrollToBottom();
       });
 
     this.signalRService.agentChatComplete$
       .pipe(takeUntil(this.destroy$))
-      .subscribe(() => {
+      .subscribe(boardId => {
+        if (boardId && boardId !== this.boardId) return;
         this.loading = false;
         this.activeToolCalls = [];
       });
@@ -135,6 +143,7 @@ export class AiChatPanelComponent implements OnInit, OnDestroy, OnChanges {
     this.signalRService.agentToolCallStarted$
       .pipe(takeUntil(this.destroy$))
       .subscribe(event => {
+        if (event.boardId && event.boardId !== this.boardId) return;
         if (this.loading) {
           const args = Object.entries(event.arguments ?? {})
             .map(([k, v]) => `${k}: ${v}`)
@@ -146,7 +155,8 @@ export class AiChatPanelComponent implements OnInit, OnDestroy, OnChanges {
 
     this.signalRService.agentHistoryCleared$
       .pipe(takeUntil(this.destroy$))
-      .subscribe(() => {
+      .subscribe(boardId => {
+        if (boardId && boardId !== this.boardId) return;
         this.messages = [];
         this.activeToolCalls = [];
         this.loading = false;
@@ -220,6 +230,7 @@ export class AiChatPanelComponent implements OnInit, OnDestroy, OnChanges {
       agentName: msg.agentName ?? undefined,
       text: msg.content ?? '',
       prompt: msg.prompt ?? undefined,
+      stepId: msg.stepId ?? undefined,
       toolCalls: msg.toolCalls?.map(tc => ({ name: tc.name, arguments: tc.arguments }))
     };
   }

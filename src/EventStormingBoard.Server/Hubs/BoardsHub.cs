@@ -187,33 +187,56 @@ namespace EventStormingBoard.Server.Hubs
 
         public async Task SendAgentMessage(Guid boardId, string message)
         {
-            var userName = GetUserName(boardId) ?? "Unknown";
-            _coordinator.RecordUserActivity(boardId);
-            _coordinator.BeginManualAgentResponse(boardId, DateTimeOffset.UtcNow);
-
-            await Clients.Group(boardId.ToString()).SendAsync("AgentUserMessage", new AgentChatMessageDto
+            var board = _boardsRepository.GetById(boardId);
+            if (board == null)
             {
-                Role = "user",
-                UserName = userName,
-                Content = message,
-                Timestamp = DateTime.UtcNow
-            });
+                await Clients.Caller.SendAsync("AgentChatComplete", new { BoardId = boardId });
+                return;
+            }
+
+            var userName = GetUserName(boardId) ?? "Unknown";
+            var succeeded = false;
 
             try
             {
+                _coordinator.RecordUserActivity(boardId);
+                _coordinator.BeginManualAgentResponse(boardId, DateTimeOffset.UtcNow);
+
+                await Clients.Group(boardId.ToString()).SendAsync("AgentUserMessage", new AgentChatMessageDto
+                {
+                    StepId = Guid.NewGuid(),
+                    BoardId = boardId,
+                    Role = "user",
+                    UserName = userName,
+                    Content = message,
+                    Timestamp = DateTime.UtcNow
+                });
+
                 var responses = await _agentService.ChatAsync(boardId, message, userName);
                 _coordinator.AcknowledgeManualAgentResponse(boardId, DateTimeOffset.UtcNow);
+                succeeded = true;
             }
             finally
             {
+                if (!succeeded)
+                {
+                    _coordinator.CancelManualAgentResponse(boardId);
+                }
+
                 // Steps were broadcast in real-time via AgentStepUpdate during pipeline execution.
                 // Signal completion so the client clears the loading state.
-                await Clients.Group(boardId.ToString()).SendAsync("AgentChatComplete");
+                await Clients.Group(boardId.ToString()).SendAsync("AgentChatComplete", new { BoardId = boardId });
             }
         }
 
         public async Task GetAgentHistory(Guid boardId)
         {
+            if (_boardsRepository.GetById(boardId) == null)
+            {
+                await Clients.Caller.SendAsync("AgentChatHistory", Array.Empty<AgentChatMessageDto>());
+                return;
+            }
+
             var history = _agentService.GetHistory(boardId);
             await Clients.Caller.SendAsync("AgentChatHistory", history);
         }

@@ -16,12 +16,24 @@ namespace EventStormingBoard.Server.Controllers
         private readonly IBoardsRepository _repository;
         private readonly IBoardEventLog _boardEventLog;
         private readonly IHubContext<BoardsHub> _hubContext;
+        private readonly IAgentService _agentService;
+        private readonly IAutonomousFacilitatorCoordinator _coordinator;
+        private readonly IBoardPresenceService _boardPresenceService;
 
-        public BoardsController(IBoardsRepository repository, IBoardEventLog boardEventLog, IHubContext<BoardsHub> hubContext)
+        public BoardsController(
+            IBoardsRepository repository,
+            IBoardEventLog boardEventLog,
+            IHubContext<BoardsHub> hubContext,
+            IAgentService agentService,
+            IAutonomousFacilitatorCoordinator coordinator,
+            IBoardPresenceService boardPresenceService)
         {
             _repository = repository;
             _boardEventLog = boardEventLog;
             _hubContext = hubContext;
+            _agentService = agentService;
+            _coordinator = coordinator;
+            _boardPresenceService = boardPresenceService;
         }
 
         [HttpGet]
@@ -154,6 +166,15 @@ namespace EventStormingBoard.Server.Controllers
             {
                 return NotFound();
             }
+
+            // Disable autonomous turns first so the worker doesn't start new ones.
+            _coordinator.SyncBoardSettings(id, enabled: false, stopReason: "deleted");
+
+            // Clear all board-scoped singleton state.
+            _agentService.ClearBoardData(id);
+            _coordinator.ClearBoardState(id);
+            _boardPresenceService.ClearBoard(id);
+            _boardEventLog.ClearLog(id);
 
             return NoContent();
         }

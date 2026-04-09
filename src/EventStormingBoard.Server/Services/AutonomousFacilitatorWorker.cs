@@ -49,6 +49,13 @@ namespace EventStormingBoard.Server.Services
         {
             try
             {
+                // Guard against stale snapshots — if the board was deleted mid-cycle,
+                // skip processing to avoid re-creating coordinator state via GetOrAdd.
+                if (_boardsRepository.GetById(board.Id) == null)
+                {
+                    return;
+                }
+
                 _coordinator.SyncBoardSettings(board.Id, board.AutonomousEnabled);
 
                 if (!_boardPresenceService.HasActiveUsers(board.Id))
@@ -88,7 +95,21 @@ namespace EventStormingBoard.Server.Services
                 var completedStatus = _coordinator.CompleteRun(board.Id, result, DateTimeOffset.UtcNow);
                 if (!completedStatus.IsEnabled)
                 {
-                    await DisableAutonomousModeAsync(board.Id, completedStatus.StopReason ?? "stopped", stoppingToken);
+                    try
+                    {
+                        await DisableAutonomousModeAsync(board.Id, completedStatus.StopReason ?? "stopped", stoppingToken);
+                    }
+                    catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    catch
+                    {
+                        // DisableAutonomousModeAsync may have updated the board entity but
+                        // failed on the SignalR broadcast. Fall through so the status
+                        // broadcast below still reaches clients as a fallback sync.
+                    }
+
                     completedStatus = _coordinator.GetStatus(board.Id, false);
                 }
 
@@ -96,7 +117,7 @@ namespace EventStormingBoard.Server.Services
                 // even if no steps were broadcast (e.g. Idle, Failed, or exception during pipeline).
                 // Agent steps were already broadcast in real-time via AgentStepUpdate during pipeline.
                 await _hubContext.Clients.Group(board.Id.ToString())
-                    .SendAsync("AgentChatComplete", stoppingToken);
+                    .SendAsync("AgentChatComplete", new { BoardId = board.Id }, stoppingToken);
 
                 await BroadcastStatusAsync(completedStatus, stoppingToken);
             }

@@ -216,6 +216,8 @@ public class BoardEventPipelineTests
         {
             return [];
         }
+
+        public void ClearLog(Guid boardId) { }
     }
 
     private sealed class UnknownBoardEvent : BoardEvent

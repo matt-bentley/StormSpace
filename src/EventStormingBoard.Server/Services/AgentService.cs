@@ -18,16 +18,21 @@ namespace EventStormingBoard.Server.Services
         Task<AutonomousAgentResult> RunAutonomousTurnAsync(Guid boardId, string triggerReason, CancellationToken cancellationToken);
         List<AgentChatMessageDto> GetHistory(Guid boardId);
         void ClearHistory(Guid boardId);
+        void ClearBoardData(Guid boardId);
     }
 
     public sealed class AgentService : IAgentService
     {
+        private const int MaxHistoryMessages = 200;
+        private const string AutonomousPromptSentinel = "\uE000[autonomous-facilitator-prompt]";
+
         private readonly IServiceProvider _serviceProvider;
         private readonly AzureOpenAIOptions _options;
         private readonly AgentToolCallFilter _toolCallFilter;
         private readonly Azure.AI.OpenAI.AzureOpenAIClient _azureOpenAIClient;
         private readonly ConcurrentDictionary<Guid, List<ChatMessage>> _conversationHistories = new();
         private readonly ConcurrentDictionary<Guid, List<AgentChatMessageDto>> _displayHistories = new();
+        private readonly ConcurrentDictionary<Guid, SemaphoreSlim> _boardSemaphores = new();
 
         public AgentService(
             IServiceProvider serviceProvider,
@@ -42,32 +47,72 @@ namespace EventStormingBoard.Server.Services
 
         public async Task<List<AgentChatMessageDto>> ChatAsync(Guid boardId, string userMessage, string userName)
         {
-            var conversationHistory = _conversationHistories.GetOrAdd(boardId, static _ => new List<ChatMessage>());
-            var displayHistory = _displayHistories.GetOrAdd(boardId, static _ => new List<AgentChatMessageDto>());
-
-            lock (conversationHistory)
+            var semaphore = _boardSemaphores.GetOrAdd(boardId, static _ => new SemaphoreSlim(1, 1));
+            if (!await semaphore.WaitAsync(TimeSpan.FromSeconds(60)).ConfigureAwait(false))
             {
-                conversationHistory.Add(new ChatMessage(ChatRole.User, userMessage));
+                throw new TimeoutException("Another agent turn is in progress for this board. Please try again shortly.");
             }
 
-            var displayUserMessage = new AgentChatMessageDto
+            try
             {
-                Role = "user",
-                UserName = userName,
-                Content = userMessage,
-                Timestamp = DateTime.UtcNow
-            };
-            lock (displayHistory)
-            {
-                displayHistory.Add(displayUserMessage);
-            }
+                var conversationHistory = _conversationHistories.GetOrAdd(boardId, static _ => new List<ChatMessage>());
+                var displayHistory = _displayHistories.GetOrAdd(boardId, static _ => new List<AgentChatMessageDto>());
 
-            var steps = await InvokeAgentAsync(boardId, allowDestructiveChanges: true, CancellationToken.None).ConfigureAwait(false);
-            var messages = AppendAgentSteps(boardId, steps);
-            return messages;
+                lock (conversationHistory)
+                {
+                    conversationHistory.Add(new ChatMessage(ChatRole.User, userMessage));
+                    TrimHistory(conversationHistory);
+                }
+
+                var displayUserMessage = new AgentChatMessageDto
+                {
+                    StepId = Guid.NewGuid(),
+                    BoardId = boardId,
+                    Role = "user",
+                    UserName = userName,
+                    Content = userMessage,
+                    Timestamp = DateTime.UtcNow
+                };
+                lock (displayHistory)
+                {
+                    displayHistory.Add(displayUserMessage);
+                    TrimHistory(displayHistory);
+                }
+
+                var steps = await InvokeAgentAsync(boardId, allowDestructiveChanges: true, CancellationToken.None).ConfigureAwait(false);
+                var messages = AppendAgentSteps(boardId, steps, isManualTurn: true);
+                return messages;
+            }
+            finally
+            {
+                semaphore.Release();
+            }
         }
 
         public async Task<AutonomousAgentResult> RunAutonomousTurnAsync(Guid boardId, string triggerReason, CancellationToken cancellationToken)
+        {
+            var semaphore = _boardSemaphores.GetOrAdd(boardId, static _ => new SemaphoreSlim(1, 1));
+            if (!await semaphore.WaitAsync(TimeSpan.FromSeconds(5), cancellationToken).ConfigureAwait(false))
+            {
+                return new AutonomousAgentResult
+                {
+                    Status = AutonomousAgentStatus.Idle,
+                    TriggerReason = triggerReason,
+                    Diagnostics = "Skipped: another turn is in progress for this board."
+                };
+            }
+
+            try
+            {
+                return await RunAutonomousTurnCoreAsync(boardId, triggerReason, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        }
+
+        private async Task<AutonomousAgentResult> RunAutonomousTurnCoreAsync(Guid boardId, string triggerReason, CancellationToken cancellationToken)
         {
             EnsureInitialAutonomousPhase(boardId);
 
@@ -79,11 +124,17 @@ namespace EventStormingBoard.Server.Services
             var conversationHistory = _conversationHistories.GetOrAdd(boardId, static _ => new List<ChatMessage>());
             lock (conversationHistory)
             {
+                // Remove previous autonomous prompts — keep exactly one at a time (item 8).
+                conversationHistory.RemoveAll(m =>
+                    m.Role == ChatRole.User &&
+                    m.Text?.Contains(AutonomousPromptSentinel) == true);
+
                 conversationHistory.Add(new ChatMessage(ChatRole.User, BuildAutonomousPrompt(boardId, triggerReason, turnsInPhase)));
+                TrimHistory(conversationHistory);
             }
 
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeoutCts.CancelAfter(TimeSpan.FromSeconds(45));
+            timeoutCts.CancelAfter(TimeSpan.FromMinutes(5));
 
             var steps = await InvokeAgentAsync(boardId, allowDestructiveChanges: false, timeoutCts.Token).ConfigureAwait(false);
             var board = _serviceProvider.GetRequiredService<IBoardsRepository>().GetById(boardId);
@@ -100,7 +151,8 @@ namespace EventStormingBoard.Server.Services
                     ? "The session looks complete, so I'm pausing autonomous facilitation here."
                     : trimmedReply;
                 PatchFacilitatorContent(steps, facilitatorName, visibleMessage);
-                var completedMessages = AppendAgentSteps(boardId, steps);
+                var completedMessages = AppendAgentSteps(boardId, steps, isManualTurn: false);
+                await BroadcastPatchedStepAsync(boardId, steps, facilitatorName).ConfigureAwait(false);
 
                 return new AutonomousAgentResult
                 {
@@ -115,7 +167,7 @@ namespace EventStormingBoard.Server.Services
 
             if (string.IsNullOrWhiteSpace(trimmedReply) && allToolCalls.Count == 0)
             {
-                var idleMessages = AppendAgentSteps(boardId, steps);
+                var idleMessages = AppendAgentSteps(boardId, steps, isManualTurn: false);
                 return new AutonomousAgentResult
                 {
                     Status = AutonomousAgentStatus.Idle,
@@ -131,7 +183,8 @@ namespace EventStormingBoard.Server.Services
                 : trimmedReply;
 
             PatchFacilitatorContent(steps, facilitatorName, visibleActedMessage);
-            var actedMessages = AppendAgentSteps(boardId, steps);
+            var actedMessages = AppendAgentSteps(boardId, steps, isManualTurn: false);
+            await BroadcastPatchedStepAsync(boardId, steps, facilitatorName).ConfigureAwait(false);
 
             return new AutonomousAgentResult
             {
@@ -158,8 +211,20 @@ namespace EventStormingBoard.Server.Services
 
         public void ClearHistory(Guid boardId)
         {
+            // Only removes histories — does NOT touch the semaphore (safe for live boards).
+            // In-flight turns holding list references will append to orphaned lists;
+            // new turns create fresh empty lists via GetOrAdd. Acceptable for clear-history.
             _conversationHistories.TryRemove(boardId, out _);
             _displayHistories.TryRemove(boardId, out _);
+        }
+
+        public void ClearBoardData(Guid boardId)
+        {
+            // Full cleanup for board deletion — removes histories AND the per-board semaphore.
+            // Only called from BoardsController.Delete after the board is disabled.
+            _conversationHistories.TryRemove(boardId, out _);
+            _displayHistories.TryRemove(boardId, out _);
+            _boardSemaphores.TryRemove(boardId, out _);
         }
 
         private async Task<List<AgentStep>> InvokeAgentAsync(Guid boardId, bool allowDestructiveChanges, CancellationToken cancellationToken)
@@ -181,11 +246,13 @@ namespace EventStormingBoard.Server.Services
 
             async Task BroadcastStep(AgentStep step)
             {
-                if (string.IsNullOrWhiteSpace(step.Content) && step.ToolCalls.Count == 0)
+                if (!IsVisibleStep(step))
                     return;
 
                 var dto = new AgentChatMessageDto
                 {
+                    StepId = step.Id,
+                    BoardId = boardId,
                     Role = "assistant",
                     AgentName = step.AgentName,
                     Content = step.Content,
@@ -226,14 +293,43 @@ namespace EventStormingBoard.Server.Services
                 var index = steps.IndexOf(facilitator);
                 steps[index] = new AgentStep
                 {
+                    Id = facilitator.Id,
                     AgentName = facilitator.AgentName,
                     Content = content,
+                    Prompt = facilitator.Prompt,
                     ToolCalls = facilitator.ToolCalls
                 };
             }
         }
 
-        private List<AgentChatMessageDto> AppendAgentSteps(Guid boardId, List<AgentStep> steps)
+        private static bool IsVisibleStep(AgentStep step)
+        {
+            return !string.IsNullOrWhiteSpace(step.Content) || step.ToolCalls.Count > 0;
+        }
+
+        private async Task BroadcastPatchedStepAsync(Guid boardId, List<AgentStep> steps, string facilitatorName)
+        {
+            var patchedStep = steps.FirstOrDefault(s => s.AgentName == facilitatorName);
+            if (patchedStep == null || string.IsNullOrWhiteSpace(patchedStep.Content))
+                return;
+
+            var hubContext = _serviceProvider.GetRequiredService<IHubContext<BoardsHub>>();
+            var dto = new AgentChatMessageDto
+            {
+                StepId = patchedStep.Id,
+                BoardId = boardId,
+                Role = "assistant",
+                AgentName = patchedStep.AgentName,
+                Content = patchedStep.Content,
+                Prompt = patchedStep.Prompt,
+                ToolCalls = patchedStep.ToolCalls.Count > 0 ? patchedStep.ToolCalls : null,
+                Timestamp = DateTime.UtcNow
+            };
+            await hubContext.Clients.Group(boardId.ToString())
+                .SendAsync("AgentStepUpdate", dto).ConfigureAwait(false);
+        }
+
+        private List<AgentChatMessageDto> AppendAgentSteps(Guid boardId, List<AgentStep> steps, bool isManualTurn)
         {
             var conversationHistory = _conversationHistories.GetOrAdd(boardId, static _ => new List<ChatMessage>());
             var displayHistory = _displayHistories.GetOrAdd(boardId, static _ => new List<AgentChatMessageDto>());
@@ -248,12 +344,14 @@ namespace EventStormingBoard.Server.Services
             {
                 foreach (var step in steps)
                 {
-                    if (string.IsNullOrWhiteSpace(step.Content) && step.ToolCalls.Count == 0)
+                    if (!IsVisibleStep(step))
                         continue;
 
                     var prefix = step.AgentName == facilitatorName ? "" : $"[{step.AgentName}] ";
                     conversationHistory.Add(new ChatMessage(ChatRole.Assistant, $"{prefix}{step.Content}"));
                 }
+
+                TrimHistory(conversationHistory);
             }
 
             var result = new List<AgentChatMessageDto>();
@@ -261,11 +359,13 @@ namespace EventStormingBoard.Server.Services
             {
                 foreach (var step in steps)
                 {
-                    if (string.IsNullOrWhiteSpace(step.Content) && step.ToolCalls.Count == 0)
+                    if (!IsVisibleStep(step))
                         continue;
 
                     var dto = new AgentChatMessageDto
                     {
+                        StepId = step.Id,
+                        BoardId = boardId,
                         Role = "assistant",
                         AgentName = step.AgentName,
                         Content = step.Content,
@@ -277,10 +377,12 @@ namespace EventStormingBoard.Server.Services
                     result.Add(dto);
                 }
 
-                if (result.Count == 0)
+                if (result.Count == 0 && isManualTurn)
                 {
                     var fallback = new AgentChatMessageDto
                     {
+                        StepId = Guid.NewGuid(),
+                        BoardId = boardId,
                         Role = "assistant",
                         AgentName = facilitatorName,
                         Content = string.Empty,
@@ -289,9 +391,19 @@ namespace EventStormingBoard.Server.Services
                     displayHistory.Add(fallback);
                     result.Add(fallback);
                 }
+
+                TrimHistory(displayHistory);
             }
 
             return result;
+        }
+
+        private static void TrimHistory<T>(List<T> history)
+        {
+            if (history.Count > MaxHistoryMessages)
+            {
+                history.RemoveRange(0, history.Count - MaxHistoryMessages);
+            }
         }
         private string BuildAutonomousPrompt(Guid boardId, string triggerReason, int turnsInCurrentPhase)
         {
@@ -321,6 +433,7 @@ namespace EventStormingBoard.Server.Services
                 : string.Empty;
 
             return $"""
+                {AutonomousPromptSentinel}
                 Autonomous facilitator loop trigger: {triggerReason}.
 
                 Review the board and recent activity before acting.

@@ -2,6 +2,8 @@ namespace EventStormingBoard.Server.Models
 {
     public sealed class AgentChatMessageDto
     {
+        public Guid? StepId { get; set; }
+        public Guid? BoardId { get; set; }
         public required string Role { get; set; }
         public string? UserName { get; set; }
         public string? AgentName { get; set; }

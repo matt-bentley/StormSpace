@@ -16,6 +16,8 @@ export interface AgentChatMessage {
   agentName?: string;
   content?: string;
   prompt?: string;
+  stepId?: string;
+  boardId?: string;
   toolCalls?: AgentToolCall[];
   timestamp?: string;
 }
@@ -66,13 +68,17 @@ export class BoardsSignalRService {
   public agentUserMessage$ = new Subject<AgentChatMessage>();
   public agentResponse$ = new Subject<AgentChatMessage>();
   public agentStepUpdate$ = new Subject<AgentChatMessage>();
-  public agentChatComplete$ = new Subject<void>();
+  public agentChatComplete$ = new Subject<string>();
   public agentToolCallStarted$ = new Subject<AgentToolCallStartedEvent>();
   public autonomousStatusChanged$ = new Subject<AutonomousFacilitatorStatus>();
   public agentHistoryCleared$ = new Subject<string>();
   public agentConfigurationsUpdated$ = new Subject<{ boardId: string; agents: AgentConfiguration[] }>();
-  public agentChatHistory: AgentChatMessage[] = [];
+  public agentChatHistory = new Map<string, AgentChatMessage[]>();
   public autonomousStatuses = new Map<string, AutonomousFacilitatorStatus>();
+
+  public getHistoryForBoard(boardId: string): AgentChatMessage[] {
+    return this.agentChatHistory.get(boardId) ?? [];
+  }
 
   private startConnection(): Promise<void> {
     this.hubConnection = new signalR.HubConnectionBuilder()
@@ -130,12 +136,20 @@ export class BoardsSignalRService {
     });
     this.hubConnection.on('AgentUserMessage', (event) => {
       const message = this.mapAgentChatMessage(event);
-      this.agentChatHistory.push(message);
+      if (message.boardId) {
+        const history = this.agentChatHistory.get(message.boardId) ?? [];
+        history.push(message);
+        this.agentChatHistory.set(message.boardId, history);
+      }
       this.agentUserMessage$.next(message);
     });
     this.hubConnection.on('AgentResponse', (event) => {
       const message = this.mapAgentChatMessage(event);
-      this.agentChatHistory.push(message);
+      if (message.boardId) {
+        const history = this.agentChatHistory.get(message.boardId) ?? [];
+        history.push(message);
+        this.agentChatHistory.set(message.boardId, history);
+      }
       this.agentResponse$.next(message);
     });
     this.hubConnection.on('AgentStepUpdate', (event) => {
@@ -144,8 +158,10 @@ export class BoardsSignalRService {
       // History is loaded via GetAgentHistory; pushing here would cause duplicates on reload.
       this.agentStepUpdate$.next(message);
     });
-    this.hubConnection.on('AgentChatComplete', () => {
-      this.agentChatComplete$.next();
+    this.hubConnection.on('AgentChatComplete', (event) => {
+      const raw = (event ?? {}) as Record<string, unknown>;
+      const boardId = this.pickValue<string>(raw, 'boardId', 'BoardId') ?? '';
+      this.agentChatComplete$.next(boardId);
     });
     this.hubConnection.on('AgentToolCallStarted', (event) => {
       this.agentToolCallStarted$.next({
@@ -156,7 +172,11 @@ export class BoardsSignalRService {
     });
     this.hubConnection.on('AgentChatHistory', (event) => {
       const history = Array.isArray(event) ? event.map((message) => this.mapAgentChatMessage(message)) : [];
-      this.agentChatHistory = history;
+      // Server reload replaces the board's cache entirely.
+      const boardId = history.length > 0 ? history[0].boardId : undefined;
+      if (boardId) {
+        this.agentChatHistory.set(boardId, history);
+      }
     });
     this.hubConnection.on('AutonomousFacilitatorStatusChanged', (event) => {
       const status = this.mapAutonomousStatus(event);
@@ -165,7 +185,7 @@ export class BoardsSignalRService {
     });
     this.hubConnection.on('AgentHistoryCleared', (event) => {
       const boardId = this.pickValue<string>(event, 'boardId', 'BoardId') ?? '';
-      this.agentChatHistory = [];
+      this.agentChatHistory.delete(boardId);
       this.agentHistoryCleared$.next(boardId);
     });
     this.hubConnection.on('AgentConfigurationsUpdated', (event) => {
@@ -296,6 +316,8 @@ export class BoardsSignalRService {
       agentName: this.pickValue<string>(event, 'agentName', 'AgentName'),
       content: this.pickValue<string>(event, 'content', 'Content'),
       prompt: this.pickValue<string>(event, 'prompt', 'Prompt'),
+      stepId: this.pickValue<string>(event, 'stepId', 'StepId'),
+      boardId: this.pickValue<string>(event, 'boardId', 'BoardId'),
       timestamp: this.pickValue<string>(event, 'timestamp', 'Timestamp'),
       toolCalls: Array.isArray(toolCalls)
         ? toolCalls.map((toolCall) => {

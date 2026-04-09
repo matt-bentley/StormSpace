@@ -151,4 +151,47 @@ public class AutonomousFacilitatorCoordinatorTests
         Assert.False(statusAAfter.IsRunning);
         Assert.True(statusBDuring.IsRunning);
     }
+
+    [Fact]
+    public void CancelManualAgentResponse_ClearsManualResponseFlag_WithoutUpdatingCooldown()
+    {
+        var coordinator = new AutonomousFacilitatorCoordinator();
+        var boardId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+
+        coordinator.SyncBoardSettings(boardId, enabled: true);
+        coordinator.RecordUserActivity(boardId);
+        coordinator.BeginManualAgentResponse(boardId, now);
+
+        // Manual response is in flight — autonomous should be blocked.
+        Assert.Null(coordinator.GetTriggerReason(boardId, now.AddMinutes(1)));
+
+        // Cancel (simulating an exception path).
+        coordinator.CancelManualAgentResponse(boardId);
+
+        // Should unblock autonomous runs.
+        var triggerReason = coordinator.GetTriggerReason(boardId, now.AddSeconds(25));
+        Assert.Equal("userActivityDebounce", triggerReason);
+    }
+
+    [Fact]
+    public void ClearBoardState_RemovesAllStateForBoard()
+    {
+        var coordinator = new AutonomousFacilitatorCoordinator();
+        var boardId = Guid.NewGuid();
+
+        coordinator.SyncBoardSettings(boardId, enabled: true);
+        coordinator.RecordUserActivity(boardId);
+
+        // State exists.
+        var statusBefore = coordinator.GetStatus(boardId, enabled: true);
+        Assert.True(statusBefore.IsEnabled);
+
+        // Clear it.
+        coordinator.ClearBoardState(boardId);
+
+        // State should be fresh (default disabled).
+        var statusAfter = coordinator.GetStatus(boardId, enabled: false);
+        Assert.False(statusAfter.IsEnabled);
+    }
 }

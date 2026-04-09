@@ -9,6 +9,8 @@ namespace EventStormingBoard.Server.Services
         void RecordUserActivity(Guid boardId);
         void BeginManualAgentResponse(Guid boardId, DateTimeOffset now);
         void AcknowledgeManualAgentResponse(Guid boardId, DateTimeOffset now);
+        void CancelManualAgentResponse(Guid boardId);
+        void ClearBoardState(Guid boardId);
         AutonomousFacilitatorStatusDto GetStatus(Guid boardId, bool enabled);
         string? GetTriggerReason(Guid boardId, DateTimeOffset now);
         bool TryStartRun(Guid boardId, string triggerReason, DateTimeOffset now, out AutonomousFacilitatorStatusDto status);
@@ -98,6 +100,20 @@ namespace EventStormingBoard.Server.Services
                 state.TriggerReason = "manualResponse";
                 state.UpdatedAtUtc = now;
             }
+        }
+
+        public void CancelManualAgentResponse(Guid boardId)
+        {
+            var state = _states.GetOrAdd(boardId, _ => new RuntimeState());
+            lock (state.SyncRoot)
+            {
+                state.IsManualResponseInFlight = false;
+            }
+        }
+
+        public void ClearBoardState(Guid boardId)
+        {
+            _states.TryRemove(boardId, out _);
         }
 
         public AutonomousFacilitatorStatusDto GetStatus(Guid boardId, bool enabled)

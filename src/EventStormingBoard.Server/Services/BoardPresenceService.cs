@@ -10,6 +10,7 @@ namespace EventStormingBoard.Server.Services
         IReadOnlyList<Guid> GetBoardsForConnection(string connectionId);
         string? GetUserName(Guid boardId, string connectionId);
         bool HasActiveUsers(Guid boardId);
+        void ClearBoard(Guid boardId);
     }
 
     public sealed class BoardPresenceService : IBoardPresenceService
@@ -67,6 +68,11 @@ namespace EventStormingBoard.Server.Services
         public bool HasActiveUsers(Guid boardId)
         {
             return _boardUsers.TryGetValue(boardId, out var boardConnections) && !boardConnections.IsEmpty;
+        }
+
+        public void ClearBoard(Guid boardId)
+        {
+            _boardUsers.TryRemove(boardId, out _);
         }
     }
 }

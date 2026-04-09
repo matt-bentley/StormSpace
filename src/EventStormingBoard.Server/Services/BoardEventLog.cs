@@ -15,6 +15,7 @@ namespace EventStormingBoard.Server.Services
     {
         void Append(Guid boardId, BoardEvent @event, string? userName);
         List<BoardEventEntry> GetRecent(Guid boardId, int count = 50);
+        void ClearLog(Guid boardId);
     }
 
     public sealed class BoardEventLog : IBoardEventLog
@@ -54,6 +55,11 @@ namespace EventStormingBoard.Server.Services
             {
                 return log.TakeLast(Math.Min(count, MaxEntries)).ToList();
             }
+        }
+
+        public void ClearLog(Guid boardId)
+        {
+            _logs.TryRemove(boardId, out _);
         }
 
         private static string BuildSummary(BoardEvent @event)

@@ -839,6 +839,11 @@ export class BoardComponent implements OnInit, OnDestroy {
       .subscribe(status => {
         if (status.boardId === this.id) {
           this.autonomousStatus = status;
+          // Fallback sync: if the server disabled autonomy but the BoardContextUpdated
+          // broadcast was missed (e.g. brief disconnect), keep the flag in sync.
+          if (this.canvasService.boardState.autonomousEnabled !== status.isEnabled) {
+            this.canvasService.boardState.autonomousEnabled = status.isEnabled;
+          }
         }
       });
 

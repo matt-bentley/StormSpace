@@ -13,6 +13,7 @@ namespace EventStormingBoard.Server.Agents
     /// </summary>
     public sealed class AgentStep
     {
+        public Guid Id { get; init; } = Guid.NewGuid();
         public required string AgentName { get; init; }
         public required string Content { get; init; }
         public string? Prompt { get; init; }
