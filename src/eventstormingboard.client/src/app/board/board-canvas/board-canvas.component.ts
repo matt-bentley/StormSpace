@@ -17,6 +17,7 @@ import { BoardsSignalRService } from '../../_shared/services/boards-signalr.serv
 import { BoardUser } from '../../_shared/models/board-user.model';
 import { CursorPositionUpdatedEvent } from '../../_shared/models/board-events.model';
 import { ThemeService } from '../../_shared/services/theme.service';
+import { UserService } from '../../_shared/services/user.service';
 
 @Component({
     selector: 'app-board-canvas',
@@ -66,7 +67,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
   private hoveredConnection: Connection | null = null;
   private hoveredBoundedContext: BoundedContext | null = null;
   private lastCursorBroadcastAt = 0;
-  private readonly localUserName = localStorage.getItem('userName') ?? 'Anonymous';
+  private get localUserName(): string { return this.userService.displayName || 'Anonymous'; }
 
   // Bounded context interaction state
   private bcDrawStart: Coordinates | null = null;
@@ -89,7 +90,8 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     private dialog: MatDialog,
     private canvasService: BoardCanvasService,
     private boardsHub: BoardsSignalRService,
-    private themeService: ThemeService
+    private themeService: ThemeService,
+    private userService: UserService
   ) {
   }
 

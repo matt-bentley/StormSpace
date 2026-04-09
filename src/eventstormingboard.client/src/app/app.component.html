@@ -41,8 +41,11 @@
             class="user-menu-input"
             [(ngModel)]="userName"
             placeholder="Enter your name"
+            [readOnly]="isNameReadOnly"
             (keydown.enter)="saveUserName()" />
-          <button class="user-menu-save" (click)="saveUserName()">SAVE</button>
+          @if (!isNameReadOnly) {
+            <button class="user-menu-save" (click)="saveUserName()">SAVE</button>
+          }
         </div>
       }
     </div>

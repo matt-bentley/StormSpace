@@ -4,6 +4,7 @@ import { Subject } from 'rxjs';
 import { BoardContextUpdatedEvent, BoardNameUpdatedEvent, BoundedContextCreatedEvent, BoundedContextDeletedEvent, BoundedContextUpdatedEvent, ConnectionCreatedEvent, CursorPositionUpdatedEvent, NoteCreatedEvent, NoteResizedEvent, NotesDeletedEvent, NotesMovedEvent, NoteTextEditedEvent, PastedEvent, UserJoinedBoardEvent, UserLeftBoardEvent } from '../models/board-events.model';
 import { BoardUser } from '../models/board-user.model';
 import { AgentConfiguration } from '../models/agent-configuration.model';
+import { AuthService } from './auth.service';
 
 export interface AgentToolCall {
   name: string;
@@ -44,9 +45,10 @@ export class BoardsSignalRService {
   
   private hubConnection!: signalR.HubConnection;
   private connectionEstablished: Promise<void>;
+  private pendingJoin: { boardId: string; userName: string } | null = null;
 
-  constructor() {
-    this.connectionEstablished = this.startConnection();
+  constructor(private authService: AuthService) {
+    this.connectionEstablished = this.initConnection();
   }
 
   public connectedUsers$ = new Subject<BoardUser[]>();
@@ -80,11 +82,33 @@ export class BoardsSignalRService {
     return this.agentChatHistory.get(boardId) ?? [];
   }
 
+  private async initConnection(): Promise<void> {
+    // Wait for AuthService to signal readiness (MSAL fully initialized in main.ts before bootstrap)
+    await new Promise<void>(resolve => {
+      this.authService.initialized$.subscribe(() => resolve());
+    });
+
+    return this.startConnection();
+  }
+
   private startConnection(): Promise<void> {
     this.hubConnection = new signalR.HubConnectionBuilder()
-      .withUrl('/hub')
+      .withUrl('/hub', {
+        accessTokenFactory: () => this.authService.getAccessToken().then(token => token ?? '')
+      })
       .withAutomaticReconnect()
       .build();
+
+    // Re-establish presence on reconnect (new transport = new connection)
+    this.hubConnection.onreconnected(async () => {
+      if (this.pendingJoin) {
+        try {
+          await this.hubConnection.invoke('JoinBoard', this.pendingJoin.boardId, this.pendingJoin.userName);
+        } catch (err) {
+          console.error('Error re-joining board after reconnect:', err);
+        }
+      }
+    });
 
     this.hubConnection.on('ConnectedUsers', (event) => {
       this.connectedUsers$.next(event);
@@ -201,12 +225,14 @@ export class BoardsSignalRService {
 
   public async joinBoard(boardId: string, userName: string): Promise<void> {
     await this.connectionEstablished;
+    this.pendingJoin = { boardId, userName };
     await this.hubConnection.invoke('JoinBoard', boardId, userName)
       .catch(err => console.error('Error joining board group:', err));
   }
 
   public async leaveBoard(boardId: string): Promise<void> {
     await this.connectionEstablished;
+    this.pendingJoin = null;
     await this.hubConnection.invoke('LeaveBoard', boardId)
       .catch(err => console.error('Error leaving board group:', err));
   }

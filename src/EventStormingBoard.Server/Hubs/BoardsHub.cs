@@ -4,6 +4,7 @@ using EventStormingBoard.Server.Models;
 using EventStormingBoard.Server.Repositories;
 using EventStormingBoard.Server.Services;
 using Microsoft.AspNetCore.SignalR;
+using System.Security.Claims;
 
 namespace EventStormingBoard.Server.Hubs
 {
@@ -29,14 +30,50 @@ namespace EventStormingBoard.Server.Hubs
             _boardsRepository = boardsRepository;
         }
 
+        public static string? GetAuthenticatedUserName(ClaimsPrincipal? user)
+        {
+            if (user?.Identity?.IsAuthenticated != true)
+            {
+                return null;
+            }
+
+            var name = user.FindFirstValue("name")
+                       ?? user.FindFirstValue("preferred_username");
+
+            if (string.IsNullOrEmpty(name))
+            {
+                throw new HubException(
+                    "Authenticated user has no 'name' or 'preferred_username' claim. " +
+                    "Configure optional claims (name, preferred_username) on the access token in your Entra ID app registration.");
+            }
+
+            return name;
+        }
+
         private string? GetUserName(Guid boardId)
         {
             return _boardPresenceService.GetUserName(boardId, Context.ConnectionId);
         }
 
+        private void EnsureBoardMember(Guid boardId)
+        {
+            if (_boardPresenceService.GetUserName(boardId, Context.ConnectionId) == null)
+            {
+                throw new HubException($"Connection is not a member of board {boardId}. Call JoinBoard first.");
+            }
+        }
+
         public async Task JoinBoard(Guid boardId, string userName)
         {
             var connectionId = Context.ConnectionId;
+
+            // When authenticated, use the claim-derived name instead of client-supplied value
+            var authName = GetAuthenticatedUserName(Context.User);
+            if (authName != null)
+            {
+                userName = authName;
+            }
+
             var connectedUsers = _boardPresenceService.JoinBoard(boardId, connectionId, userName);
             await Clients.Caller.SendAsync("ConnectedUsers", connectedUsers);
 
@@ -88,6 +125,7 @@ namespace EventStormingBoard.Server.Hubs
 
         public async Task BroadcastBoardNameUpdated(BoardNameUpdatedEvent @event)
         {
+            EnsureBoardMember(@event.BoardId);
             _boardEventPipeline.ApplyAndLog(@event, GetUserName(@event.BoardId));
             _coordinator.RecordUserActivity(@event.BoardId);
             await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("BoardNameUpdated", @event);
@@ -95,6 +133,7 @@ namespace EventStormingBoard.Server.Hubs
 
         public async Task BroadcastBoardContextUpdated(BoardContextUpdatedEvent @event)
         {
+            EnsureBoardMember(@event.BoardId);
             _boardEventPipeline.ApplyAndLog(@event, GetUserName(@event.BoardId));
             _coordinator.SyncBoardSettings(@event.BoardId, @event.NewAutonomousEnabled);
             _coordinator.RecordUserActivity(@event.BoardId);
@@ -104,6 +143,7 @@ namespace EventStormingBoard.Server.Hubs
 
         public async Task BroadcastNoteCreated(NoteCreatedEvent @event)
         {
+            EnsureBoardMember(@event.BoardId);
             _boardEventPipeline.ApplyAndLog(@event, GetUserName(@event.BoardId));
             _coordinator.RecordUserActivity(@event.BoardId);
             await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("NoteCreated", @event);
@@ -111,6 +151,7 @@ namespace EventStormingBoard.Server.Hubs
 
         public async Task BroadcastNotesMoved(NotesMovedEvent @event)
         {
+            EnsureBoardMember(@event.BoardId);
             _boardEventPipeline.ApplyAndLog(@event, GetUserName(@event.BoardId));
             _coordinator.RecordUserActivity(@event.BoardId);
             await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("NotesMoved", @event);
@@ -118,6 +159,7 @@ namespace EventStormingBoard.Server.Hubs
 
         public async Task BroadcastNoteResized(NoteResizedEvent @event)
         {
+            EnsureBoardMember(@event.BoardId);
             _boardEventPipeline.ApplyAndLog(@event, GetUserName(@event.BoardId));
             _coordinator.RecordUserActivity(@event.BoardId);
             await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("NoteResized", @event);
@@ -125,6 +167,7 @@ namespace EventStormingBoard.Server.Hubs
 
         public async Task BroadcastNotesDeleted(NotesDeletedEvent @event)
         {
+            EnsureBoardMember(@event.BoardId);
             _boardEventPipeline.ApplyAndLog(@event, GetUserName(@event.BoardId));
             _coordinator.RecordUserActivity(@event.BoardId);
             await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("NotesDeleted", @event);
@@ -132,6 +175,7 @@ namespace EventStormingBoard.Server.Hubs
 
         public async Task BroadcastConnectionCreated(ConnectionCreatedEvent @event)
         {
+            EnsureBoardMember(@event.BoardId);
             _boardEventPipeline.ApplyAndLog(@event, GetUserName(@event.BoardId));
             _coordinator.RecordUserActivity(@event.BoardId);
             await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("ConnectionCreated", @event);
@@ -139,6 +183,7 @@ namespace EventStormingBoard.Server.Hubs
 
         public async Task BroadcastNoteTextEdited(NoteTextEditedEvent @event)
         {
+            EnsureBoardMember(@event.BoardId);
             _boardEventPipeline.ApplyAndLog(@event, GetUserName(@event.BoardId));
             _coordinator.RecordUserActivity(@event.BoardId);
             await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("NoteTextEdited", @event);
@@ -146,6 +191,7 @@ namespace EventStormingBoard.Server.Hubs
 
         public async Task BroadcastPasted(PastedEvent @event)
         {
+            EnsureBoardMember(@event.BoardId);
             _boardEventPipeline.ApplyAndLog(@event, GetUserName(@event.BoardId));
             _coordinator.RecordUserActivity(@event.BoardId);
             await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("Pasted", @event);
@@ -153,6 +199,7 @@ namespace EventStormingBoard.Server.Hubs
 
         public async Task BroadcastBoundedContextCreated(BoundedContextCreatedEvent @event)
         {
+            EnsureBoardMember(@event.BoardId);
             _boardEventPipeline.ApplyAndLog(@event, GetUserName(@event.BoardId));
             _coordinator.RecordUserActivity(@event.BoardId);
             await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("BoundedContextCreated", @event);
@@ -160,6 +207,7 @@ namespace EventStormingBoard.Server.Hubs
 
         public async Task BroadcastBoundedContextUpdated(BoundedContextUpdatedEvent @event)
         {
+            EnsureBoardMember(@event.BoardId);
             _boardEventPipeline.ApplyAndLog(@event, GetUserName(@event.BoardId));
             _coordinator.RecordUserActivity(@event.BoardId);
             await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("BoundedContextUpdated", @event);
@@ -167,6 +215,7 @@ namespace EventStormingBoard.Server.Hubs
 
         public async Task BroadcastBoundedContextDeleted(BoundedContextDeletedEvent @event)
         {
+            EnsureBoardMember(@event.BoardId);
             _boardEventPipeline.ApplyAndLog(@event, GetUserName(@event.BoardId));
             _coordinator.RecordUserActivity(@event.BoardId);
             await Clients.OthersInGroup(@event.BoardId.ToString()).SendAsync("BoundedContextDeleted", @event);
@@ -174,6 +223,8 @@ namespace EventStormingBoard.Server.Hubs
 
         public async Task BroadcastCursorPositionUpdated(CursorPositionUpdatedEvent @event)
         {
+            EnsureBoardMember(@event.BoardId);
+
             if (!double.IsFinite(@event.X) || !double.IsFinite(@event.Y))
             {
                 return;
@@ -187,6 +238,8 @@ namespace EventStormingBoard.Server.Hubs
 
         public async Task SendAgentMessage(Guid boardId, string message)
         {
+            EnsureBoardMember(boardId);
+
             var board = _boardsRepository.GetById(boardId);
             if (board == null)
             {
@@ -231,6 +284,8 @@ namespace EventStormingBoard.Server.Hubs
 
         public async Task GetAgentHistory(Guid boardId)
         {
+            EnsureBoardMember(boardId);
+
             if (_boardsRepository.GetById(boardId) == null)
             {
                 await Clients.Caller.SendAsync("AgentChatHistory", Array.Empty<AgentChatMessageDto>());
@@ -243,6 +298,7 @@ namespace EventStormingBoard.Server.Hubs
 
         public async Task ClearAgentHistory(Guid boardId)
         {
+            EnsureBoardMember(boardId);
             _agentService.ClearHistory(boardId);
             await Clients.Group(boardId.ToString()).SendAsync("AgentHistoryCleared", new { BoardId = boardId });
         }

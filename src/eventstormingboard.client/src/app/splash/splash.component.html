@@ -98,7 +98,7 @@
     <div class="identity-section">
       <div class="identity-field">
         <label class="field-label">DISPLAY NAME</label>
-        <input class="input-field" [(ngModel)]="userName" (ngModelChange)="onUserNameChanged()" name="userName" placeholder="Enter your name" required />
+        <input class="input-field" [(ngModel)]="userName" (ngModelChange)="onUserNameChanged()" name="userName" placeholder="Enter your name" required [readOnly]="isNameReadOnly" />
       </div>
     </div>
 

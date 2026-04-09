@@ -75,3 +75,44 @@ StormSpace is a 2-tier application with a frontend and backend. The frontend is 
 Boards are stored in a Memory Cache with a sliding expiry of 60 minutes.
 
 ![Interactions](images/interactions.png)
+
+## Authentication (Optional)
+
+StormSpace supports optional Entra ID (Azure AD) authentication. When disabled (default), the app is fully open — users self-identify with a display name. When enabled, all API endpoints and the SignalR hub require valid tokens, and user identity is derived from Entra ID claims.
+
+### Entra ID App Registration
+
+1. In the [Azure Portal](https://portal.azure.com), go to **Microsoft Entra ID → App registrations → New registration**
+2. Set the application type to **Single-page application (SPA)**
+3. Add **Redirect URIs**: `https://localhost:51710` (dev), plus your production origin
+4. Under **Expose an API**, add a scope (e.g. `api://{ClientId}/access_as_user`)
+5. Under **Token configuration → Optional claims → Access token**, add `name` and `preferred_username` claims — the backend reads these from the access token, not the ID token
+
+### Configuration
+
+Populate the `EntraId` section in `appsettings.json` (or use environment variables):
+
+```json
+{
+  "EntraId": {
+    "Instance": "https://login.microsoftonline.com",
+    "TenantId": "your-tenant-id",
+    "ClientId": "your-client-id",
+    "Audience": "api://your-client-id",
+    "Scopes": ["api://your-client-id/access_as_user"]
+  }
+}
+```
+
+All three of `TenantId`, `ClientId`, and `Scopes` must be set to enable auth. If any one is set without the others, the app will fail on startup with a descriptive error. Leaving them all empty disables auth entirely.
+
+**Docker** — pass config via environment variables using ASP.NET's `__` separator:
+
+```bash
+docker run -it -p 8080:8080 --rm \
+  -e EntraId__TenantId=your-tenant-id \
+  -e EntraId__ClientId=your-client-id \
+  -e EntraId__Audience=api://your-client-id \
+  -e "EntraId__Scopes__0=api://your-client-id/access_as_user" \
+  mabentley/stormspace
+```

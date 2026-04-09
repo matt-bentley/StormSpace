@@ -58,10 +58,13 @@ TemporaryDependencyNodeTargetIdentifier=net10.0
 [sourceFiles]
 <NUGET>/microsoft.net.test.sdk/17.14.1/build/net8.0/Microsoft.NET.Test.Sdk.Program.cs
 AgentServiceToolPolicyTests.cs
+AuthControllerTests.cs
 AutonomousFacilitatorCoordinatorTests.cs
 BoardEventLogTests.cs
 BoardEventPipelineTests.cs
+BoardsHubAuthTests.cs
 BoardStateServiceTests.cs
+EntraIdConfigValidationTests.cs
 InMemoryBoardsRepository.cs
 obj/Debug/net10.0/
  .NETCoreApp,Version=v10.0.AssemblyAttributes.cs
@@ -383,11 +386,15 @@ obj/Debug/net10.0/
  azure.ai.openai/2.1.0/lib/netstandard2.0/Azure.AI.OpenAI.dll
  azure.core/1.44.1/lib/net6.0/Azure.Core.dll
  azure.identity/1.13.2/lib/net8.0/Azure.Identity.dll
+ azure.security.keyvault.certificates/4.6.0/lib/netstandard2.0/Azure.Security.KeyVault.Certificates.dll
+ azure.security.keyvault.secrets/4.6.0/lib/netstandard2.0/Azure.Security.KeyVault.Secrets.dll
  google.protobuf/3.30.2/lib/net5.0/Google.Protobuf.dll
  microsoft.agents.ai.abstractions/1.0.0-rc4/lib/net10.0/Microsoft.Agents.AI.Abstractions.dll
  microsoft.agents.ai.openai/1.0.0-rc4/lib/net10.0/Microsoft.Agents.AI.OpenAI.dll
  microsoft.agents.ai.workflows/1.0.0-rc4/lib/net10.0/Microsoft.Agents.AI.Workflows.dll
  microsoft.agents.ai/1.0.0-rc4/lib/net10.0/Microsoft.Agents.AI.dll
+ microsoft.aspnetcore.authentication.jwtbearer/9.0.0/lib/net9.0/Microsoft.AspNetCore.Authentication.JwtBearer.dll
+ microsoft.aspnetcore.authentication.openidconnect/9.0.0/lib/net9.0/Microsoft.AspNetCore.Authentication.OpenIdConnect.dll
  microsoft.aspnetcore.spaproxy/10.0.3/lib/net10.0/Microsoft.AspNetCore.SpaProxy.dll
  microsoft.bcl.asyncinterfaces/6.0.0/lib/netstandard2.1/Microsoft.Bcl.AsyncInterfaces.dll
  microsoft.codecoverage/17.14.1/lib/net8.0/Microsoft.VisualStudio.CodeCoverage.Shim.dll
@@ -395,9 +402,23 @@ obj/Debug/net10.0/
  microsoft.extensions.ai.openai/10.3.0/lib/net10.0/Microsoft.Extensions.AI.OpenAI.dll
  microsoft.extensions.ai/10.3.0/lib/net10.0/Microsoft.Extensions.AI.dll
  microsoft.extensions.vectordata.abstractions/9.7.0/lib/net8.0/Microsoft.Extensions.VectorData.Abstractions.dll
+ microsoft.identity.abstractions/9.0.0/lib/net8.0/Microsoft.Identity.Abstractions.dll
  microsoft.identity.client.extensions.msal/4.67.2/lib/net8.0/Microsoft.Identity.Client.Extensions.Msal.dll
- microsoft.identity.client/4.67.2/lib/net8.0/Microsoft.Identity.Client.dll
- microsoft.identitymodel.abstractions/6.35.0/lib/net6.0/Microsoft.IdentityModel.Abstractions.dll
+ microsoft.identity.client/4.71.0/lib/net8.0/Microsoft.Identity.Client.dll
+ microsoft.identity.web.certificate/3.8.4/lib/net9.0/Microsoft.Identity.Web.Certificate.dll
+ microsoft.identity.web.certificateless/3.8.4/lib/netstandard2.0/Microsoft.Identity.Web.Certificateless.dll
+ microsoft.identity.web.diagnostics/3.8.4/lib/net9.0/Microsoft.Identity.Web.Diagnostics.dll
+ microsoft.identity.web.tokenacquisition/3.8.4/lib/net9.0/Microsoft.Identity.Web.TokenAcquisition.dll
+ microsoft.identity.web.tokencache/3.8.4/lib/net9.0/Microsoft.Identity.Web.TokenCache.dll
+ microsoft.identity.web/3.8.4/lib/net9.0/Microsoft.Identity.Web.dll
+ microsoft.identitymodel.abstractions/8.9.0/lib/net9.0/Microsoft.IdentityModel.Abstractions.dll
+ microsoft.identitymodel.jsonwebtokens/8.9.0/lib/net9.0/Microsoft.IdentityModel.JsonWebTokens.dll
+ microsoft.identitymodel.logging/8.9.0/lib/net9.0/Microsoft.IdentityModel.Logging.dll
+ microsoft.identitymodel.loggingextensions/8.9.0/lib/net9.0/Microsoft.IdentityModel.LoggingExtensions.dll
+ microsoft.identitymodel.protocols.openidconnect/8.9.0/lib/net9.0/Microsoft.IdentityModel.Protocols.OpenIdConnect.dll
+ microsoft.identitymodel.protocols/8.9.0/lib/net9.0/Microsoft.IdentityModel.Protocols.dll
+ microsoft.identitymodel.tokens/8.9.0/lib/net9.0/Microsoft.IdentityModel.Tokens.dll
+ microsoft.identitymodel.validators/8.9.0/lib/net9.0/Microsoft.IdentityModel.Validators.dll
  microsoft.ml.tokenizers/2.0.0/lib/net8.0/Microsoft.ML.Tokenizers.dll
  microsoft.openapi/2.4.1/lib/net8.0/Microsoft.OpenApi.dll
  microsoft.testplatform.testhost/17.14.1/lib/net8.0/
@@ -416,8 +437,10 @@ obj/Debug/net10.0/
  swashbuckle.aspnetcore.swaggergen/10.1.5/lib/net10.0/Swashbuckle.AspNetCore.SwaggerGen.dll
  swashbuckle.aspnetcore.swaggerui/10.1.5/lib/net10.0/Swashbuckle.AspNetCore.SwaggerUI.dll
  system.clientmodel/1.9.0/lib/net10.0/System.ClientModel.dll
+ system.identitymodel.tokens.jwt/8.9.0/lib/net9.0/System.IdentityModel.Tokens.Jwt.dll
  system.memory.data/10.0.1/lib/net10.0/System.Memory.Data.dll
  system.numerics.tensors/10.0.3/lib/net10.0/System.Numerics.Tensors.dll
+ system.security.cryptography.pkcs/9.0.0/lib/net9.0/System.Security.Cryptography.Pkcs.dll
  system.security.cryptography.protecteddata/4.5.0/ref/netstandard2.0/System.Security.Cryptography.ProtectedData.dll
  xunit.abstractions/2.0.3/lib/netstandard2.0/xunit.abstractions.dll
  xunit.assert/2.9.3/lib/net6.0/xunit.assert.dll

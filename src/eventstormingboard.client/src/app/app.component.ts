@@ -35,6 +35,10 @@ export class AppComponent implements OnInit, OnDestroy {
     this.iconsService.registerIcons();
   }
 
+  public get isNameReadOnly(): boolean {
+    return this.userService.isReadOnly;
+  }
+
   public ngOnInit(): void {
     this.userService.displayName$.pipe(takeUntil(this.destroy$)).subscribe(name => {
       this.userName = name;

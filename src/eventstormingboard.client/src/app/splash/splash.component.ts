@@ -28,6 +28,10 @@ export class SplashComponent implements OnInit, OnDestroy {
     private dialog: MatDialog,
     private userService: UserService) { }
 
+  public get isNameReadOnly(): boolean {
+    return this.userService.isReadOnly;
+  }
+
   public onUserNameChanged(): void {
     this.userService.setDisplayName(this.userName);
   }
