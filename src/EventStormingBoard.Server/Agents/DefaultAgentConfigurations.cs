@@ -30,7 +30,7 @@ namespace EventStormingBoard.Server.Agents
                 Color = "#3f51b5",
                 Order = 0,
                 ModelType = "gpt-5.2",
-                ReasoningEffort = "medium",
+                ReasoningEffort = "low",
                 ActivePhases = null, // active in all phases
                 AllowedTools = new List<string>
                 {

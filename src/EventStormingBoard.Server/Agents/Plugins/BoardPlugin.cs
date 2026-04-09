@@ -214,8 +214,7 @@ namespace EventStormingBoard.Server.Plugins
             [Description("Y coordinate for placement on the canvas")] double y)
         {
             var noteId = Guid.NewGuid();
-            var width = type == NoteType.User ? 60.0 : 120.0;
-            var height = type == NoteType.User ? 60.0 : 120.0;
+            var (width, height) = GetNoteDimensions(type, text);
 
             var noteDto = new NoteDto
             {
@@ -384,8 +383,7 @@ namespace EventStormingBoard.Server.Plugins
             foreach (var input in notes)
             {
                 var noteId = Guid.NewGuid();
-                var width = input.Type == NoteType.User ? 60.0 : 120.0;
-                var height = input.Type == NoteType.User ? 60.0 : 120.0;
+                var (width, height) = GetNoteDimensions(input.Type, input.Text);
 
                 var noteDto = new NoteDto
                 {
@@ -673,6 +671,22 @@ namespace EventStormingBoard.Server.Plugins
             await _hubContext.Clients.Group(_boardId.ToString()).SendAsync("BoundedContextDeleted", @event).ConfigureAwait(false);
 
             return $"Deleted bounded context \"{bc.Name}\"";
+        }
+
+        private static (double Width, double Height) GetNoteDimensions(NoteType type, string text)
+        {
+            if (type == NoteType.User)
+                return (60.0, 60.0);
+
+            if (type == NoteType.Concern)
+            {
+                if (text.Length > 100)
+                    return (200.0, 200.0);
+                if (text.Length > 50)
+                    return (160.0, 160.0);
+            }
+
+            return (120.0, 120.0);
         }
 
         private static string? NormalizeOptional(string? value)
