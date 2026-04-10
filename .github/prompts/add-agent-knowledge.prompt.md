@@ -1,6 +1,6 @@
 ---
 description: "Analyze the codebase and create or update agent knowledge documentation."
-name: "Add Agent Knowledge"
+name: "add agent knowledge"
 argument-hint: "Describe the topic, feature, or concept to document"
 model: "Claude Opus 4.6"
 agent: agent
