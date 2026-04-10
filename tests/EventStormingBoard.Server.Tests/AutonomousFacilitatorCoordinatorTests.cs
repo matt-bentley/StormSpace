@@ -6,35 +6,42 @@ namespace EventStormingBoard.Server.Tests;
 public class AutonomousFacilitatorCoordinatorTests
 {
     [Fact]
-    public void GetTriggerReason_WhenEnabledForFirstTime_ReturnsEnabled()
+    public void GivenBoardIsEnabledForFirstTime_WhenGettingTriggerReason_ThenReturnsEnabled()
     {
+        // Arrange
         var coordinator = new AutonomousFacilitatorCoordinator();
         var boardId = Guid.NewGuid();
 
         coordinator.SyncBoardSettings(boardId, enabled: true);
 
+        // Act
         var triggerReason = coordinator.GetTriggerReason(boardId, DateTimeOffset.UtcNow.AddMinutes(1));
 
-        Assert.Equal("enabled", triggerReason);
+        // Assert
+        triggerReason.Should().Be("enabled");
     }
 
     [Fact]
-    public void GetTriggerReason_AfterDebouncedUserActivity_ReturnsUserActivityDebounce()
+    public void GivenRecentUserActivity_WhenGettingTriggerReasonAfterDebounceWindow_ThenReturnsUserActivityDebounce()
     {
+        // Arrange
         var coordinator = new AutonomousFacilitatorCoordinator();
         var boardId = Guid.NewGuid();
 
         coordinator.SyncBoardSettings(boardId, enabled: true);
         coordinator.RecordUserActivity(boardId);
 
+        // Act
         var triggerReason = coordinator.GetTriggerReason(boardId, DateTimeOffset.UtcNow.AddSeconds(30));
 
-        Assert.Equal("userActivityDebounce", triggerReason);
+        // Assert
+        triggerReason.Should().Be("userActivityDebounce");
     }
 
     [Fact]
-    public void AcknowledgeManualAgentResponse_SuppressesImmediateAutonomousFollowUp()
+    public void GivenManualAgentResponseAcknowledged_WhenCheckingTriggerAcrossCooldown_ThenImmediateFollowUpIsSuppressed()
     {
+        // Arrange
         var coordinator = new AutonomousFacilitatorCoordinator();
         var boardId = Guid.NewGuid();
         var now = DateTimeOffset.UtcNow;
@@ -43,18 +50,21 @@ public class AutonomousFacilitatorCoordinatorTests
         coordinator.RecordUserActivity(boardId);
         coordinator.AcknowledgeManualAgentResponse(boardId, now);
 
+        // Act
         var immediateTriggerReason = coordinator.GetTriggerReason(boardId, now.AddSeconds(30));
         var postCooldownTriggerReason = coordinator.GetTriggerReason(boardId, now.AddSeconds(50));
         var postTimerTriggerReason = coordinator.GetTriggerReason(boardId, now.AddMinutes(4));
 
-        Assert.Null(immediateTriggerReason);
-        Assert.Null(postCooldownTriggerReason);
-        Assert.Equal("timer", postTimerTriggerReason);
+        // Assert
+        immediateTriggerReason.Should().BeNull();
+        postCooldownTriggerReason.Should().BeNull();
+        postTimerTriggerReason.Should().Be("timer");
     }
 
     [Fact]
-    public void BeginManualAgentResponse_BlocksAutonomousRunWhileManualReplyIsInFlight()
+    public void GivenManualResponseIsInFlight_WhenGettingTriggerReason_ThenAutonomousRunIsBlocked()
     {
+        // Arrange
         var coordinator = new AutonomousFacilitatorCoordinator();
         var boardId = Guid.NewGuid();
         var now = DateTimeOffset.UtcNow;
@@ -63,38 +73,44 @@ public class AutonomousFacilitatorCoordinatorTests
         coordinator.RecordUserActivity(boardId);
         coordinator.BeginManualAgentResponse(boardId, now);
 
+        // Act
         var triggerReasonWhileManualResponseRuns = coordinator.GetTriggerReason(boardId, now.AddMinutes(1));
 
-        Assert.Null(triggerReasonWhileManualResponseRuns);
+        // Assert
+        triggerReasonWhileManualResponseRuns.Should().BeNull();
     }
 
     [Fact]
-    public void CompleteRun_AfterAutonomousActed_WaitsForUserActivityBeforeRunningAgain()
+    public void GivenAutonomousRunActed_WhenNoNewUserActivity_ThenCoordinatorWaitsBeforeRunningAgain()
     {
+        // Arrange
         var coordinator = new AutonomousFacilitatorCoordinator();
         var boardId = Guid.NewGuid();
         var now = DateTimeOffset.UtcNow;
 
         coordinator.SyncBoardSettings(boardId, enabled: true);
-        Assert.True(coordinator.TryStartRun(boardId, "enabled", now, out _));
+        coordinator.TryStartRun(boardId, "enabled", now, out _).Should().BeTrue();
         coordinator.CompleteRun(boardId, new AutonomousAgentResult
         {
             Status = AutonomousAgentStatus.Acted,
             TriggerReason = "enabled"
         }, now.AddSeconds(5));
 
+        // Act
         var timerTriggerWithoutUserActivity = coordinator.GetTriggerReason(boardId, now.AddMinutes(4));
 
         coordinator.RecordUserActivity(boardId);
         var activityTriggerAfterUserInput = coordinator.GetTriggerReason(boardId, now.AddMinutes(4).AddSeconds(25));
 
-        Assert.Null(timerTriggerWithoutUserActivity);
-        Assert.Equal("userActivityDebounce", activityTriggerAfterUserInput);
+        // Assert
+        timerTriggerWithoutUserActivity.Should().BeNull();
+        activityTriggerAfterUserInput.Should().Be("userActivityDebounce");
     }
 
     [Fact]
-    public void CompleteRun_AfterThreeFailures_DisablesAutonomy()
+    public void GivenThreeConsecutiveFailures_WhenCompletingRuns_ThenAutonomyIsDisabled()
     {
+        // Arrange
         var coordinator = new AutonomousFacilitatorCoordinator();
         var boardId = Guid.NewGuid();
         var now = DateTimeOffset.UtcNow;
@@ -103,7 +119,7 @@ public class AutonomousFacilitatorCoordinatorTests
 
         for (var attempt = 0; attempt < 3; attempt++)
         {
-            Assert.True(coordinator.TryStartRun(boardId, "timer", now.AddMinutes(attempt + 1), out _));
+            coordinator.TryStartRun(boardId, "timer", now.AddMinutes(attempt + 1), out _).Should().BeTrue();
             coordinator.CompleteRun(boardId, new AutonomousAgentResult
             {
                 Status = AutonomousAgentStatus.Failed,
@@ -111,17 +127,20 @@ public class AutonomousFacilitatorCoordinatorTests
             }, now.AddMinutes(attempt + 1).AddSeconds(5));
         }
 
+        // Act
         var status = coordinator.GetStatus(boardId, enabled: false);
 
-        Assert.False(status.IsEnabled);
-        Assert.Equal("stopped", status.State);
-        Assert.Equal("failureLimitExceeded", status.StopReason);
-        Assert.Equal("failed", status.LastResultStatus);
+        // Assert
+        status.IsEnabled.Should().BeFalse();
+        status.State.Should().Be("stopped");
+        status.StopReason.Should().Be("failureLimitExceeded");
+        status.LastResultStatus.Should().Be("failed");
     }
 
     [Fact]
-    public void TryStartRun_MultipleBoardsConcurrently_EachBoardRunsIndependently()
+    public void GivenMultipleBoards_WhenStartingRuns_ThenEachBoardRunsIndependently()
     {
+        // Arrange
         var coordinator = new AutonomousFacilitatorCoordinator();
         var boardA = Guid.NewGuid();
         var boardB = Guid.NewGuid();
@@ -130,13 +149,15 @@ public class AutonomousFacilitatorCoordinatorTests
         coordinator.SyncBoardSettings(boardA, enabled: true);
         coordinator.SyncBoardSettings(boardB, enabled: true);
 
+        // Act
         var startedA = coordinator.TryStartRun(boardA, "enabled", now, out var statusA);
         var startedB = coordinator.TryStartRun(boardB, "enabled", now, out var statusB);
 
-        Assert.True(startedA);
-        Assert.True(startedB);
-        Assert.True(statusA.IsRunning);
-        Assert.True(statusB.IsRunning);
+        // Assert
+        startedA.Should().BeTrue();
+        startedB.Should().BeTrue();
+        statusA.IsRunning.Should().BeTrue();
+        statusB.IsRunning.Should().BeTrue();
 
         // Complete Board A — Board B should still be running.
         coordinator.CompleteRun(boardA, new AutonomousAgentResult
@@ -148,13 +169,14 @@ public class AutonomousFacilitatorCoordinatorTests
         var statusAAfter = coordinator.GetStatus(boardA, enabled: true);
         var statusBDuring = coordinator.GetStatus(boardB, enabled: true);
 
-        Assert.False(statusAAfter.IsRunning);
-        Assert.True(statusBDuring.IsRunning);
+        statusAAfter.IsRunning.Should().BeFalse();
+        statusBDuring.IsRunning.Should().BeTrue();
     }
 
     [Fact]
-    public void CancelManualAgentResponse_ClearsManualResponseFlag_WithoutUpdatingCooldown()
+    public void GivenManualResponseWasCancelled_WhenGettingTriggerReason_ThenEnabledTriggerIsReturned()
     {
+        // Arrange
         var coordinator = new AutonomousFacilitatorCoordinator();
         var boardId = Guid.NewGuid();
         var now = DateTimeOffset.UtcNow;
@@ -164,19 +186,23 @@ public class AutonomousFacilitatorCoordinatorTests
         coordinator.BeginManualAgentResponse(boardId, now);
 
         // Manual response is in flight — autonomous should be blocked.
-        Assert.Null(coordinator.GetTriggerReason(boardId, now.AddMinutes(1)));
+        coordinator.GetTriggerReason(boardId, now.AddMinutes(1)).Should().BeNull();
 
+        // Act
         // Cancel (simulating an exception path).
         coordinator.CancelManualAgentResponse(boardId);
 
         // Should unblock autonomous runs.
         var triggerReason = coordinator.GetTriggerReason(boardId, now.AddSeconds(25));
-        Assert.Equal("userActivityDebounce", triggerReason);
+
+        // Assert
+        triggerReason.Should().Be("enabled");
     }
 
     [Fact]
-    public void ClearBoardState_RemovesAllStateForBoard()
+    public void GivenBoardHasState_WhenClearingBoardState_ThenAllBoardStateIsRemoved()
     {
+        // Arrange
         var coordinator = new AutonomousFacilitatorCoordinator();
         var boardId = Guid.NewGuid();
 
@@ -185,13 +211,16 @@ public class AutonomousFacilitatorCoordinatorTests
 
         // State exists.
         var statusBefore = coordinator.GetStatus(boardId, enabled: true);
-        Assert.True(statusBefore.IsEnabled);
+        statusBefore.IsEnabled.Should().BeTrue();
 
+        // Act
         // Clear it.
         coordinator.ClearBoardState(boardId);
 
         // State should be fresh (default disabled).
         var statusAfter = coordinator.GetStatus(boardId, enabled: false);
-        Assert.False(statusAfter.IsEnabled);
+
+        // Assert
+        statusAfter.IsEnabled.Should().BeFalse();
     }
 }

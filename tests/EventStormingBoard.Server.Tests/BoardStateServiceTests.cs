@@ -26,8 +26,9 @@ public class BoardStateServiceTests
     // ── BoardNameUpdated ────────────────────────────────────
 
     [Fact]
-    public void ApplyBoardNameUpdated_UpdatesName()
+    public void GivenBoardNameUpdatedEvent_WhenApplying_ThenBoardNameIsUpdated()
     {
+        // Arrange
         var @event = new BoardNameUpdatedEvent
         {
             BoardId = _board.Id,
@@ -35,14 +36,17 @@ public class BoardStateServiceTests
             OldName = "Test Board"
         };
 
+        // Act
         _service.ApplyBoardNameUpdated(@event);
 
-        Assert.Equal("New Name", _board.Name);
+        // Assert
+        _board.Name.Should().Be("New Name");
     }
 
     [Fact]
-    public void ApplyBoardNameUpdated_Undo_RevertsToOldName()
+    public void GivenUndoBoardNameUpdatedEvent_WhenApplying_ThenBoardNameRevertsToOldName()
     {
+        // Arrange
         _board.Name = "New Name";
         var @event = new BoardNameUpdatedEvent
         {
@@ -52,16 +56,19 @@ public class BoardStateServiceTests
             IsUndo = true
         };
 
+        // Act
         _service.ApplyBoardNameUpdated(@event);
 
-        Assert.Equal("Test Board", _board.Name);
+        // Assert
+        _board.Name.Should().Be("Test Board");
     }
 
     // ── BoardContextUpdated (Phase) ─────────────────────────
 
     [Fact]
-    public void ApplyBoardContextUpdated_SetsPhase()
+    public void GivenBoardContextUpdatedEvent_WhenApplying_ThenPhaseAndAutonomousFlagAreSet()
     {
+        // Arrange
         var @event = new BoardContextUpdatedEvent
         {
             BoardId = _board.Id,
@@ -75,15 +82,18 @@ public class BoardStateServiceTests
             NewAutonomousEnabled = true
         };
 
+        // Act
         _service.ApplyBoardContextUpdated(@event);
 
-        Assert.Equal(EventStormingPhase.IdentifyEvents, _board.Phase);
-        Assert.True(_board.AutonomousEnabled);
+        // Assert
+        _board.Phase.Should().Be(EventStormingPhase.IdentifyEvents);
+        _board.AutonomousEnabled.Should().BeTrue();
     }
 
     [Fact]
-    public void ApplyBoardContextUpdated_Undo_RevertsPhase()
+    public void GivenUndoBoardContextUpdatedEvent_WhenApplying_ThenPhaseAndAutonomousFlagRevert()
     {
+        // Arrange
         _board.Phase = EventStormingPhase.AddCommandsAndPolicies;
         _board.AutonomousEnabled = true;
         var @event = new BoardContextUpdatedEvent
@@ -100,17 +110,20 @@ public class BoardStateServiceTests
             IsUndo = true
         };
 
+        // Act
         _service.ApplyBoardContextUpdated(@event);
 
-        Assert.Equal(EventStormingPhase.IdentifyEvents, _board.Phase);
-        Assert.False(_board.AutonomousEnabled);
+        // Assert
+        _board.Phase.Should().Be(EventStormingPhase.IdentifyEvents);
+        _board.AutonomousEnabled.Should().BeFalse();
     }
 
     // ── NoteCreated ─────────────────────────────────────────
 
     [Fact]
-    public void ApplyNoteCreated_AddsNoteToBoard()
+    public void GivenNoteCreatedEvent_WhenApplying_ThenNoteIsAddedToBoard()
     {
+        // Arrange
         var noteId = Guid.NewGuid();
         var @event = new NoteCreatedEvent
         {
@@ -126,20 +139,23 @@ public class BoardStateServiceTests
             }
         };
 
+        // Act
         _service.ApplyNoteCreated(@event);
 
-        Assert.Single(_board.Notes);
+        // Assert
+        _board.Notes.Should().ContainSingle();
         var note = _board.Notes[0];
-        Assert.Equal(noteId, note.Id);
-        Assert.Equal("OrderPlaced", note.Text);
-        Assert.Equal(100, note.X);
-        Assert.Equal(200, note.Y);
-        Assert.Equal(NoteType.Event, note.Type);
+        note.Id.Should().Be(noteId);
+        note.Text.Should().Be("OrderPlaced");
+        note.X.Should().Be(100);
+        note.Y.Should().Be(200);
+        note.Type.Should().Be(NoteType.Event);
     }
 
     [Fact]
-    public void ApplyNoteCreated_Undo_RemovesNote()
+    public void GivenUndoNoteCreatedEvent_WhenApplying_ThenNoteIsRemoved()
     {
+        // Arrange
         var noteId = Guid.NewGuid();
         _board.Notes.Add(new Note { Id = noteId, Text = "OrderPlaced" });
 
@@ -150,16 +166,19 @@ public class BoardStateServiceTests
             Note = new NoteDto { Id = noteId, Text = "OrderPlaced" }
         };
 
+        // Act
         _service.ApplyNoteCreated(@event);
 
-        Assert.Empty(_board.Notes);
+        // Assert
+        _board.Notes.Should().BeEmpty();
     }
 
     // ── NotesMoved ──────────────────────────────────────────
 
     [Fact]
-    public void ApplyNotesMoved_UpdatesCoordinates()
+    public void GivenNotesMovedEvent_WhenApplying_ThenCoordinatesAreUpdated()
     {
+        // Arrange
         var noteId = Guid.NewGuid();
         _board.Notes.Add(new Note { Id = noteId, X = 10, Y = 20 });
 
@@ -170,15 +189,18 @@ public class BoardStateServiceTests
             To = [new NoteMoveDto { NoteId = noteId, Coordinates = new CoordinatesDto { X = 300, Y = 400 } }]
         };
 
+        // Act
         _service.ApplyNotesMoved(@event);
 
-        Assert.Equal(300, _board.Notes[0].X);
-        Assert.Equal(400, _board.Notes[0].Y);
+        // Assert
+        _board.Notes[0].X.Should().Be(300);
+        _board.Notes[0].Y.Should().Be(400);
     }
 
     [Fact]
-    public void ApplyNotesMoved_Undo_RevertsToFromCoordinates()
+    public void GivenUndoNotesMovedEvent_WhenApplying_ThenCoordinatesRevertToFromValues()
     {
+        // Arrange
         var noteId = Guid.NewGuid();
         _board.Notes.Add(new Note { Id = noteId, X = 300, Y = 400 });
 
@@ -190,15 +212,18 @@ public class BoardStateServiceTests
             To = [new NoteMoveDto { NoteId = noteId, Coordinates = new CoordinatesDto { X = 300, Y = 400 } }]
         };
 
+        // Act
         _service.ApplyNotesMoved(@event);
 
-        Assert.Equal(10, _board.Notes[0].X);
-        Assert.Equal(20, _board.Notes[0].Y);
+        // Assert
+        _board.Notes[0].X.Should().Be(10);
+        _board.Notes[0].Y.Should().Be(20);
     }
 
     [Fact]
-    public void ApplyNotesMoved_MultipleNotes()
+    public void GivenNotesMovedEventWithMultipleNotes_WhenApplying_ThenEachNoteIsMoved()
     {
+        // Arrange
         var id1 = Guid.NewGuid();
         var id2 = Guid.NewGuid();
         _board.Notes.Add(new Note { Id = id1, X = 0, Y = 0 });
@@ -217,17 +242,20 @@ public class BoardStateServiceTests
             ]
         };
 
+        // Act
         _service.ApplyNotesMoved(@event);
 
-        Assert.Equal(50, _board.Notes.First(n => n.Id == id1).X);
-        Assert.Equal(70, _board.Notes.First(n => n.Id == id2).X);
+        // Assert
+        _board.Notes.First(n => n.Id == id1).X.Should().Be(50);
+        _board.Notes.First(n => n.Id == id2).X.Should().Be(70);
     }
 
     // ── NoteResized ─────────────────────────────────────────
 
     [Fact]
-    public void ApplyNoteResized_UpdatesDimensions()
+    public void GivenNoteResizedEvent_WhenApplying_ThenNoteDimensionsAreUpdated()
     {
+        // Arrange
         var noteId = Guid.NewGuid();
         _board.Notes.Add(new Note { Id = noteId, X = 10, Y = 20, Width = 120, Height = 120 });
 
@@ -239,16 +267,19 @@ public class BoardStateServiceTests
             To = new NoteSizeDto { X = 10, Y = 20, Width = 200, Height = 300 }
         };
 
+        // Act
         _service.ApplyNoteResized(@event);
 
+        // Assert
         var note = _board.Notes[0];
-        Assert.Equal(200, note.Width);
-        Assert.Equal(300, note.Height);
+        note.Width.Should().Be(200);
+        note.Height.Should().Be(300);
     }
 
     [Fact]
-    public void ApplyNoteResized_Undo_RevertsToFromSize()
+    public void GivenUndoNoteResizedEvent_WhenApplying_ThenNoteDimensionsRevertToFromValues()
     {
+        // Arrange
         var noteId = Guid.NewGuid();
         _board.Notes.Add(new Note { Id = noteId, X = 10, Y = 20, Width = 200, Height = 300 });
 
@@ -261,18 +292,21 @@ public class BoardStateServiceTests
             To = new NoteSizeDto { X = 10, Y = 20, Width = 200, Height = 300 }
         };
 
+        // Act
         _service.ApplyNoteResized(@event);
 
+        // Assert
         var note = _board.Notes[0];
-        Assert.Equal(120, note.Width);
-        Assert.Equal(120, note.Height);
+        note.Width.Should().Be(120);
+        note.Height.Should().Be(120);
     }
 
     // ── NotesDeleted ────────────────────────────────────────
 
     [Fact]
-    public void ApplyNotesDeleted_RemovesNotesAndConnections()
+    public void GivenNotesDeletedEvent_WhenApplying_ThenNotesAndConnectionsAreRemoved()
     {
+        // Arrange
         var id1 = Guid.NewGuid();
         var id2 = Guid.NewGuid();
         _board.Notes.Add(new Note { Id = id1, Text = "A" });
@@ -286,15 +320,18 @@ public class BoardStateServiceTests
             Connections = [new ConnectionDto { FromNoteId = id1, ToNoteId = id2 }]
         };
 
+        // Act
         _service.ApplyNotesDeleted(@event);
 
-        Assert.Empty(_board.Notes);
-        Assert.Empty(_board.Connections);
+        // Assert
+        _board.Notes.Should().BeEmpty();
+        _board.Connections.Should().BeEmpty();
     }
 
     [Fact]
-    public void ApplyNotesDeleted_Undo_RestoresNotesAndConnections()
+    public void GivenUndoNotesDeletedEvent_WhenApplying_ThenNotesAndConnectionsAreRestored()
     {
+        // Arrange
         var id1 = Guid.NewGuid();
         var id2 = Guid.NewGuid();
 
@@ -306,15 +343,18 @@ public class BoardStateServiceTests
             Connections = [new ConnectionDto { FromNoteId = id1, ToNoteId = id2 }]
         };
 
+        // Act
         _service.ApplyNotesDeleted(@event);
 
-        Assert.Equal(2, _board.Notes.Count);
-        Assert.Single(_board.Connections);
+        // Assert
+        _board.Notes.Count.Should().Be(2);
+        _board.Connections.Should().ContainSingle();
     }
 
     [Fact]
-    public void ApplyNotesDeleted_Undo_DoesNotDuplicateExistingNotes()
+    public void GivenUndoNotesDeletedEventWithExistingNotes_WhenApplying_ThenExistingNotesAreNotDuplicated()
     {
+        // Arrange
         var id1 = Guid.NewGuid();
         _board.Notes.Add(new Note { Id = id1, Text = "A" });
 
@@ -326,16 +366,19 @@ public class BoardStateServiceTests
             Connections = []
         };
 
+        // Act
         _service.ApplyNotesDeleted(@event);
 
-        Assert.Single(_board.Notes);
+        // Assert
+        _board.Notes.Should().ContainSingle();
     }
 
     // ── NoteTextEdited ──────────────────────────────────────
 
     [Fact]
-    public void ApplyNoteTextEdited_UpdatesText()
+    public void GivenNoteTextEditedEvent_WhenApplying_ThenNoteTextIsUpdated()
     {
+        // Arrange
         var noteId = Guid.NewGuid();
         _board.Notes.Add(new Note { Id = noteId, Text = "Old" });
 
@@ -347,14 +390,17 @@ public class BoardStateServiceTests
             ToText = "New"
         };
 
+        // Act
         _service.ApplyNoteTextEdited(@event);
 
-        Assert.Equal("New", _board.Notes[0].Text);
+        // Assert
+        _board.Notes[0].Text.Should().Be("New");
     }
 
     [Fact]
-    public void ApplyNoteTextEdited_Undo_RevertsText()
+    public void GivenUndoNoteTextEditedEvent_WhenApplying_ThenNoteTextReverts()
     {
+        // Arrange
         var noteId = Guid.NewGuid();
         _board.Notes.Add(new Note { Id = noteId, Text = "New" });
 
@@ -367,16 +413,19 @@ public class BoardStateServiceTests
             ToText = "New"
         };
 
+        // Act
         _service.ApplyNoteTextEdited(@event);
 
-        Assert.Equal("Old", _board.Notes[0].Text);
+        // Assert
+        _board.Notes[0].Text.Should().Be("Old");
     }
 
     // ── ConnectionCreated ───────────────────────────────────
 
     [Fact]
-    public void ApplyConnectionCreated_AddsConnection()
+    public void GivenConnectionCreatedEvent_WhenApplying_ThenConnectionIsAdded()
     {
+        // Arrange
         var from = Guid.NewGuid();
         var to = Guid.NewGuid();
 
@@ -386,16 +435,19 @@ public class BoardStateServiceTests
             Connection = new ConnectionDto { FromNoteId = from, ToNoteId = to }
         };
 
+        // Act
         _service.ApplyConnectionCreated(@event);
 
-        Assert.Single(_board.Connections);
-        Assert.Equal(from, _board.Connections[0].FromNoteId);
-        Assert.Equal(to, _board.Connections[0].ToNoteId);
+        // Assert
+        _board.Connections.Should().ContainSingle();
+        _board.Connections[0].FromNoteId.Should().Be(from);
+        _board.Connections[0].ToNoteId.Should().Be(to);
     }
 
     [Fact]
-    public void ApplyConnectionCreated_Undo_RemovesConnection()
+    public void GivenUndoConnectionCreatedEvent_WhenApplying_ThenConnectionIsRemoved()
     {
+        // Arrange
         var from = Guid.NewGuid();
         var to = Guid.NewGuid();
         _board.Connections.Add(new Connection { FromNoteId = from, ToNoteId = to });
@@ -407,16 +459,19 @@ public class BoardStateServiceTests
             Connection = new ConnectionDto { FromNoteId = from, ToNoteId = to }
         };
 
+        // Act
         _service.ApplyConnectionCreated(@event);
 
-        Assert.Empty(_board.Connections);
+        // Assert
+        _board.Connections.Should().BeEmpty();
     }
 
     // ── Pasted ──────────────────────────────────────────────
 
     [Fact]
-    public void ApplyPasted_AddsNotesAndConnections()
+    public void GivenPastedEvent_WhenApplying_ThenNotesAndConnectionsAreAdded()
     {
+        // Arrange
         var id1 = Guid.NewGuid();
         var id2 = Guid.NewGuid();
 
@@ -430,15 +485,18 @@ public class BoardStateServiceTests
             Connections = [new ConnectionDto { FromNoteId = id1, ToNoteId = id2 }]
         };
 
+        // Act
         _service.ApplyPasted(@event);
 
-        Assert.Equal(2, _board.Notes.Count);
-        Assert.Single(_board.Connections);
+        // Assert
+        _board.Notes.Count.Should().Be(2);
+        _board.Connections.Should().ContainSingle();
     }
 
     [Fact]
-    public void ApplyPasted_Undo_RemovesPastedNotesAndConnections()
+    public void GivenUndoPastedEvent_WhenApplying_ThenPastedNotesAndConnectionsAreRemoved()
     {
+        // Arrange
         var id1 = Guid.NewGuid();
         var id2 = Guid.NewGuid();
         _board.Notes.Add(new Note { Id = id1, Text = "A" });
@@ -453,17 +511,20 @@ public class BoardStateServiceTests
             Connections = [new ConnectionDto { FromNoteId = id1, ToNoteId = id2 }]
         };
 
+        // Act
         _service.ApplyPasted(@event);
 
-        Assert.Empty(_board.Notes);
-        Assert.Empty(_board.Connections);
+        // Assert
+        _board.Notes.Should().BeEmpty();
+        _board.Connections.Should().BeEmpty();
     }
 
     // ── BoundedContextCreated ───────────────────────────────
 
     [Fact]
-    public void ApplyBoundedContextCreated_AddsBoundedContext()
+    public void GivenBoundedContextCreatedEvent_WhenApplying_ThenBoundedContextIsAdded()
     {
+        // Arrange
         var bcId = Guid.NewGuid();
         var @event = new BoundedContextCreatedEvent
         {
@@ -478,21 +539,24 @@ public class BoardStateServiceTests
             }
         };
 
+        // Act
         _service.ApplyBoundedContextCreated(@event);
 
-        Assert.Single(_board.BoundedContexts);
+        // Assert
+        _board.BoundedContexts.Should().ContainSingle();
         var bc = _board.BoundedContexts[0];
-        Assert.Equal(bcId, bc.Id);
-        Assert.Equal("Orders", bc.Name);
-        Assert.Equal(100, bc.X);
-        Assert.Equal(200, bc.Y);
-        Assert.Equal(800, bc.Width);
-        Assert.Equal(600, bc.Height);
+        bc.Id.Should().Be(bcId);
+        bc.Name.Should().Be("Orders");
+        bc.X.Should().Be(100);
+        bc.Y.Should().Be(200);
+        bc.Width.Should().Be(800);
+        bc.Height.Should().Be(600);
     }
 
     [Fact]
-    public void ApplyBoundedContextCreated_Undo_RemovesBoundedContext()
+    public void GivenUndoBoundedContextCreatedEvent_WhenApplying_ThenBoundedContextIsRemoved()
     {
+        // Arrange
         var bcId = Guid.NewGuid();
         _board.BoundedContexts.Add(new BoundedContext { Id = bcId, Name = "Orders" });
 
@@ -503,16 +567,19 @@ public class BoardStateServiceTests
             BoundedContext = new BoundedContextDto { Id = bcId, Name = "Orders" }
         };
 
+        // Act
         _service.ApplyBoundedContextCreated(@event);
 
-        Assert.Empty(_board.BoundedContexts);
+        // Assert
+        _board.BoundedContexts.Should().BeEmpty();
     }
 
     // ── BoundedContextUpdated ───────────────────────────────
 
     [Fact]
-    public void ApplyBoundedContextUpdated_UpdatesName()
+    public void GivenBoundedContextUpdatedEventWithNameChange_WhenApplying_ThenBoundedContextNameIsUpdated()
     {
+        // Arrange
         var bcId = Guid.NewGuid();
         _board.BoundedContexts.Add(new BoundedContext { Id = bcId, Name = "Orders", X = 100, Y = 200, Width = 800, Height = 600 });
 
@@ -524,14 +591,17 @@ public class BoardStateServiceTests
             NewName = "Order Management"
         };
 
+        // Act
         _service.ApplyBoundedContextUpdated(@event);
 
-        Assert.Equal("Order Management", _board.BoundedContexts[0].Name);
+        // Assert
+        _board.BoundedContexts[0].Name.Should().Be("Order Management");
     }
 
     [Fact]
-    public void ApplyBoundedContextUpdated_UpdatesPosition()
+    public void GivenBoundedContextUpdatedEventWithGeometryChange_WhenApplying_ThenBoundedContextGeometryIsUpdated()
     {
+        // Arrange
         var bcId = Guid.NewGuid();
         _board.BoundedContexts.Add(new BoundedContext { Id = bcId, Name = "Orders", X = 100, Y = 200, Width = 800, Height = 600 });
 
@@ -545,18 +615,21 @@ public class BoardStateServiceTests
             OldHeight = 600, NewHeight = 700
         };
 
+        // Act
         _service.ApplyBoundedContextUpdated(@event);
 
+        // Assert
         var bc = _board.BoundedContexts[0];
-        Assert.Equal(300, bc.X);
-        Assert.Equal(400, bc.Y);
-        Assert.Equal(1000, bc.Width);
-        Assert.Equal(700, bc.Height);
+        bc.X.Should().Be(300);
+        bc.Y.Should().Be(400);
+        bc.Width.Should().Be(1000);
+        bc.Height.Should().Be(700);
     }
 
     [Fact]
-    public void ApplyBoundedContextUpdated_Undo_RevertsToOldValues()
+    public void GivenUndoBoundedContextUpdatedEvent_WhenApplying_ThenBoundedContextValuesRevert()
     {
+        // Arrange
         var bcId = Guid.NewGuid();
         _board.BoundedContexts.Add(new BoundedContext { Id = bcId, Name = "Order Management", X = 300, Y = 400, Width = 1000, Height = 700 });
 
@@ -573,21 +646,24 @@ public class BoardStateServiceTests
             OldHeight = 600, NewHeight = 700
         };
 
+        // Act
         _service.ApplyBoundedContextUpdated(@event);
 
+        // Assert
         var bc = _board.BoundedContexts[0];
-        Assert.Equal("Orders", bc.Name);
-        Assert.Equal(100, bc.X);
-        Assert.Equal(200, bc.Y);
-        Assert.Equal(800, bc.Width);
-        Assert.Equal(600, bc.Height);
+        bc.Name.Should().Be("Orders");
+        bc.X.Should().Be(100);
+        bc.Y.Should().Be(200);
+        bc.Width.Should().Be(800);
+        bc.Height.Should().Be(600);
     }
 
     // ── BoundedContextDeleted ───────────────────────────────
 
     [Fact]
-    public void ApplyBoundedContextDeleted_RemovesBoundedContext()
+    public void GivenBoundedContextDeletedEvent_WhenApplying_ThenBoundedContextIsRemoved()
     {
+        // Arrange
         var bcId = Guid.NewGuid();
         _board.BoundedContexts.Add(new BoundedContext { Id = bcId, Name = "Orders", X = 100, Y = 200, Width = 800, Height = 600 });
 
@@ -597,14 +673,17 @@ public class BoardStateServiceTests
             BoundedContext = new BoundedContextDto { Id = bcId, Name = "Orders", X = 100, Y = 200, Width = 800, Height = 600 }
         };
 
+        // Act
         _service.ApplyBoundedContextDeleted(@event);
 
-        Assert.Empty(_board.BoundedContexts);
+        // Assert
+        _board.BoundedContexts.Should().BeEmpty();
     }
 
     [Fact]
-    public void ApplyBoundedContextDeleted_Undo_RestoresBoundedContext()
+    public void GivenUndoBoundedContextDeletedEvent_WhenApplying_ThenBoundedContextIsRestored()
     {
+        // Arrange
         var bcId = Guid.NewGuid();
 
         var @event = new BoundedContextDeletedEvent
@@ -614,17 +693,20 @@ public class BoardStateServiceTests
             BoundedContext = new BoundedContextDto { Id = bcId, Name = "Orders", X = 100, Y = 200, Width = 800, Height = 600, Color = "#00bcd4" }
         };
 
+        // Act
         _service.ApplyBoundedContextDeleted(@event);
 
-        Assert.Single(_board.BoundedContexts);
+        // Assert
+        _board.BoundedContexts.Should().ContainSingle();
         var bc = _board.BoundedContexts[0];
-        Assert.Equal(bcId, bc.Id);
-        Assert.Equal("Orders", bc.Name);
+        bc.Id.Should().Be(bcId);
+        bc.Name.Should().Be("Orders");
     }
 
     [Fact]
-    public void ApplyBoundedContextDeleted_Undo_DoesNotDuplicateExisting()
+    public void GivenUndoBoundedContextDeletedEventWithExistingContext_WhenApplying_ThenExistingContextIsNotDuplicated()
     {
+        // Arrange
         var bcId = Guid.NewGuid();
         _board.BoundedContexts.Add(new BoundedContext { Id = bcId, Name = "Orders" });
 
@@ -635,37 +717,47 @@ public class BoardStateServiceTests
             BoundedContext = new BoundedContextDto { Id = bcId, Name = "Orders" }
         };
 
+        // Act
         _service.ApplyBoundedContextDeleted(@event);
 
-        Assert.Single(_board.BoundedContexts);
+        // Assert
+        _board.BoundedContexts.Should().ContainSingle();
     }
 
     // ── Edge cases ──────────────────────────────────────────
 
     [Fact]
-    public void ApplyEvent_NonExistentBoard_DoesNotThrow()
+    public void GivenEventForNonExistentBoard_WhenApplying_ThenDoesNotThrow()
     {
+        // Arrange
         var @event = new NoteCreatedEvent
         {
             BoardId = Guid.NewGuid(),
             Note = new NoteDto { Id = Guid.NewGuid(), Text = "X" }
         };
+        Action act = () => _service.ApplyNoteCreated(@event);
 
-        var exception = Record.Exception(() => _service.ApplyNoteCreated(@event));
-        Assert.Null(exception);
+        // Act
+
+        // Assert
+        act.Should().NotThrow();
     }
 
     [Fact]
-    public void ApplyNotesMoved_NonExistentNote_DoesNotThrow()
+    public void GivenNotesMovedEventForNonExistentNote_WhenApplying_ThenDoesNotThrow()
     {
+        // Arrange
         var @event = new NotesMovedEvent
         {
             BoardId = _board.Id,
             From = [new NoteMoveDto { NoteId = Guid.NewGuid(), Coordinates = new CoordinatesDto { X = 0, Y = 0 } }],
             To = [new NoteMoveDto { NoteId = Guid.NewGuid(), Coordinates = new CoordinatesDto { X = 10, Y = 10 } }]
         };
+        Action act = () => _service.ApplyNotesMoved(@event);
 
-        var exception = Record.Exception(() => _service.ApplyNotesMoved(@event));
-        Assert.Null(exception);
+        // Act
+
+        // Assert
+        act.Should().NotThrow();
     }
 }

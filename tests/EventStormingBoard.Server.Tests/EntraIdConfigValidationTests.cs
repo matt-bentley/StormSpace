@@ -3,54 +3,80 @@ namespace EventStormingBoard.Server.Tests;
 public class EntraIdConfigValidationTests
 {
     [Fact]
-    public void Validation_AllEmpty_DoesNotThrow()
+    public void GivenEmptyConfig_WhenValidatingEntraIdConfig_ThenDoesNotThrow()
     {
+        // Arrange
+        Action act = () => ValidateEntraIdConfig(null, null, null);
+
+        // Act
+
+        // Assert
         // All empty = auth disabled, which is valid
-        var ex = Record.Exception(() => ValidateEntraIdConfig(null, null, null));
-        Assert.Null(ex);
+        act.Should().NotThrow();
     }
 
     [Fact]
-    public void Validation_AllPresent_DoesNotThrow()
+    public void GivenCompleteConfig_WhenValidatingEntraIdConfig_ThenDoesNotThrow()
     {
-        var ex = Record.Exception(() => ValidateEntraIdConfig("client", "tenant", new[] { "scope" }));
-        Assert.Null(ex);
+        // Arrange
+        Action act = () => ValidateEntraIdConfig("client", "tenant", new[] { "scope" });
+
+        // Act
+
+        // Assert
+        act.Should().NotThrow();
     }
 
     [Fact]
-    public void Validation_ClientIdOnly_ThrowsWithMissing()
+    public void GivenOnlyClientId_WhenValidatingEntraIdConfig_ThenThrowsWithMissingTenantIdAndScopes()
     {
-        var ex = Assert.Throws<InvalidOperationException>(() =>
-            ValidateEntraIdConfig("client", null, null));
+        // Arrange
+        Action act = () => ValidateEntraIdConfig("client", null, null);
 
-        Assert.Contains("Missing: TenantId, Scopes", ex.Message);
+        // Act
+        var ex = act.Should().Throw<InvalidOperationException>().Which;
+
+        // Assert
+        ex.Message.Should().Contain("Missing: TenantId, Scopes");
     }
 
     [Fact]
-    public void Validation_TenantIdOnly_ThrowsWithMissing()
+    public void GivenOnlyTenantId_WhenValidatingEntraIdConfig_ThenThrowsWithMissingClientIdAndScopes()
     {
-        var ex = Assert.Throws<InvalidOperationException>(() =>
-            ValidateEntraIdConfig(null, "tenant", null));
+        // Arrange
+        Action act = () => ValidateEntraIdConfig(null, "tenant", null);
 
-        Assert.Contains("Missing: ClientId, Scopes", ex.Message);
+        // Act
+        var ex = act.Should().Throw<InvalidOperationException>().Which;
+
+        // Assert
+        ex.Message.Should().Contain("Missing: ClientId, Scopes");
     }
 
     [Fact]
-    public void Validation_ScopesOnly_ThrowsWithMissing()
+    public void GivenOnlyScopes_WhenValidatingEntraIdConfig_ThenThrowsWithMissingClientIdAndTenantId()
     {
-        var ex = Assert.Throws<InvalidOperationException>(() =>
-            ValidateEntraIdConfig(null, null, new[] { "scope" }));
+        // Arrange
+        Action act = () => ValidateEntraIdConfig(null, null, new[] { "scope" });
 
-        Assert.Contains("Missing: ClientId, TenantId", ex.Message);
+        // Act
+        var ex = act.Should().Throw<InvalidOperationException>().Which;
+
+        // Assert
+        ex.Message.Should().Contain("Missing: ClientId, TenantId");
     }
 
     [Fact]
-    public void Validation_MissingScopesOnly_ThrowsWithScopes()
+    public void GivenMissingScopes_WhenValidatingEntraIdConfig_ThenThrowsWithMissingScopes()
     {
-        var ex = Assert.Throws<InvalidOperationException>(() =>
-            ValidateEntraIdConfig("client", "tenant", null));
+        // Arrange
+        Action act = () => ValidateEntraIdConfig("client", "tenant", null);
 
-        Assert.Contains("Missing: Scopes", ex.Message);
+        // Act
+        var ex = act.Should().Throw<InvalidOperationException>().Which;
+
+        // Assert
+        ex.Message.Should().Contain("Missing: Scopes");
     }
 
     /// <summary>

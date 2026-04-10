@@ -9,7 +9,7 @@ Two-tier app: Angular 21 frontend + ASP.NET 10 backend, communicating via REST a
 ```
 src/eventstormingboard.client/    # Angular 21, Material 21, HTML Canvas
 src/EventStormingBoard.Server/    # ASP.NET 10, SignalR, Microsoft Agent Framework
-tests/EventStormingBoard.Server.Tests/  # xUnit, hand-rolled test doubles
+tests/EventStormingBoard.Server.Tests/  # xUnit, Moq, AwesomeAssertions
 ```
 
 **Backend flow**: Hub/Controller → `IBoardEventPipeline.ApplyAndLog()` → `IBoardStateService` + `IBoardEventLog` → `IBoardsRepository` (in-memory cache). All state changes broadcast to clients via SignalR.
@@ -56,8 +56,10 @@ docker run -it -p 8080:8080 --rm mabentley/stormspace
 
 ### Tests (xUnit)
 
-- **Method naming**: `Method_Scenario_Expected` (e.g., `ApplyAndLog_BoardNameUpdated_AppliesStateAndAppendsLog`)
-- **Test doubles**: Hand-rolled spy/stub classes (no Moq/NSubstitute) — e.g., `SpyBoardStateService`
+- **Method naming**: `Given{Precondition}_When{Action}_Then{Expected}` (e.g., `GivenBoardNameUpdatedEvent_WhenApplying_ThenBoardNameIsUpdated`)
+- **Test body**: Explicit `// Arrange`, `// Act`, `// Assert` comment sections
+- **Mocking**: Moq (`Mock<T>`) for interfaces; existing hand-rolled spies/stubs (e.g., `SpyBoardStateService`, `InMemoryBoardsRepository`) remain valid
+- **Assertions**: AwesomeAssertions fluent chains (`.Should().Be(...)`) — never xUnit `Assert.*`
 - **Manual DI**: Direct construction, no DI container in tests
 - **No frontend tests** currently exist
 

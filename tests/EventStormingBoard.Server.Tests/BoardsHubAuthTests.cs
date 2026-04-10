@@ -7,32 +7,39 @@ namespace EventStormingBoard.Server.Tests;
 public class BoardsHubAuthTests
 {
     [Fact]
-    public void GetAuthenticatedUserName_NameClaim_ReturnsName()
+    public void GivenNameClaim_WhenGettingAuthenticatedUserName_ThenReturnsName()
     {
+        // Arrange
         var claims = new[] { new Claim("name", "Alice Smith") };
         var identity = new ClaimsIdentity(claims, "Bearer");
         var principal = new ClaimsPrincipal(identity);
 
+        // Act
         var result = BoardsHub.GetAuthenticatedUserName(principal);
 
-        Assert.Equal("Alice Smith", result);
+        // Assert
+        result.Should().Be("Alice Smith");
     }
 
     [Fact]
-    public void GetAuthenticatedUserName_PreferredUsername_FallsBack()
+    public void GivenPreferredUsernameClaim_WhenGettingAuthenticatedUserName_ThenFallsBackToPreferredUsername()
     {
+        // Arrange
         var claims = new[] { new Claim("preferred_username", "alice@contoso.com") };
         var identity = new ClaimsIdentity(claims, "Bearer");
         var principal = new ClaimsPrincipal(identity);
 
+        // Act
         var result = BoardsHub.GetAuthenticatedUserName(principal);
 
-        Assert.Equal("alice@contoso.com", result);
+        // Assert
+        result.Should().Be("alice@contoso.com");
     }
 
     [Fact]
-    public void GetAuthenticatedUserName_NameAndPreferredUsername_PrefersName()
+    public void GivenNameAndPreferredUsernameClaims_WhenGettingAuthenticatedUserName_ThenPrefersName()
     {
+        // Arrange
         var claims = new[]
         {
             new Claim("name", "Alice Smith"),
@@ -41,40 +48,52 @@ public class BoardsHubAuthTests
         var identity = new ClaimsIdentity(claims, "Bearer");
         var principal = new ClaimsPrincipal(identity);
 
+        // Act
         var result = BoardsHub.GetAuthenticatedUserName(principal);
 
-        Assert.Equal("Alice Smith", result);
+        // Assert
+        result.Should().Be("Alice Smith");
     }
 
     [Fact]
-    public void GetAuthenticatedUserName_NoHumanReadableClaims_ThrowsHubException()
+    public void GivenNoHumanReadableClaims_WhenGettingAuthenticatedUserName_ThenThrowsHubException()
     {
+        // Arrange
         var claims = new[] { new Claim("oid", Guid.NewGuid().ToString()) };
         var identity = new ClaimsIdentity(claims, "Bearer");
         var principal = new ClaimsPrincipal(identity);
+        Action act = () => BoardsHub.GetAuthenticatedUserName(principal);
 
-        var ex = Assert.Throws<HubException>(() => BoardsHub.GetAuthenticatedUserName(principal));
+        // Act
+        var ex = act.Should().Throw<HubException>().Which;
 
-        Assert.Contains("name", ex.Message);
-        Assert.Contains("preferred_username", ex.Message);
+        // Assert
+        ex.Message.Should().Contain("name").And.Contain("preferred_username");
     }
 
     [Fact]
-    public void GetAuthenticatedUserName_Unauthenticated_ReturnsNull()
+    public void GivenUnauthenticatedPrincipal_WhenGettingAuthenticatedUserName_ThenReturnsNull()
     {
+        // Arrange
         var identity = new ClaimsIdentity(); // no auth type = not authenticated
         var principal = new ClaimsPrincipal(identity);
 
+        // Act
         var result = BoardsHub.GetAuthenticatedUserName(principal);
 
-        Assert.Null(result);
+        // Assert
+        result.Should().BeNull();
     }
 
     [Fact]
-    public void GetAuthenticatedUserName_NullPrincipal_ReturnsNull()
+    public void GivenNullPrincipal_WhenGettingAuthenticatedUserName_ThenReturnsNull()
     {
+        // Arrange
+
+        // Act
         var result = BoardsHub.GetAuthenticatedUserName(null);
 
-        Assert.Null(result);
+        // Assert
+        result.Should().BeNull();
     }
 }

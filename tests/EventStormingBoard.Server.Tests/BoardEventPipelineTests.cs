@@ -7,27 +7,31 @@ namespace EventStormingBoard.Server.Tests;
 public class BoardEventPipelineTests
 {
     [Fact]
-    public void ApplyAndLog_BoardNameUpdated_AppliesStateAndAppendsLog()
+    public void GivenBoardNameUpdatedEvent_WhenApplyingAndLogging_ThenAppliesStateAndAppendsLog()
     {
+        // Arrange
         var state = new SpyBoardStateService();
         var log = new SpyBoardEventLog();
         var pipeline = new BoardEventPipeline(state, log);
         var boardId = Guid.NewGuid();
         var @event = new BoardNameUpdatedEvent { BoardId = boardId, OldName = "Old", NewName = "New" };
 
+        // Act
         pipeline.ApplyAndLog(@event, "Alice");
 
-        Assert.Equal(nameof(IBoardStateService.ApplyBoardNameUpdated), state.LastApplyCall);
-        Assert.Same(@event, state.LastEvent);
-        Assert.Equal(boardId, log.LastBoardId);
-        Assert.Same(@event, log.LastEvent);
-        Assert.Equal("Alice", log.LastUserName);
-        Assert.Equal(1, log.AppendCount);
+        // Assert
+        state.LastApplyCall.Should().Be(nameof(IBoardStateService.ApplyBoardNameUpdated));
+        state.LastEvent.Should().BeSameAs(@event);
+        log.LastBoardId.Should().Be(boardId);
+        log.LastEvent.Should().BeSameAs(@event);
+        log.LastUserName.Should().Be("Alice");
+        log.AppendCount.Should().Be(1);
     }
 
     [Fact]
-    public void ApplyAndLog_NoteCreated_AppliesStateAndAppendsLog()
+    public void GivenNoteCreatedEvent_WhenApplyingAndLogging_ThenAppliesStateAndAppendsLog()
     {
+        // Arrange
         var state = new SpyBoardStateService();
         var log = new SpyBoardEventLog();
         var pipeline = new BoardEventPipeline(state, log);
@@ -37,17 +41,20 @@ public class BoardEventPipelineTests
             Note = new NoteDto { Id = Guid.NewGuid(), Text = "OrderPlaced", Type = NoteType.Event }
         };
 
+        // Act
         pipeline.ApplyAndLog(@event, null);
 
-        Assert.Equal(nameof(IBoardStateService.ApplyNoteCreated), state.LastApplyCall);
-        Assert.Same(@event, state.LastEvent);
-        Assert.Same(@event, log.LastEvent);
-        Assert.Null(log.LastUserName);
+        // Assert
+        state.LastApplyCall.Should().Be(nameof(IBoardStateService.ApplyNoteCreated));
+        state.LastEvent.Should().BeSameAs(@event);
+        log.LastEvent.Should().BeSameAs(@event);
+        log.LastUserName.Should().BeNull();
     }
 
     [Fact]
-    public void ApplyAndLog_BoundedContextCreated_AppliesStateAndAppendsLog()
+    public void GivenBoundedContextCreatedEvent_WhenApplyingAndLogging_ThenAppliesStateAndAppendsLog()
     {
+        // Arrange
         var state = new SpyBoardStateService();
         var log = new SpyBoardEventLog();
         var pipeline = new BoardEventPipeline(state, log);
@@ -57,16 +64,19 @@ public class BoardEventPipelineTests
             BoundedContext = new BoundedContextDto { Id = Guid.NewGuid(), Name = "Orders" }
         };
 
+        // Act
         pipeline.ApplyAndLog(@event, "Alice");
 
-        Assert.Equal(nameof(IBoardStateService.ApplyBoundedContextCreated), state.LastApplyCall);
-        Assert.Same(@event, state.LastEvent);
-        Assert.Equal(1, log.AppendCount);
+        // Assert
+        state.LastApplyCall.Should().Be(nameof(IBoardStateService.ApplyBoundedContextCreated));
+        state.LastEvent.Should().BeSameAs(@event);
+        log.AppendCount.Should().Be(1);
     }
 
     [Fact]
-    public void ApplyAndLog_BoundedContextUpdated_AppliesStateAndAppendsLog()
+    public void GivenBoundedContextUpdatedEvent_WhenApplyingAndLogging_ThenAppliesStateAndAppendsLog()
     {
+        // Arrange
         var state = new SpyBoardStateService();
         var log = new SpyBoardEventLog();
         var pipeline = new BoardEventPipeline(state, log);
@@ -78,16 +88,19 @@ public class BoardEventPipelineTests
             NewName = "Order Management"
         };
 
+        // Act
         pipeline.ApplyAndLog(@event, "Bob");
 
-        Assert.Equal(nameof(IBoardStateService.ApplyBoundedContextUpdated), state.LastApplyCall);
-        Assert.Same(@event, state.LastEvent);
-        Assert.Equal(1, log.AppendCount);
+        // Assert
+        state.LastApplyCall.Should().Be(nameof(IBoardStateService.ApplyBoundedContextUpdated));
+        state.LastEvent.Should().BeSameAs(@event);
+        log.AppendCount.Should().Be(1);
     }
 
     [Fact]
-    public void ApplyAndLog_BoundedContextDeleted_AppliesStateAndAppendsLog()
+    public void GivenBoundedContextDeletedEvent_WhenApplyingAndLogging_ThenAppliesStateAndAppendsLog()
     {
+        // Arrange
         var state = new SpyBoardStateService();
         var log = new SpyBoardEventLog();
         var pipeline = new BoardEventPipeline(state, log);
@@ -97,26 +110,32 @@ public class BoardEventPipelineTests
             BoundedContext = new BoundedContextDto { Id = Guid.NewGuid(), Name = "Payments" }
         };
 
+        // Act
         pipeline.ApplyAndLog(@event, "Charlie");
 
-        Assert.Equal(nameof(IBoardStateService.ApplyBoundedContextDeleted), state.LastApplyCall);
-        Assert.Same(@event, state.LastEvent);
-        Assert.Equal(1, log.AppendCount);
+        // Assert
+        state.LastApplyCall.Should().Be(nameof(IBoardStateService.ApplyBoundedContextDeleted));
+        state.LastEvent.Should().BeSameAs(@event);
+        log.AppendCount.Should().Be(1);
     }
 
     [Fact]
-    public void ApplyAndLog_UnsupportedEvent_ThrowsAndDoesNotAppend()
+    public void GivenUnsupportedEvent_WhenApplyingAndLogging_ThenThrowsAndDoesNotAppend()
     {
+        // Arrange
         var state = new SpyBoardStateService();
         var log = new SpyBoardEventLog();
         var pipeline = new BoardEventPipeline(state, log);
         var @event = new UnknownBoardEvent { BoardId = Guid.NewGuid() };
+        Action act = () => pipeline.ApplyAndLog(@event, "User");
 
-        var ex = Assert.Throws<InvalidOperationException>(() => pipeline.ApplyAndLog(@event, "User"));
+        // Act
+        var ex = act.Should().Throw<InvalidOperationException>().Which;
 
-        Assert.Contains("Unsupported board event type", ex.Message);
-        Assert.Null(state.LastApplyCall);
-        Assert.Equal(0, log.AppendCount);
+        // Assert
+        ex.Message.Should().Contain("Unsupported board event type");
+        state.LastApplyCall.Should().BeNull();
+        log.AppendCount.Should().Be(0);
     }
 
     private sealed class SpyBoardStateService : IBoardStateService

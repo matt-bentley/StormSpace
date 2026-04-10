@@ -9,27 +9,31 @@ public class AuthControllerTests
 {
     private static AuthConfigDto GetDto(ActionResult<AuthConfigDto> result)
     {
-        var okResult = Assert.IsType<OkObjectResult>(result.Result);
-        return Assert.IsType<AuthConfigDto>(okResult.Value);
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        return okResult.Value.Should().BeOfType<AuthConfigDto>().Subject;
     }
 
     [Fact]
-    public void GetConfig_NoEntraIdSection_ReturnsDisabled()
+    public void GivenNoEntraIdSection_WhenGettingConfig_ThenAuthIsDisabled()
     {
+        // Arrange
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>())
             .Build();
         var controller = new AuthController(config);
 
+        // Act
         var result = controller.GetConfig();
         var dto = GetDto(result);
 
-        Assert.False(dto.Enabled);
+        // Assert
+        dto.Enabled.Should().BeFalse();
     }
 
     [Fact]
-    public void GetConfig_AllValuesPresent_ReturnsEnabled()
+    public void GivenAllRequiredValues_WhenGettingConfig_ThenAuthIsEnabled()
     {
+        // Arrange
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -41,20 +45,22 @@ public class AuthControllerTests
             .Build();
         var controller = new AuthController(config);
 
+        // Act
         var result = controller.GetConfig();
         var dto = GetDto(result);
 
-        Assert.True(dto.Enabled);
-        Assert.Equal("test-client-id", dto.ClientId);
-        Assert.Equal("test-tenant-id", dto.TenantId);
-        Assert.Equal("https://login.microsoftonline.com", dto.Instance);
-        Assert.Single(dto.Scopes!);
-        Assert.Equal("api://test/access_as_user", dto.Scopes![0]);
+        // Assert
+        dto.Enabled.Should().BeTrue();
+        dto.ClientId.Should().Be("test-client-id");
+        dto.TenantId.Should().Be("test-tenant-id");
+        dto.Instance.Should().Be("https://login.microsoftonline.com");
+        dto.Scopes.Should().ContainSingle().Which.Should().Be("api://test/access_as_user");
     }
 
     [Fact]
-    public void GetConfig_EmptyValues_ReturnsDisabled()
+    public void GivenEmptyEntraIdValues_WhenGettingConfig_ThenAuthIsDisabled()
     {
+        // Arrange
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -64,15 +70,18 @@ public class AuthControllerTests
             .Build();
         var controller = new AuthController(config);
 
+        // Act
         var result = controller.GetConfig();
         var dto = GetDto(result);
 
-        Assert.False(dto.Enabled);
+        // Assert
+        dto.Enabled.Should().BeFalse();
     }
 
     [Fact]
-    public void GetConfig_MissingScopes_ReturnsDisabled()
+    public void GivenMissingScopes_WhenGettingConfig_ThenAuthIsDisabled()
     {
+        // Arrange
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -82,15 +91,18 @@ public class AuthControllerTests
             .Build();
         var controller = new AuthController(config);
 
+        // Act
         var result = controller.GetConfig();
         var dto = GetDto(result);
 
-        Assert.False(dto.Enabled);
+        // Assert
+        dto.Enabled.Should().BeFalse();
     }
 
     [Fact]
-    public void GetConfig_NoInstance_DefaultsToPublicCloud()
+    public void GivenNoInstance_WhenGettingConfig_ThenDefaultsToPublicCloud()
     {
+        // Arrange
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -101,16 +113,19 @@ public class AuthControllerTests
             .Build();
         var controller = new AuthController(config);
 
+        // Act
         var result = controller.GetConfig();
         var dto = GetDto(result);
 
-        Assert.True(dto.Enabled);
-        Assert.Equal("https://login.microsoftonline.com", dto.Instance);
+        // Assert
+        dto.Enabled.Should().BeTrue();
+        dto.Instance.Should().Be("https://login.microsoftonline.com");
     }
 
     [Fact]
-    public void GetConfig_ScopesSerializeAsArray()
+    public void GivenMultipleScopes_WhenGettingConfig_ThenScopesAreSerializedAsArray()
     {
+        // Arrange
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -122,12 +137,12 @@ public class AuthControllerTests
             .Build();
         var controller = new AuthController(config);
 
+        // Act
         var result = controller.GetConfig();
         var dto = GetDto(result);
 
-        Assert.True(dto.Enabled);
-        Assert.Equal(2, dto.Scopes!.Length);
-        Assert.Equal("api://test/scope1", dto.Scopes[0]);
-        Assert.Equal("api://test/scope2", dto.Scopes[1]);
+        // Assert
+        dto.Enabled.Should().BeTrue();
+        dto.Scopes.Should().Equal("api://test/scope1", "api://test/scope2");
     }
 }
