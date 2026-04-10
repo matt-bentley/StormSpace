@@ -3,7 +3,6 @@ name: "Planner"
 description: "Creates phased implementation plans from knowledge, codebase analysis, and library research. Use when: generating detailed multi-phase plans for complex tasks."
 tools: [read, edit, search, agent]
 model: "Claude Opus 4.6"
-agents: ["Researcher"]
 user-invocable: true
 ---
 
