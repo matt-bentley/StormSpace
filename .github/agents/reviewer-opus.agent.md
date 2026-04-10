@@ -77,29 +77,3 @@ Return your review as structured findings:
 ```
 
 If you find nothing wrong, say so clearly: "No issues found. The {plan/code} is sound." Do not invent findings to appear thorough.
-
-## Debate Mode
-
-When you receive other reviewers' findings alongside the original review target, you are in **debate mode**. In this mode:
-
-1. **Evaluate each finding** from the other reviewers - do you agree or disagree? Provide reasoning.
-2. **Identify missed issues** - did the other reviewers miss something you caught initially, or something new you now see?
-3. **Retract if wrong** - if another reviewer's argument convinces you one of your own findings was incorrect, say so explicitly.
-
-Return debate output as:
-
-```
-## Debate Response
-
-### Agreements
-- {Finding from Reviewer X}: Agree. {brief reason}
-
-### Disagreements
-- {Finding from Reviewer X}: Disagree. {evidence and reasoning}
-
-### Missed Issues
-- {New finding not raised by any reviewer}
-
-### Retractions
-- {Your original finding you now withdraw}: {why}
-```
