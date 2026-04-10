@@ -2,7 +2,6 @@
 name: "Orchestrator"
 description: "Top-level lifecycle coordinator for agentic development workflows. Use when: executing a full development task end-to-end, implementing features with automated planning/review/testing cycles."
 tools: [read, edit, search, execute, agent, todo, vscode]
-agents: ["Planner", "Refiner", "Implementer", "Phase Reviewer", "Regression Tester", "Knowledge Keeper"]
 model: "Claude Opus 4.6"
 ---
 
