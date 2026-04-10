@@ -1,7 +1,7 @@
 ---
 name: "Planner"
 description: "Creates phased implementation plans from knowledge, codebase analysis, and library research. Use when: generating detailed multi-phase plans for complex tasks."
-tools: [read, edit, search, web, "context7/*", "microsoftdocs/mcp/*"]
+tools: [read, edit, search, web]
 model: "Claude Opus 4.6"
 user-invocable: false
 ---
@@ -27,7 +27,7 @@ Cycle through these phases based on user input. This is iterative, not linear. I
 
 #### 1.a. Parallel Targeted Research
 
-Run the *Explore* subagent to gather context, understand domain knowledge in `.agent-context/knowledge/`, research external documentation and libraries using available MCP servers, understanding existing standards in `.github/instructions/`, analogous existing features to use as implementation templates, and potential blockers or ambiguities. When the task spans multiple independent areas (e.g., frontend + backend, different features, separate repos), launch **2-5 *Explore* subagents in parallel** — one per area — to speed up discovery.
+Run the *Researcher* subagent to gather context, understand domain knowledge in `.agent-context/knowledge/`, research external documentation and libraries using MCP servers (Context7 for library docs, Microsoft Docs for .NET/Azure content), understanding existing standards in `.github/instructions/`, analogous existing features to use as implementation templates, and potential blockers or ambiguities. When the task spans multiple independent areas (e.g., frontend + backend, different features, separate repos), launch **2-5 *Researcher* subagents in parallel** — one per area — to speed up discovery.
 
 #### 1.b. Check Skills
 
