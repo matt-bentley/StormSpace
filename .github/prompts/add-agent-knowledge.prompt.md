@@ -84,7 +84,7 @@ Follow the document structure, content guidelines, and avoidance rules defined i
 
 ### Step 7: Update README Index
 
-If creating a new file, add an entry to the Contents table in `.agent-context/0-knowledge/README.md`:
+If creating a new file, add an entry to the Contents table in `.agent-context/knowledge/README.md`:
 
 ```markdown
 | [{filename}.md](./{filename}.md) | Brief description |
