@@ -1,5 +1,5 @@
 ---
-applyTo: "**/.agent-context/plans/**"
+applyTo: "**/.agent-context/tasks/**"
 ---
 
 # Agent Plan File Standards

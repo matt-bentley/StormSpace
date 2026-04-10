@@ -2,7 +2,6 @@
 name: "Refiner"
 description: "Iterative refinement agent that implements something then uses adversarial multi-model review to improve it. Use when: iterating on code, refining a plan, polish implementation, review-and-fix loop, improve quality through feedback cycles."
 tools: [read, edit, search, execute, agent, todo]
-agents: ["Adversarial Reviewer"]
 ---
 
 # Refiner — Review-First Iterative Improvement

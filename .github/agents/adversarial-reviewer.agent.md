@@ -2,7 +2,6 @@
 name: "Adversarial Reviewer"
 description: "Adversarial multi-model review for implementation plans and code. Use when: reviewing a plan, reviewing code changes, adversarial analysis, multi-model critique, pre-merge review. Dispatches three pinned reviewer agents for Claude Opus 4.6, GPT-5.4, and GPT-5.3-Codex and produces a consolidated verdict."
 tools: [read, search, execute, agent]
-agents: ["Reviewer Opus 4.6", "Reviewer GPT-5.4", "Reviewer GPT-5.3-Codex"]
 ---
 
 # Tribunal — Adversarial Multi-Model Review

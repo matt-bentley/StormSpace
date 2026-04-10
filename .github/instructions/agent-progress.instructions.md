@@ -1,5 +1,5 @@
 ---
-applyTo: "**/.agent-context/progress/**"
+applyTo: "**/.agent-context/tasks/**/progress.md"
 ---
 
 # Agent Progress File Standards
@@ -14,14 +14,14 @@ Progress files track the status of agentic workflow pipeline runs. They are crea
 **Task**: {Brief description of what was requested}
 **Started**: {ISO 8601 timestamp}
 **Status**: {In Progress | Completed | Failed | Halted}
-**Plan**: [{task-slug}/plan.md](../plans/{task-slug}/plan.md)
+**Plan**: [plan.md](plan.md)
 
 ## Phase Status
 
-| Phase | Name | Status | Agent | Notes |
-|-------|------|--------|-------|-------|
-| 1 | {Phase name} | {Not Started / In Progress / Completed / Failed} | {Agent name} | {Brief notes} |
-| 2 | {Phase name} | {status} | {agent} | {notes} |
+| Phase | Name | Implementation | Review | Notes |
+|-------|------|----------------|--------|-------|
+| 1 | {Phase name} | {Not Started / In Progress / Done / Failed} | {Not Started / In Progress / Passed / Failed} | {Brief notes} |
+| 2 | {Phase name} | {status} | {status} | {notes} |
 
 ## Pipeline Stages
 
@@ -58,12 +58,19 @@ Progress files track the status of agentic workflow pipeline runs. They are crea
 - **Failed** — A stage failed and the pipeline halted
 - **Halted** — Pipeline was stopped due to an unrecoverable error or user intervention
 
-### Phase Status Values
+### Phase Implementation Values
 
-- **Not Started** — Phase has not begun
-- **In Progress** — Phase is currently being executed
-- **Completed** — Phase finished and passed review
-- **Failed** — Phase failed implementation or review
+- **Not Started** — Implementation has not begun
+- **In Progress** — Implementer is currently executing this phase
+- **Done** — Implementation finished, awaiting review
+- **Failed** — Implementation failed (build/test errors)
+
+### Phase Review Values
+
+- **Not Started** — Review has not begun (implementation may still be in progress)
+- **In Progress** — Phase Reviewer is currently reviewing
+- **Passed** — Phase Reviewer approved the changes
+- **Failed** — Phase Reviewer found unresolvable issues
 
 ## Update Rules
 

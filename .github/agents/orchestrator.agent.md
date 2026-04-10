@@ -22,18 +22,18 @@ If `--auto` is NOT present, pause after plan review and present the plan to the 
 
 ### Stage 1: Planning
 
-1. **Create progress file** at `.agent-context/progress/{task-slug}.md` following the format in `.github/instructions/agent-progress.instructions.md`. Set status to "In Progress".
+1. **Create progress file** at `.agent-context/tasks/{task-slug}/progress.md` following the format in `.github/instructions/agent-progress.instructions.md`. Set status to "In Progress".
 
 2. **Invoke the Planner** with the user's task description. The Planner creates:
-   - `.agent-context/plans/{task-slug}/plan.md` (master plan)
-   - `.agent-context/plans/{task-slug}/phase-{N}-{name}.md` (per-phase details)
+   - `.agent-context/tasks/{task-slug}/plan.md` (master plan)
+   - `.agent-context/tasks/{task-slug}/phase-{N}-{name}.md` (per-phase details)
 
 3. Update progress file: Planning → Completed.
 
 ### Stage 2: Plan Review
 
 4. **Invoke the Refiner** to review and fix the plan. Frame your request as:
-   > Review the plan files in `.agent-context/plans/{task-slug}/` with 1 round. The master plan is at `.agent-context/plans/{task-slug}/plan.md` and phase files are in the same directory.
+   > Review the plan files in `.agent-context/tasks/{task-slug}/` with 1 round. The master plan is at `.agent-context/tasks/{task-slug}/plan.md` and phase files are in the same directory.
 
 5. Update progress file: Plan Review → Completed.
 
@@ -49,16 +49,18 @@ For each phase (1 through N):
 8. **Commit baseline**: Run `git add -A && git commit -m "phase-{N} baseline"` to create a baseline commit for diff tracking. Record the commit hash.
 
 9. **Invoke the Implementer** with the phase plan file:
-   > Implement the plan in `.agent-context/plans/{task-slug}/phase-{N}-{name}.md`
+   > Implement the plan in `.agent-context/tasks/{task-slug}/phase-{N}-{name}.md`
 
-10. Update progress file: Phase {N} → In Progress.
+10. Update progress file: Phase {N} Implementation → In Progress.
 
-11. **Invoke Phase Reviewer** with the baseline commit hash and list of files touched:
-    > Review the changes since commit {baseline-hash} for phase {N}. Phase plan: `.agent-context/plans/{task-slug}/phase-{N}-{name}.md`. Changed files in `src/eventstormingboard.client/`: {yes/no — for frontend build verification}.
+11. After Implementer completes, update progress file: Phase {N} Implementation → Done, Review → In Progress.
 
-12. **Parse Phase Reviewer output**: Look for `## Phase Review Status: PASS` or `## Phase Review Status: FAIL`.
-    - **PASS**: Update progress file: Phase {N} → Completed. Continue to next phase.
-    - **FAIL**: Log error to progress file Issues Log. Update task status to Failed. **Halt pipeline** with a summary of what failed.
+12. **Invoke Phase Reviewer** with the baseline commit hash and list of files touched:
+    > Review the changes since commit {baseline-hash} for phase {N}. Phase plan: `.agent-context/tasks/{task-slug}/phase-{N}-{name}.md`. Changed files in `src/eventstormingboard.client/`: {yes/no — for frontend build verification}.
+
+13. **Parse Phase Reviewer output**: Look for `## Phase Review Status: PASS` or `## Phase Review Status: FAIL`.
+    - **PASS**: Update progress file: Phase {N} Review → Passed. Continue to next phase.
+    - **FAIL**: Update progress file: Phase {N} Review → Failed. Log error to Issues Log. Update task status to Failed. **Halt pipeline** with a summary of what failed.
 
 ### Stage 5: Regression Testing
 
@@ -104,7 +106,7 @@ For each phase (1 through N):
 ## Progress File Management
 
 - Create at pipeline start, update after every stage transition
-- File path: `.agent-context/progress/{task-slug}.md`
+- File path: `.agent-context/tasks/{task-slug}/progress.md`
 - Follow format defined in `.github/instructions/agent-progress.instructions.md`
 
 ## Task Slug Generation

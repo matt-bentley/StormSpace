@@ -2,7 +2,6 @@
 name: "Phase Reviewer"
 description: "Lightweight single-round review and fix for one implementation phase. Captures scoped diff, runs adversarial review, fixes findings, and verifies build/test. Use when: reviewing changes from a single implementation phase."
 tools: [read, edit, search, execute, agent]
-agents: ["Adversarial Reviewer"]
 model: "Claude Opus 4.6"
 user-invocable: false
 ---
