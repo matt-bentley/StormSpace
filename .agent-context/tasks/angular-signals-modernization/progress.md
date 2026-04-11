@@ -2,7 +2,7 @@
 
 **Task**: Modernize the Angular frontend to use signals where possible — replace @Input/@Output decorators with signal-based input()/output()/model(), use viewChild()/viewChildren() signal queries, convert observable subscriptions to toSignal() where practical, and adopt takeUntilDestroyed() for manual subscriptions.
 **Started**: 2026-04-11T11:41:12Z
-**Status**: In Progress
+**Status**: Completed
 **Plan**: [plan.md](plan.md)
 
 ## Phase Status
@@ -28,7 +28,7 @@
 | Regression Testing | 2026-04-11T12:20:10Z | 2026-04-11T12:41:41Z | Passed | 10/10 journeys passed, 3 need manual canvas verification |
 | Regression Fixes | | | Not Needed | |
 | Regression Re-verify | | | Skipped | |
-| Knowledge Update | | | | |
+| Knowledge Update | 2026-04-11T12:41:41Z | 2026-04-11T12:43:50Z | Completed | architecture-principles.md updated |
 
 ## Issues Log
 
@@ -39,6 +39,7 @@
 
 | File | Action | Summary |
 |------|--------|---------|
+| .agent-context/knowledge/architecture-principles.md | Updated | Signal adoption and cleanup patterns |
 
 ## GitHub Tracking
 
