@@ -10,8 +10,8 @@
 | Phase | Name | Started | Completed | Notes |
 |-------|------|---------|-----------|-------|
 | 1 | Services — inject() | 2026-04-11T18:01:44Z | 2026-04-11T18:03:56Z | 6 services migrated |
-| 2 | Simple Components — inject() | 2026-04-11T18:03:56Z | | |
-| 3 | Root & Splash — inject() + takeUntilDestroyed() | | | |
+| 2 | Simple Components — inject() | 2026-04-11T18:03:56Z | 2026-04-11T18:06:25Z | 7 components migrated |
+| 3 | Root & Splash — inject() + takeUntilDestroyed() | 2026-04-11T18:06:25Z | | |
 | 4 | Signal I/O Components — input/output/viewChild/effect | | | |
 | 5 | Large Components — inject() + viewChild() + takeUntilDestroyed() | | | |
 
