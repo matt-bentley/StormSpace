@@ -169,7 +169,8 @@ The Angular frontend uses two complementary patterns for state management:
 | Undo/redo | Client-side command stacks |
 | Canvas rendering | Imperative HTML Canvas (not declarative) |
 | Component architecture | Standalone components with `inject()` DI |
-| Signal adoption | `signal()`, `computed()`, `input()`, `output()` for local state |
+| Signal adoption | `signal()`, `computed()`, `effect()`, `input()`, `output()`, `viewChild()` / `viewChild.required()` |
+| Cleanup | `DestroyRef` + `takeUntilDestroyed()` (no `destroy$` subjects) |
 
 **Key files:** `src/eventstormingboard.client/src/app/_shared/services/boards-signalr.service.ts`, `src/eventstormingboard.client/src/app/board/board-canvas/board-canvas.service.ts`, `src/eventstormingboard.client/src/app/board/board.commands.ts`
 

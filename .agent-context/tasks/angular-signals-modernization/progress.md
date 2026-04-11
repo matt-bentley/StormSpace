@@ -25,9 +25,9 @@
 | Plan Approval | | | Skipped (--auto) | Auto mode |
 | Implementation | 2026-04-11T12:06:33Z | 2026-04-11T12:20:10Z | Completed | All 6 phases done |
 | Implementation Review | 2026-04-11T12:20:10Z | 2026-04-11T12:33:51Z | Passed | 1 critical + 2 major fixes applied |
-| Regression Testing | | | | |
-| Regression Fixes | | | | |
-| Regression Re-verify | | | | |
+| Regression Testing | 2026-04-11T12:20:10Z | 2026-04-11T12:41:41Z | Passed | 10/10 journeys passed, 3 need manual canvas verification |
+| Regression Fixes | | | Not Needed | |
+| Regression Re-verify | | | Skipped | |
 | Knowledge Update | | | | |
 
 ## Issues Log
@@ -47,7 +47,7 @@
 | Tracking Issue | #14 |
 | Issue Node ID | 4244413148 |
 | Branch | task/angular-signals-modernization |
-| PR | — |
+| PR | #21 |
 | Project Number | 1 |
 | Tracking Item ID | N/A |
 | Status Field ID | N/A |
@@ -71,6 +71,6 @@
 
 | Key | Value |
 |-----|-------|
-| Issue # | — |
-| Node ID | — |
-| Project Item ID | — |
+| Issue # | #22 |
+| Node ID | 4244533156 |
+| Project Item ID | N/A |
