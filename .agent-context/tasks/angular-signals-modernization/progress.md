@@ -10,7 +10,8 @@
 | Phase | Name | Started | Completed | Notes |
 |-------|------|---------|-----------|-------|
 | 1 | Services DI | 2026-04-11T12:06:33Z | 2026-04-11T12:08:36Z | Done - 6 services converted |
-| 2 | Modal Components | 2026-04-11T12:08:36Z | | |
+| 2 | Modal Components | 2026-04-11T12:08:36Z | 2026-04-11T12:10:50Z | Done - 7 modals converted |
+| 3 | App + Splash | 2026-04-11T12:10:50Z | | |
 
 ## Pipeline Stages
 

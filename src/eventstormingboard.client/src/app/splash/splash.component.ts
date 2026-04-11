@@ -1,4 +1,5 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatIconModule } from '@angular/material/icon';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -6,7 +7,6 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { CreateBoardModalComponent } from './create-board-modal/create-board-modal.component';
 import { SelectBoardModalComponent } from './select-board-modal/select-board-modal.component';
 import { UserService } from '../_shared/services/user.service';
-import { Subject, takeUntil } from 'rxjs';
 
 @Component({
     selector: 'app-splash',
@@ -18,15 +18,18 @@ import { Subject, takeUntil } from 'rxjs';
     templateUrl: './splash.component.html',
     styleUrls: ['./splash.component.scss']
 })
-export class SplashComponent implements OnInit, OnDestroy {
+export class SplashComponent {
+  private router = inject(Router);
+  private dialog = inject(MatDialog);
+  private userService = inject(UserService);
 
   public userName: string = '';
-  private destroy$ = new Subject<void>();
 
-  constructor(
-    private router: Router,
-    private dialog: MatDialog,
-    private userService: UserService) { }
+  constructor() {
+    this.userService.displayName$.pipe(takeUntilDestroyed()).subscribe(name => {
+      this.userName = name;
+    });
+  }
 
   public get isNameReadOnly(): boolean {
     return this.userService.isReadOnly;
@@ -68,14 +71,4 @@ export class SplashComponent implements OnInit, OnDestroy {
     }
   }
 
-  public ngOnInit(): void {
-    this.userService.displayName$.pipe(takeUntil(this.destroy$)).subscribe(name => {
-      this.userName = name;
-    });
-  }
-
-  public ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
-  }
 }  
