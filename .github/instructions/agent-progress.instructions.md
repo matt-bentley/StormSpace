@@ -61,20 +61,13 @@ Progress files track the status of agentic workflow pipeline runs. They are crea
 | Issue Node ID | {node_id} |
 | Branch | task/{task-slug} |
 | PR | #{number} or — |
-| Project Number | 1 |
-| Tracking Item ID | {project_item_id} |
-| Status Field ID | {field_id} |
-| Backlog Option ID | {option_id} |
-| In Progress Option ID | {option_id} |
-| In Review Option ID | {option_id} |
-| Done Option ID | {option_id} |
 
 ### Phase Sub-Issues
 
-| Phase | Name | Issue # | Node ID | Project Item ID |
-|-------|------|---------|---------|-----------------|
-| 1 | {name} | #{number} | {node_id} | {item_id} |
-| 2 | {name} | #{number} | {node_id} | {item_id} |
+| Phase | Name | Issue # | Node ID |
+|-------|------|---------|---------|
+| 1 | {name} | #{number} | {node_id} |
+| 2 | {name} | #{number} | {node_id} |
 
 ### Regression Sub-Issue
 
@@ -82,7 +75,6 @@ Progress files track the status of agentic workflow pipeline runs. They are crea
 |-----|-------|
 | Issue # | #{number} or — |
 | Node ID | {node_id} or — |
-| Project Item ID | {item_id} or — |
 ```
 
 ## Field Definitions

@@ -27,7 +27,7 @@ If `--auto` is NOT present, pause after plan review and present the plan to the 
    - Record the branch name in the progress file `## GitHub Tracking` section.
 3. **Invoke the Delivery Manager** with the `init` command:
    > Command: `init`. Task title: {title}. Task slug: {task-slug}. Progress file: `.agent-context/tasks/{task-slug}/progress.md`.
-4. **Parse Delivery Manager output**: Look for `## Delivery: INIT`. Extract Issue #, IssueNodeId, TrackingItemId, StatusFieldId, and all column option IDs (BacklogOptionId, InProgressOptionId, InReviewOptionId, DoneOptionId). Write all values to the progress file `## GitHub Tracking` section — every field must be populated (not N/A).
+4. **Parse Delivery Manager output**: Look for `## Delivery: INIT`. Extract Issue # and IssueNodeId. Write all values to the progress file `## GitHub Tracking` section.
    - If the Delivery Manager returns `## Delivery: ERROR`, log a warning to the Issues Log and continue. Set a flag `github-tracking-disabled` — skip all subsequent Delivery Manager calls.
 
 ### Stage 2: Planning
@@ -37,8 +37,8 @@ If `--auto` is NOT present, pause after plan review and present the plan to the 
    - `.agent-context/tasks/{task-slug}/phase-{N}-{name}.md` (per-phase details)
 2. Update progress file: Planning → Completed.
 3. **Invoke the Delivery Manager** with the `plan_ready` command:
-   > Command: `plan_ready`. Tracking issue: #{number}. Issue Node ID: {from GitHub Tracking}. Plan summary: {phase names and descriptions from plan.md}. Status Field ID: {from GitHub Tracking}. Backlog Option ID: {from GitHub Tracking}. Project number: {from GitHub Tracking}.
-4. **Parse Delivery Manager output**: Look for `## Delivery: PLAN_READY`. Extract all phase sub-issue numbers, node IDs, and project item IDs. Write each row to the progress file `## GitHub Tracking` → `### Phase Sub-Issues` table — every Project Item ID must be populated (not N/A).
+   > Command: `plan_ready`. Tracking issue: #{number}. Issue Node ID: {from GitHub Tracking}. Plan summary: {phase names and descriptions from plan.md}.
+4. **Parse Delivery Manager output**: Look for `## Delivery: PLAN_READY`. Extract all phase sub-issue numbers and node IDs. Write each row to the progress file `## GitHub Tracking` → `### Phase Sub-Issues` table.
 
 ### Stage 3: Plan Review
 
@@ -61,20 +61,18 @@ If `--auto` is NOT present, pause after plan review and present the plan to the 
 
 For each phase (1 through N):
 
-2. **Invoke the Delivery Manager** with `phase_start`:
-   > Command: `phase_start`. Phase: {N}. Phase sub-issue project item ID: {from GitHub Tracking}. In Progress option ID: {from GitHub Tracking}. Status Field ID: {from GitHub Tracking}. Project number: {from GitHub Tracking}.
-3. **Invoke the Implementer** with the phase plan file:
+2. **Invoke the Implementer** with the phase plan file:
    > Implement the plan in `.agent-context/tasks/{task-slug}/phase-{N}-{name}.md`
-4. Update progress file: Phase {N} Implementation → In Progress.
-5. After Implementer completes, commit the phase: Run `git add -A && git commit -m "phase-{N} {name}"`.
-6. Update progress file: Phase {N} → Completed.
-7. **Invoke the Delivery Manager** with `phase_end`:
-   > Command: `phase_end`. Phase: {N}. Phase sub-issue issue #: {from GitHub Tracking}. Phase sub-issue project item ID: {from GitHub Tracking}. Tracking issue #: {from GitHub Tracking}. Done option ID: {from GitHub Tracking}. Status Field ID: {from GitHub Tracking}. Project number: {from GitHub Tracking}. Status: completed.
+3. Update progress file: Phase {N} Implementation → In Progress.
+4. After Implementer completes, commit the phase: Run `git add -A && git commit -m "phase-{N} {name}"`.
+5. Update progress file: Phase {N} → Completed.
+6. **Invoke the Delivery Manager** with `phase_end`:
+   > Command: `phase_end`. Phase: {N}. Phase sub-issue issue #: {from GitHub Tracking}. Tracking issue #: {from GitHub Tracking}. Status: completed.
 
 ### Stage 6: Implementation Review
 
 1. **Invoke the Delivery Manager** with `stage_update`:
-   > Command: `stage_update`. Tracking issue: #{number}. Stage: Implementation Review. Status: In Progress. Target column: In review. Tracking issue project item ID: {from GitHub Tracking}. In Review option ID: {from GitHub Tracking}. Status Field ID: {from GitHub Tracking}. Project number: {from GitHub Tracking}.
+   > Command: `stage_update`. Tracking issue: #{number}. Stage: Implementation Review. Status: In Progress.
 2. **Invoke the Implementation Reviewer** with the pre-implementation baseline commit hash:
    > Review all implementation changes since commit {baseline-hash}. Task directory: `.agent-context/tasks/{task-slug}/`. Changed files in `src/eventstormingboard.client/`: {yes/no — for frontend build verification}.
 3. **Parse Implementation Reviewer output**: Look for `## Review Status: PASS` or `## Review Status: FAIL`.
@@ -84,14 +82,14 @@ For each phase (1 through N):
      3. **Commit review fixes** (if any): Run `git add -A && git diff --cached --quiet || git commit -m "implementation review fixes"`.
      4. **Push branch to remote**: Run `git push -u origin task/{task-slug}`.
      5. **Invoke the Delivery Manager** with `create_pr`: Tracking issue: #{number}. Task title. Task slug. Branch: task/{task-slug}. Parse output for PR # and record in progress file `## GitHub Tracking`.
-     6. **Invoke the Delivery Manager** with `regression_init`: Tracking issue #, Issue Node ID, Backlog option ID, Status Field ID, project number. Parse output for regression sub-issue # and item ID, record in progress file.
+     6. **Invoke the Delivery Manager** with `regression_init`: Tracking issue #, Issue Node ID. Parse output for regression sub-issue # and record in progress file.
      7. Continue to regression testing.
    - **FAIL**: Update progress file: Implementation Review → Failed. Log error to Issues Log. Update task status to Failed. **Invoke the Delivery Manager** with `complete` (status: failed). **Halt pipeline** with a summary of what failed.
 
 ### Stage 7: Regression Testing
 
 1. **Invoke the Delivery Manager** with `regression_update`:
-   > Command: `regression_update`. Regression sub-issue issue #: {from GitHub Tracking}. Regression sub-issue project item ID: {from GitHub Tracking}. Target column: In Progress option ID. Status Field ID: {from GitHub Tracking}. Project number: {from GitHub Tracking}. Status: in_progress.
+   > Command: `regression_update`. Regression sub-issue issue #: {from GitHub Tracking}. Status: in_progress.
 2. **Start the application**: Launch the app using the VS Code task `StormSpace` (this starts the backend with SPA proxy, which also serves the Angular frontend). After starting the task, wait for the app to become accessible at `https://localhost:51710` by polling the URL. If the app does not become accessible within a reasonable time, **halt** and report the startup failure.
 3. **Invoke the Regression Tester** with the list of changed files across all phases:
    > Run regression testing. Changed files: {list of all files changed across phases}. App URL: https://localhost:51710
@@ -99,7 +97,7 @@ For each phase (1 through N):
    - **PASS**:
      1. Update progress file: Regression Testing → Passed.
      2. **Invoke the Delivery Manager** with `regression_update`:
-        > Command: `regression_update`. Regression sub-issue issue #: {from GitHub Tracking}. Regression sub-issue project item ID: {from GitHub Tracking}. Target column: Done option ID: {from GitHub Tracking}. Status Field ID: {from GitHub Tracking}. Project number: {from GitHub Tracking}. Status: passed.
+        > Command: `regression_update`. Regression sub-issue issue #: {from GitHub Tracking}. Status: passed.
      3. **Invoke the Delivery Manager** with `stage_update`: Stage: Regression Testing. Status: Passed.
      4. Proceed to Knowledge Update.
    - **FAIL**: Update progress file: Regression Testing → Failed. Proceed to regression fix cycle.
@@ -115,7 +113,7 @@ For each phase (1 through N):
      1. Update progress file: Regression Fixes → Completed, Regression Re-verify → Passed.
      2. **Push to remote**: Run `git push`.
      3. **Invoke the Delivery Manager** with `regression_update`:
-        > Command: `regression_update`. Regression sub-issue issue #: {from GitHub Tracking}. Regression sub-issue project item ID: {from GitHub Tracking}. Target column: Done option ID: {from GitHub Tracking}. Status Field ID: {from GitHub Tracking}. Project number: {from GitHub Tracking}. Status: passed.
+        > Command: `regression_update`. Regression sub-issue issue #: {from GitHub Tracking}. Status: passed.
      4. **Invoke the Delivery Manager** with `stage_update`: Stage: Regression Re-verify. Status: Passed.
    - **FAIL**: Update progress file with remaining issues. **Invoke the Delivery Manager** with `complete` (status: failed). **Halt pipeline** — do not loop further. Report remaining regressions to user.
 
@@ -134,7 +132,7 @@ For each phase (1 through N):
 
 1. Update progress file: Status → Completed.
 2. **Invoke the Delivery Manager** with the `complete` command:
-   > Command: `complete`. Tracking issue: #{number}. Tracking issue project item ID: {from GitHub Tracking}. Done option ID: {from GitHub Tracking}. Status Field ID: {from GitHub Tracking}. Project number: {from GitHub Tracking}. Status: completed. Summary: {final pipeline summary}.
+   > Command: `complete`. Tracking issue: #{number}. Status: completed. Summary: {final pipeline summary}.
 3. Report final summary to user.
 
 ## Error Handling
@@ -169,10 +167,9 @@ Convert the task description to a kebab-case slug:
 - **Create task branch first.** Before any files are created, so all task artifacts live on the branch.
 - **Commit pre-implementation baseline once.** Before phase 1 starts. This enables a full diff for the Implementation Reviewer.
 - **Commit after each phase.** Phase commits provide a clean history but are not used for review gating.
-- **Parse agent output contracts.** Implementation Reviewer outputs `## Review Status: PASS|FAIL`. Regression Tester outputs `## Regression Status: PASS|FAIL`. Delivery Manager outputs `## Delivery: {COMMAND}` (INIT, PLAN_READY, PHASE_START, etc.). Gate pipeline flow on these headings.
+- **Parse agent output contracts.** Implementation Reviewer outputs `## Review Status: PASS|FAIL`. Regression Tester outputs `## Regression Status: PASS|FAIL`. Delivery Manager outputs `## Delivery: {COMMAND}` (INIT, PLAN_READY, PHASE_END, etc.). Gate pipeline flow on these headings.
 - **Maximum 1 regression fix cycle.** Do not loop indefinitely.
 - **Knowledge updates happen last.** After all implementation and fixes are verified.
-- **Invoke Delivery Manager at every lifecycle point.** Before/after each phase, after every stage transition, and on completion/failure. Pass all GitHub IDs from the progress file `## GitHub Tracking` section.
+- **Invoke Delivery Manager at every lifecycle point.** After each phase, after every stage transition, and on completion/failure. Pass issue numbers and node IDs from the progress file `## GitHub Tracking` section.
 - **Delivery Manager is non-blocking.** On Delivery Manager failure, log a warning to the Issues Log but do not halt the pipeline. If `init` fails, skip all subsequent Delivery Manager calls.
-- **Track GitHub state in progress file.** All issue numbers, node IDs, project item IDs, field IDs, and option IDs go in `## GitHub Tracking`. Never hardcode these values.
-- **Verify GitHub Tracking IDs after init and plan_ready.** Before proceeding past Stage 2, confirm that TrackingItemId, StatusFieldId, and all column option IDs are populated (not N/A). If any are missing, log a warning — subsequent board-move calls will silently fail.
+- **Track GitHub state in progress file.** All issue numbers and node IDs go in `## GitHub Tracking`. Never hardcode these values.
