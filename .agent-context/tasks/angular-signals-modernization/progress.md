@@ -1,0 +1,70 @@
+# Progress: Angular Signals Modernization
+
+**Task**: Modernize the Angular frontend to use signals where possible — replace @Input/@Output decorators with signal-based input()/output()/model(), use viewChild()/viewChildren() signal queries, convert observable subscriptions to toSignal() where practical, and adopt takeUntilDestroyed() for manual subscriptions.
+**Started**: 2026-04-11T11:41:12Z
+**Status**: In Progress
+**Plan**: [plan.md](plan.md)
+
+## Phase Status
+
+| Phase | Name | Started | Completed | Notes |
+|-------|------|---------|-----------|-------|
+
+## Pipeline Stages
+
+| Stage | Started | Completed | Status | Notes |
+|-------|---------|-----------|--------|-------|
+| Planning | 2026-04-11T11:41:12Z | 2026-04-11T11:51:05Z | Completed | 6 phases |
+| Plan Review | 2026-04-11T11:51:05Z | 2026-04-11T12:06:10Z | Completed | Refiner: 1 round, 2 critical + 2 major + 5 minor fixes |
+| Plan Approval | | | Skipped (--auto) | Auto mode |
+| Implementation | | | | |
+| Implementation Review | | | | |
+| Regression Testing | | | | |
+| Regression Fixes | | | | |
+| Regression Re-verify | | | | |
+| Knowledge Update | | | | |
+
+## Issues Log
+
+| Timestamp | Phase | Severity | Description | Resolution |
+|-----------|-------|----------|-------------|------------|
+
+## Knowledge Updates
+
+| File | Action | Summary |
+|------|--------|---------|
+
+## GitHub Tracking
+
+| Key | Value |
+|-----|-------|
+| Tracking Issue | #14 |
+| Issue Node ID | 4244413148 |
+| Branch | task/angular-signals-modernization |
+| PR | — |
+| Project Number | 1 |
+| Tracking Item ID | N/A |
+| Status Field ID | N/A |
+| Backlog Option ID | N/A |
+| In Progress Option ID | N/A |
+| In Review Option ID | N/A |
+| Done Option ID | N/A |
+
+### Phase Sub-Issues
+
+| Phase | Name | Issue # | Node ID | Project Item ID |
+|-------|------|---------|---------|-----------------|
+| 1 | Services DI | #19 | 4244431773 | N/A |
+| 2 | Modal Components | #18 | 4244431771 | N/A |
+| 3 | App + Splash | #17 | 4244431769 | N/A |
+| 4 | Chat Panel + Agent Diagram | #15 | 4244431768 | N/A |
+| 5 | Board Component | #20 | 4244431772 | N/A |
+| 6 | Board Canvas | #16 | 4244431767 | N/A |
+
+### Regression Sub-Issue
+
+| Key | Value |
+|-----|-------|
+| Issue # | — |
+| Node ID | — |
+| Project Item ID | — |
