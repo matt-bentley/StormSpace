@@ -6,41 +6,46 @@ applyTo: "**/.agent-context/tasks/**/progress.md"
 
 Progress files track the status of agentic workflow pipeline runs. They are created and maintained by the Orchestrator agent.
 
+## Timestamps
+- Use the `utc-datetime` skill to populate all timestamp fields for consistency.
+- Update timestamps at each stage transition and phase milestone.
+
 ## File Structure
 
 ```markdown
 # Progress: {Task Title}
 
 **Task**: {Brief description of what was requested}
-**Started**: {ISO 8601 timestamp}
+**Started**: {utc-datetime}
 **Status**: {In Progress | Completed | Failed | Halted}
 **Plan**: [plan.md](plan.md)
 
 ## Phase Status
 
-| Phase | Name | Implementation | Review | Notes |
-|-------|------|----------------|--------|-------|
-| 1 | {Phase name} | {Not Started / In Progress / Done / Failed} | {Not Started / In Progress / Passed / Failed} | {Brief notes} |
-| 2 | {Phase name} | {status} | {status} | {notes} |
+| Phase | Name | Started | Completed | Notes |
+|-------|------|---------|-----------|-------|
+| 1 | {Phase name} | {utc-datetime} | {utc-datetime} | {Brief notes} |
+| 2 | {Phase name} | | | {notes} |
 
 ## Pipeline Stages
 
-| Stage | Status | Notes |
-|-------|--------|-------|
-| Planning | {Completed / Failed} | {notes} |
-| Plan Review | {Completed / Failed} | {notes} |
-| Plan Approval | {Approved / Pending / Skipped (--auto)} | {notes} |
-| Implementation | {In Progress / Completed / Failed} | {notes} |
-| Regression Testing | {Passed / Failed / Skipped} | {notes} |
-| Regression Fixes | {Completed / Not Needed / Failed} | {notes} |
-| Regression Re-verify | {Passed / Failed / Skipped} | {notes} |
-| Knowledge Update | {Completed / Skipped / Failed} | {notes} |
+| Stage | Started | Completed | Status | Notes |
+|-------|---------|-----------|--------|-------|
+| Planning | {utc-datetime} | {utc-datetime} | {Completed / Failed} | {notes} |
+| Plan Review | | | {Completed / Failed} | {notes} |
+| Plan Approval | | | {Approved / Pending / Skipped (--auto)} | {notes} |
+| Implementation | | | {In Progress / Completed / Failed} | {notes} |
+| Implementation Review | | | {Passed / Failed / Skipped} | {notes} |
+| Regression Testing | | | {Passed / Failed / Skipped} | {notes} |
+| Regression Fixes | | | {Completed / Not Needed / Failed} | {notes} |
+| Regression Re-verify | | | {Passed / Failed / Skipped} | {notes} |
+| Knowledge Update | | | {Completed / Skipped / Failed} | {notes} |
 
 ## Issues Log
 
 | Timestamp | Phase | Severity | Description | Resolution |
 |-----------|-------|----------|-------------|------------|
-| {ISO 8601} | {phase} | {Critical / Major / Minor} | {What went wrong} | {How it was resolved or "Pipeline halted"} |
+| {utc-datetime} | {phase} | {Critical / Major / Minor} | {What went wrong} | {How it was resolved or "Pipeline halted"} |
 
 ## Knowledge Updates
 
@@ -58,23 +63,16 @@ Progress files track the status of agentic workflow pipeline runs. They are crea
 - **Failed** — A stage failed and the pipeline halted
 - **Halted** — Pipeline was stopped due to an unrecoverable error or user intervention
 
-### Phase Implementation Values
+### Phase Timestamp Rules
 
-- **Not Started** — Implementation has not begun
-- **In Progress** — Implementer is currently executing this phase
-- **Done** — Implementation finished, awaiting review
-- **Failed** — Implementation failed (build/test errors)
-
-### Phase Review Values
-
-- **Not Started** — Review has not begun (implementation may still be in progress)
-- **In Progress** — Phase Reviewer is currently reviewing
-- **Passed** — Phase Reviewer approved the changes
-- **Failed** — Phase Reviewer found unresolvable issues
+- **Implementation Started** — Set when the Implementer begins executing this phase
+- **Completed** — Set when the Implementer finishes this phase and the commit is created
 
 ## Update Rules
 
 - Update the progress file after each stage transition
+- For phases: set **Impl Started** when implementation begins, **Review Started** when review begins, and **Completed** when the phase is fully done (all utc-datetime)
+- For stages: set **Started** when the stage begins and **Completed** when it finishes (all utc-datetime)
 - Log all errors to the Issues Log, even if subsequently resolved
 - Record the final status accurately — do not mark as Completed if any stage failed
 - Knowledge Updates section is populated by the Knowledge Keeper at the end of the pipeline

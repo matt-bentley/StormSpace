@@ -43,58 +43,62 @@ If `--auto` is NOT present, pause after plan review and present the plan to the 
 
 ### Stage 4: Per-Phase Implementation
 
-For each phase (1 through N):
+8. **Commit pre-implementation baseline**: Run `git add -A && git commit -m "pre-implementation baseline"` to create a single baseline for the full implementation diff. Record this commit hash — it is used by the Implementation Reviewer later.
 
-8. **Commit baseline**: Run `git add -A && git commit -m "phase-{N} baseline"` to create a baseline commit for diff tracking. Record the commit hash.
+For each phase (1 through N):
 
 9. **Invoke the Implementer** with the phase plan file:
    > Implement the plan in `.agent-context/tasks/{task-slug}/phase-{N}-{name}.md`
 
 10. Update progress file: Phase {N} Implementation → In Progress.
 
-11. After Implementer completes, update progress file: Phase {N} Implementation → Done, Review → In Progress.
+11. After Implementer completes, commit the phase: Run `git add -A && git commit -m "phase-{N} {name}"`.
 
-12. **Invoke Phase Reviewer** with the baseline commit hash and list of files touched:
-    > Review the changes since commit {baseline-hash} for phase {N}. Phase plan: `.agent-context/tasks/{task-slug}/phase-{N}-{name}.md`. Changed files in `src/eventstormingboard.client/`: {yes/no — for frontend build verification}.
+12. Update progress file: Phase {N} → Completed.
 
-13. **Parse Phase Reviewer output**: Look for `## Phase Review Status: PASS` or `## Phase Review Status: FAIL`.
-    - **PASS**: Update progress file: Phase {N} Review → Passed. Continue to next phase.
-    - **FAIL**: Update progress file: Phase {N} Review → Failed. Log error to Issues Log. Update task status to Failed. **Halt pipeline** with a summary of what failed.
+### Stage 5: Implementation Review
 
-### Stage 5: Regression Testing
+13. **Invoke the Implementation Reviewer** with the pre-implementation baseline commit hash:
+    > Review all implementation changes since commit {baseline-hash}. Task directory: `.agent-context/tasks/{task-slug}/`. Changed files in `src/eventstormingboard.client/`: {yes/no — for frontend build verification}.
 
-13. **Start the application**: Launch the app using the VS Code task `StormSpace` (this starts the backend with SPA proxy, which also serves the Angular frontend). After starting the task, wait for the app to become accessible at `https://localhost:51710` by polling the URL. If the app does not become accessible within a reasonable time, **halt** and report the startup failure.
+14. **Parse Implementation Reviewer output**: Look for `## Review Status: PASS` or `## Review Status: FAIL`.
+    - **PASS**: Update progress file: Implementation Review → Passed. Continue to regression testing.
+    - **FAIL**: Update progress file: Implementation Review → Failed. Log error to Issues Log. Update task status to Failed. **Halt pipeline** with a summary of what failed.
 
-14. **Invoke the Regression Tester** with the list of changed files across all phases:
+### Stage 6: Regression Testing
+
+15. **Start the application**: Launch the app using the VS Code task `StormSpace` (this starts the backend with SPA proxy, which also serves the Angular frontend). After starting the task, wait for the app to become accessible at `https://localhost:51710` by polling the URL. If the app does not become accessible within a reasonable time, **halt** and report the startup failure.
+
+16. **Invoke the Regression Tester** with the list of changed files across all phases:
     > Run regression testing. Changed files: {list of all files changed across phases}. App URL: https://localhost:51710
 
-15. **Parse Regression Tester output**: Look for `## Regression Status: PASS` or `## Regression Status: FAIL`.
+17. **Parse Regression Tester output**: Look for `## Regression Status: PASS` or `## Regression Status: FAIL`.
     - **PASS**: Update progress file: Regression Testing → Passed. Proceed to Knowledge Update.
     - **FAIL**: Update progress file: Regression Testing → Failed. Proceed to regression fix cycle.
 
-### Stage 6: Regression Fix Cycle (if needed)
+### Stage 7: Regression Fix Cycle (if needed)
 
-16. **Invoke the Implementer** to fix regression issues:
+18. **Invoke the Implementer** to fix regression issues:
     > Fix the following regression issues found by the Regression Tester: {failure details from Regression Tester output}
 
-17. **Re-invoke the Regression Tester** with the same parameters.
+19. **Re-invoke the Regression Tester** with the same parameters.
 
-18. **Parse re-verify output**:
+20. **Parse re-verify output**:
     - **PASS**: Update progress file: Regression Fixes → Completed, Regression Re-verify → Passed.
     - **FAIL**: Update progress file with remaining issues. **Halt pipeline** — do not loop further. Report remaining regressions to user.
 
 **Cap**: At most 1 fix cycle. If regressions persist after one Implementer fix attempt, halt and report.
 
-### Stage 7: Knowledge Update
+### Stage 8: Knowledge Update
 
-19. **Invoke the Knowledge Keeper**:
+21. **Invoke the Knowledge Keeper**:
     > Update knowledge documentation to reflect the changes made during this task. Changed files: {list}. Task: {description}.
 
-20. Record knowledge updates in progress file.
+22. Record knowledge updates in progress file.
 
-### Stage 8: Completion
+### Stage 9: Completion
 
-21. Update progress file: Status → Completed. Report final summary to user.
+23. Update progress file: Status → Completed. Report final summary to user.
 
 ## Error Handling
 
@@ -105,6 +109,7 @@ For each phase (1 through N):
 ## Progress File Management
 
 - Create at pipeline start, update after every stage transition
+- Record the Started and Completed timestamps for each phase and stage
 - File path: `.agent-context/tasks/{task-slug}/progress.md`
 - Follow format defined in `.github/instructions/agent-progress.instructions.md`
 
@@ -120,7 +125,8 @@ Convert the task description to a kebab-case slug:
 ## Rules
 
 - **One phase at a time.** Never run phases in parallel.
-- **Always commit baseline before each phase.** This enables scoped diffs for Phase Reviewer.
-- **Parse agent output contracts.** Phase Reviewer outputs `## Phase Review Status: PASS|FAIL`. Regression Tester outputs `## Regression Status: PASS|FAIL`. Gate pipeline flow on these headings.
+- **Commit pre-implementation baseline once.** Before phase 1 starts. This enables a full diff for the Implementation Reviewer.
+- **Commit after each phase.** Phase commits provide a clean history but are not used for review gating.
+- **Parse agent output contracts.** Implementation Reviewer outputs `## Review Status: PASS|FAIL`. Regression Tester outputs `## Regression Status: PASS|FAIL`. Gate pipeline flow on these headings.
 - **Maximum 1 regression fix cycle.** Do not loop indefinitely.
 - **Knowledge updates happen last.** After all implementation and fixes are verified.
