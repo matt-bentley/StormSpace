@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -41,6 +41,10 @@ export interface AgentConfigModalData {
   styleUrls: ['./agent-config-modal.component.scss']
 })
 export class AgentConfigModalComponent implements OnInit {
+  readonly dialogRef = inject(MatDialogRef<AgentConfigModalComponent>);
+  readonly data = inject<AgentConfigModalData>(MAT_DIALOG_DATA);
+  private boardsService = inject(BoardsService);
+
   public agents: AgentConfiguration[] = [];
   public availableTools: ToolDefinition[] = [];
   public phases = EVENT_STORMING_PHASES;
@@ -71,12 +75,6 @@ export class AgentConfigModalComponent implements OnInit {
     { value: 'low', label: 'Low' },
     { value: 'medium', label: 'Medium' }
   ];
-
-  constructor(
-    public dialogRef: MatDialogRef<AgentConfigModalComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: AgentConfigModalData,
-    private boardsService: BoardsService
-  ) {}
 
   ngOnInit(): void {
     this.agents = this.data.agents.map(a => ({ ...a, activePhases: a.activePhases ? [...a.activePhases] : undefined, allowedTools: [...a.allowedTools], canAskAgents: a.canAskAgents ? [...a.canAskAgents] : undefined }));

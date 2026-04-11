@@ -1,4 +1,4 @@
-import { Component, Inject } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -21,15 +21,13 @@ import { BoardsService } from '../../_shared/services/boards.service';
     styleUrls: ['./create-board-modal.component.scss']
 })
 export class CreateBoardModalComponent {
-  constructor(
-    public dialogRef: MatDialogRef<CreateBoardModalComponent>,
-    private boardsService: BoardsService,
-    @Inject(MAT_DIALOG_DATA) public data: {
-      name: string;
-      domain?: string;
-      sessionScope?: string;
-    }
-  ) { }
+  readonly dialogRef = inject(MatDialogRef<CreateBoardModalComponent>);
+  private boardsService = inject(BoardsService);
+  readonly data = inject<{
+    name: string;
+    domain?: string;
+    sessionScope?: string;
+  }>(MAT_DIALOG_DATA);
 
   public onCancel(): void {
     this.dialogRef.close();

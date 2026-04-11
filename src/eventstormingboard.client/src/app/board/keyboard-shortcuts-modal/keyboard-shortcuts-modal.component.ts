@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -15,6 +15,8 @@ type ShortcutSection = {
   styleUrls: ['./keyboard-shortcuts-modal.component.scss']
 })
 export class KeyboardShortcutsModalComponent {
+  readonly dialogRef = inject(MatDialogRef<KeyboardShortcutsModalComponent>);
+
   public readonly sections: ShortcutSection[] = [
     {
       title: 'Editing',
@@ -46,5 +48,4 @@ export class KeyboardShortcutsModalComponent {
     }
   ];
 
-  constructor(public dialogRef: MatDialogRef<KeyboardShortcutsModalComponent>) {}
 }
