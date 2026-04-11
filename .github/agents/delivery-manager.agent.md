@@ -2,7 +2,7 @@
 name: "Delivery Manager"
 description: "Manages GitHub Issues, PRs, and Project board tracking for Orchestrator pipeline runs. Use when: creating tracking issues, updating board status, creating PRs, or closing out tasks on GitHub."
 tools: [read, search, "github/*"]
-model: "Claude Haiku 4.5"
+model: "Claude Sonnet 4.6"
 user-invocable: false
 ---
 
