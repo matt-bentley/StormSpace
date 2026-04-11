@@ -52,6 +52,37 @@ Progress files track the status of agentic workflow pipeline runs. They are crea
 | File | Action | Summary |
 |------|--------|---------|
 | {path} | {Created / Updated} | {Brief description of changes} |
+
+## GitHub Tracking
+
+| Key | Value |
+|-----|-------|
+| Tracking Issue | #{number} |
+| Issue Node ID | {node_id} |
+| Branch | task/{task-slug} |
+| PR | #{number} or — |
+| Project Number | 1 |
+| Tracking Item ID | {project_item_id} |
+| Status Field ID | {field_id} |
+| Backlog Option ID | {option_id} |
+| In Progress Option ID | {option_id} |
+| In Review Option ID | {option_id} |
+| Done Option ID | {option_id} |
+
+### Phase Sub-Issues
+
+| Phase | Name | Issue # | Node ID | Project Item ID |
+|-------|------|---------|---------|-----------------|
+| 1 | {name} | #{number} | {node_id} | {item_id} |
+| 2 | {name} | #{number} | {node_id} | {item_id} |
+
+### Regression Sub-Issue
+
+| Key | Value |
+|-----|-------|
+| Issue # | #{number} or — |
+| Node ID | {node_id} or — |
+| Project Item ID | {item_id} or — |
 ```
 
 ## Field Definitions
@@ -76,3 +107,9 @@ Progress files track the status of agentic workflow pipeline runs. They are crea
 - Log all errors to the Issues Log, even if subsequently resolved
 - Record the final status accurately — do not mark as Completed if any stage failed
 - Knowledge Updates section is populated by the Knowledge Keeper at the end of the pipeline
+
+### GitHub Tracking Rules
+
+- The `## GitHub Tracking` section is populated by the Delivery Manager's `init` response and updated as new items (PR, regression sub-issue) are created
+- The Orchestrator reads IDs from this section and passes them to the Delivery Manager for every subsequent command — the Delivery Manager must not re-look up IDs
+- If the Delivery Manager fails during `init`, this section remains empty and all subsequent Delivery Manager calls are skipped (non-blocking)

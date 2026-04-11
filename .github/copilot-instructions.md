@@ -123,3 +123,25 @@ All specialist agents can also call `GetBoardState`, `GetRecentEvents`, and some
 - **SignalR hub methods**: Match event names (e.g., `NoteCreated`, `BoardNameUpdated`). Hub calls `RecordUserActivity()` on every user action for autonomous debouncing
 - **Board phases**: SetContext → IdentifyEvents → AddCommandsAndPolicies → DefineAggregates → BreakItDown
 - **Agent configuration**: Per-board via `AgentConfiguration` entities — models, prompts, active phases all configurable through the UI
+
+## GitHub Project
+
+The agentic development pipeline tracks work on a GitHub Project board. The **Delivery Manager** agent manages all GitHub interactions.
+
+- **Repository**: `matt-bentley/StormSpace`
+- **Project**: `matt-bentley/projects/1` (name: "StormSpace")
+- **Board columns**: Backlog, Ready, In progress, In review, Done
+
+### Tracking Model
+
+Each Orchestrator pipeline run creates:
+- **Tracking Issue** — parent issue for the task, labelled `agent-task`
+- **Phase sub-issues** — one per implementation phase, linked as sub-issues
+- **Regression sub-issue** — tracks regression testing, linked as sub-issue
+- **Branch** — `task/{task-slug}`, created at pipeline start
+- **PR** — created after Implementation Review passes
+
+### Labels
+
+- `agent-task` — applied to all tracking issues created by the Delivery Manager
+- `failed` — added to tracking issue if the pipeline fails or halts
