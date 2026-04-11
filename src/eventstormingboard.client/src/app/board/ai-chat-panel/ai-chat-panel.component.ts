@@ -68,20 +68,16 @@ export class AiChatPanelComponent implements OnInit {
   private startWidth = 0;
   private agentDisplayMap = new Map<string, AgentDisplayInfo>();
   private agentConfigEffect = effect(() => {
-    this.agentConfigurations();
-    this.rebuildAgentDisplayMap();
-  });
-
-  private rebuildAgentDisplayMap(): void {
+    const configs = this.agentConfigurations();
     this.agentDisplayMap.clear();
-    for (const config of this.agentConfigurations()) {
+    for (const config of configs) {
       this.agentDisplayMap.set(config.name, {
         label: config.name,
         icon: config.icon,
         color: config.color
       });
     }
-  }
+  });
 
   ngOnInit(): void {
     // Always request fresh history from server for the current board.

@@ -551,6 +551,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit {
 
   @HostListener('window:resize')
   public onResize(): void {
+    if (!this.ctx) return;
     this.canvas().nativeElement.width = window.innerWidth;
     this.canvas().nativeElement.height = window.innerHeight;
     this.drawCanvas();

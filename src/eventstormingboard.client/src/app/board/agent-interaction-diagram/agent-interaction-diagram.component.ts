@@ -75,7 +75,12 @@ export class AgentInteractionDiagramComponent implements AfterViewInit {
 
   private buildGraph(): void {
     const agents = this.agents();
-    if (!agents || agents.length === 0) return;
+    if (!agents || agents.length === 0) {
+      this.nodes = [];
+      this.edges = [];
+      this.bundledEdges = [];
+      return;
+    }
 
     this.computeSizes();
     this.layoutNodes();
