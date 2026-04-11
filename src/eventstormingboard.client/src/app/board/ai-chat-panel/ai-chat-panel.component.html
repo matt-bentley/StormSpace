@@ -5,13 +5,13 @@
       <mat-icon class="chat-header-icon" fontSet="material-icons-outlined">smart_toy</mat-icon>
       <div class="chat-header-title-area">
         <span class="chat-title">AI Assistant</span>
-        <span class="autonomy-badge" [class.active]="autonomousEnabled" [class.running]="autonomousStatus?.isRunning">
+        <span class="autonomy-badge" [class.active]="autonomousEnabled()" [class.running]="autonomousStatus()?.isRunning">
           {{ autonomousStatusLabel }}
         </span>
       </div>
     </div>
     <div class="chat-header-actions">
-      @if (autonomousEnabled) {
+      @if (autonomousEnabled()) {
       <button mat-icon-button (click)="disableAutonomousRequested.emit()" matTooltip="Stop autonomous facilitator">
         <mat-icon>pause_circle</mat-icon>
       </button>
