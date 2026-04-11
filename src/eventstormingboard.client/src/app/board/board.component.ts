@@ -1,9 +1,9 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, DestroyRef, OnDestroy, OnInit, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Note, getNoteColor } from '../_shared/models/note.model';
 import { CreateConnectionCommand, CreateBoundedContextCommand, CreateNoteCommand, DeleteBoundedContextCommand, DeleteNotesCommand, EditNoteTextCommand, MoveBoundedContextCommand, MoveNotesCommand, PasteCommand, ResizeBoundedContextCommand, ResizeNoteCommand, UpdateBoardContextCommand, UpdateBoardNameCommand, UpdateBoundedContextCommand } from './board.commands';
 import { v4 as uuid } from 'uuid';
 import { AutonomousFacilitatorStatus, BoardsSignalRService } from '../_shared/services/boards-signalr.service';
-import { Subject, takeUntil } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
@@ -56,19 +56,18 @@ interface ImportedBoardState {
 export class BoardComponent implements OnInit, OnDestroy {
 
   private static readonly CURSOR_STALE_TIMEOUT_MS = 15000;
-  private destroy$ = new Subject<void>();
+  private destroyRef = inject(DestroyRef);
+  private boardsHub = inject(BoardsSignalRService);
+  readonly canvasService = inject(BoardCanvasService);
+  private activatedRoute = inject(ActivatedRoute);
+  private boardsService = inject(BoardsService);
+  private dialog = inject(MatDialog);
+  private userService = inject(UserService);
   private id!: string;
   public userName: string;
   private previousName: string;
 
-  constructor(
-    private boardsHub: BoardsSignalRService,
-    public canvasService: BoardCanvasService,
-    private activatedRoute: ActivatedRoute,
-    private boardsService: BoardsService,
-    private dialog: MatDialog,
-    private userService: UserService
-  ) {
+  constructor() {
     this.canvasService.boardState = {
       name: '',
       autonomousEnabled: false,
@@ -693,24 +692,22 @@ export class BoardComponent implements OnInit, OnDestroy {
   public ngOnDestroy(): void {
     this.boardsHub.leaveBoard(this.id);
     this.canvasService.remoteCursors.clear();
-    this.destroy$.next();
-    this.destroy$.complete();
   }
 
   private subscribeToEvents(): void {
     this.boardsHub.connectedUsers$
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(users => {
         this.connectedUsers = users.filter(user => user.boardId === this.id)
           .map(user => new BoardUser(user.boardId, user.userName, user.connectionId));
       });
     this.boardsHub.userJoinedBoard$
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(event => {
         this.connectedUsers.push(new BoardUser(event.boardId, event.userName, event.connectionId));
       });
     this.boardsHub.userLeftBoard$
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(event => {
         this.connectedUsers = this.connectedUsers.filter(user => user.connectionId !== event.connectionId);
         this.canvasService.remoteCursors.delete(event.connectionId);
@@ -718,7 +715,7 @@ export class BoardComponent implements OnInit, OnDestroy {
       });
 
     this.boardsHub.cursorPositionUpdated$
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((event: CursorPositionUpdatedEvent) => {
         if (event.boardId !== this.id || !this.isValidCursorEvent(event)) {
           return;
@@ -735,13 +732,13 @@ export class BoardComponent implements OnInit, OnDestroy {
         this.canvasService.drawCanvas();
       });
     this.boardsHub.boardNameUpdated$
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(event => {
         this.canvasService.executeCommand(new UpdateBoardNameCommand(event.newName, event.oldName), true, event.isUndo);
       });
 
     this.boardsHub.boardContextUpdated$
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(event => {
         this.canvasService.executeCommand(
           new UpdateBoardContextCommand(
@@ -753,55 +750,55 @@ export class BoardComponent implements OnInit, OnDestroy {
       });
 
     this.boardsHub.noteAdded$
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(event => {
         this.canvasService.executeCommand(new CreateNoteCommand(event.note), true, event.isUndo);
       });
 
     this.boardsHub.notesMoved$
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(event => {
         this.canvasService.executeCommand(new MoveNotesCommand(event.from, event.to), true, event.isUndo);
       });
 
     this.boardsHub.noteResized$
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(event => {
         this.canvasService.executeCommand(new ResizeNoteCommand(event.noteId, event.from, event.to), true, event.isUndo);
       });
 
     this.boardsHub.notesDeleted$
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(event => {
         this.canvasService.executeCommand(new DeleteNotesCommand(event.notes, event.connections), true, event.isUndo);
       });
 
     this.boardsHub.connectionCreated$
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(event => {
         this.canvasService.executeCommand(new CreateConnectionCommand(event.connection), true, event.isUndo);
       });
 
     this.boardsHub.noteTextEdited$
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(event => {
         this.canvasService.executeCommand(new EditNoteTextCommand(event.noteId, event.toText, event.fromText), true, event.isUndo);
       });
 
     this.boardsHub.pasted$
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(event => {
         this.canvasService.executeCommand(new PasteCommand(event.notes, event.connections), true, event.isUndo);
       });
 
     this.boardsHub.boundedContextCreated$
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(event => {
         this.canvasService.executeCommand(new CreateBoundedContextCommand(event.boundedContext), true, event.isUndo);
       });
 
     this.boardsHub.boundedContextUpdated$
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(event => {
         this.canvasService.executeCommand(
           new UpdateBoundedContextCommand(
@@ -815,13 +812,13 @@ export class BoardComponent implements OnInit, OnDestroy {
       });
 
     this.boardsHub.boundedContextDeleted$
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(event => {
         this.canvasService.executeCommand(new DeleteBoundedContextCommand(event.boundedContext), true, event.isUndo);
       });
 
     this.boardsHub.agentUserMessage$
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(event => {
         if (!this.isChatOpen && event.userName !== this.userName) {
           this.hasUnreadMessages = true;
@@ -829,13 +826,13 @@ export class BoardComponent implements OnInit, OnDestroy {
       });
 
     this.boardsHub.agentStepUpdate$
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => {
         if (!this.isChatOpen) this.hasUnreadMessages = true;
       });
 
     this.boardsHub.autonomousStatusChanged$
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(status => {
         if (status.boardId === this.id) {
           this.autonomousStatus = status;
@@ -848,7 +845,7 @@ export class BoardComponent implements OnInit, OnDestroy {
       });
 
     this.boardsHub.agentConfigurationsUpdated$
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(event => {
         if (event.boardId === this.id) {
           this.agentConfigurations = event.agents;
@@ -858,7 +855,7 @@ export class BoardComponent implements OnInit, OnDestroy {
 
   private startPruningCursors(): void {
     const intervalId = setInterval(() => this.pruneStaleRemoteCursors(), 2000);
-    this.destroy$.subscribe(() => clearInterval(intervalId));
+    this.destroyRef.onDestroy(() => clearInterval(intervalId));
   }
 
   private pruneStaleRemoteCursors(): void {
