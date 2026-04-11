@@ -24,10 +24,10 @@
 | Plan Approval | | | Skipped (--auto) | Auto mode |
 | Implementation | 2026-04-11T18:01:44Z | 2026-04-11T18:15:47Z | Completed | All 5 phases done |
 | Implementation Review | 2026-04-11T18:15:47Z | 2026-04-11T18:35:13Z | Passed | 1 major + 2 minor fixed |
-| Regression Testing | | | | |
-| Regression Fixes | | | | |
-| Regression Re-verify | | | | |
-| Knowledge Update | | | | |
+| Regression Testing | 2026-04-11T18:35:13Z | 2026-04-11T18:43:44Z | Passed | 8 pass, 2 manual only |
+| Regression Fixes | | | Not Needed | |
+| Regression Re-verify | | | Skipped | |
+| Knowledge Update | 2026-04-11T18:43:44Z | 2026-04-11T18:46:02Z | Completed | architecture-principles.md updated |
 
 ## Issues Log
 
@@ -38,6 +38,7 @@
 
 | File | Action | Summary |
 |------|--------|---------|
+| .agent-context/knowledge/architecture-principles.md | Updated | Signal adoption expanded to cover viewChild(), effect(), takeUntilDestroyed() |
 
 ## GitHub Tracking
 
@@ -46,7 +47,7 @@
 | Tracking Issue | #24 |
 | Issue Node ID | 4245349524 |
 | Branch | task/angular-signals-modernization |
-| PR | — |
+| PR | #30 |
 
 ### Phase Sub-Issues
 
@@ -62,5 +63,5 @@
 
 | Key | Value |
 |-----|-------|
-| Issue # | — |
-| Node ID | — |
+| Issue # | #31 |
+| Node ID | 4245491301 |
