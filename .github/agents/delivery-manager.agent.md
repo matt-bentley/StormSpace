@@ -27,29 +27,45 @@ All runtime IDs (issue numbers, sub-issue numbers, project item IDs, field IDs) 
 
 ### Command: `init`
 
-**Input**: task title, task slug, plan summary (phase names and descriptions), progress file path
+**Input**: task title, task slug, progress file path
 
 **Actions**:
 1. Create a tracking issue via `mcp_github_issue_write` (method: `create`):
    - Title: task title
    - Labels: `agent-task`
-   - Body: formatted plan summary (see Issue Body Template below)
+   - Body: formatted with Issue Body Template — Init (see below)
 2. Look up the Project's Status field ID and column option IDs via `mcp_github_projects_get` (method: `get_project_field` — find the "Status" single-select field). Record all option IDs (Backlog, Ready, In progress, In review, Done).
-3. Add the tracking issue to the Project via `mcp_github_projects_write` (method: `add_project_item`, item_type: `issue`)
+3. Add the tracking issue to the Project via `mcp_github_projects_write` (method: `add_project_item`, item_type: `issue`). **Capture the returned project item ID** — this is the TrackingItemId.
 4. Move the tracking issue to "In progress" via `mcp_github_projects_write` (method: `update_project_item`, set Status field to "In progress" option ID)
-5. For each implementation phase: create a sub-issue via `mcp_github_issue_write` (method: `create`, title: `Phase {N}: {name}`), then link as sub-issue via `mcp_github_sub_issue_write` (method: `add`), then add to Project (Backlog)
 
 **Output**:
 ```
 ## Delivery: INIT
 Issue: #{number}
 IssueNodeId: {node_id}
+TrackingItemId: {item_id}
 StatusFieldId: {field_id}
 BacklogOptionId: {option_id}
 InProgressOptionId: {option_id}
 InReviewOptionId: {option_id}
 DoneOptionId: {option_id}
 ProjectNumber: 1
+```
+
+### Command: `plan_ready`
+
+**Input**: tracking issue number, tracking issue node ID, plan summary (phase names and descriptions), Status field ID, Backlog option ID, project number
+
+**Actions**:
+1. Update the tracking issue body via `mcp_github_issue_write` (method: `update`) using the Issue Body Template — Plan Ready (see below)
+2. For each implementation phase:
+   a. Create a sub-issue via `mcp_github_issue_write` (method: `create`, title: `Phase {N}: {name}`)
+   b. Link as sub-issue to the tracking issue via `mcp_github_sub_issue_write` (method: `add`)
+   c. Add to the Project in "Backlog" via `mcp_github_projects_write` (method: `add_project_item`). **Capture the returned project item ID**.
+
+**Output**:
+```
+## Delivery: PLAN_READY
 
 ### Phase Sub-Issues
 | Phase | Issue # | Node ID | Project Item ID |
@@ -180,7 +196,6 @@ Use this template for the tracking issue body on `init` (before planning is comp
 
 **Status**: 🔄 In Progress
 **Branch**: `task/{task-slug}`
-**Progress**: [progress.md]({link to progress file if available})
 
 ## Pipeline
 
@@ -203,7 +218,6 @@ Use this template when updating the issue body on `plan_ready`:
 
 **Status**: 🔄 In Progress
 **Branch**: `task/{task-slug}`
-**Progress**: [progress.md]({link to progress file if available})
 
 ## Plan Summary
 
