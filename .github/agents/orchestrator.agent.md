@@ -81,9 +81,11 @@ For each phase (1 through N):
    - **PASS**:
      1. Update progress file: Implementation Review → Passed.
      2. **Invoke the Delivery Manager** with `stage_update`: Stage: Implementation Review. Status: Passed.
-     3. **Invoke the Delivery Manager** with `create_pr`: Tracking issue: #{number}. Task title. Task slug. Branch: task/{task-slug}. Parse output for PR # and record in progress file `## GitHub Tracking`.
-     4. **Invoke the Delivery Manager** with `regression_init`: Tracking issue #, Issue Node ID, Backlog option ID, Status Field ID, project number. Parse output for regression sub-issue # and item ID, record in progress file.
-     5. Continue to regression testing.
+     3. **Commit review fixes** (if any): Run `git add -A && git diff --cached --quiet || git commit -m "implementation review fixes"`.
+     4. **Push branch to remote**: Run `git push -u origin task/{task-slug}`.
+     5. **Invoke the Delivery Manager** with `create_pr`: Tracking issue: #{number}. Task title. Task slug. Branch: task/{task-slug}. Parse output for PR # and record in progress file `## GitHub Tracking`.
+     6. **Invoke the Delivery Manager** with `regression_init`: Tracking issue #, Issue Node ID, Backlog option ID, Status Field ID, project number. Parse output for regression sub-issue # and item ID, record in progress file.
+     7. Continue to regression testing.
    - **FAIL**: Update progress file: Implementation Review → Failed. Log error to Issues Log. Update task status to Failed. **Invoke the Delivery Manager** with `complete` (status: failed). **Halt pipeline** with a summary of what failed.
 
 ### Stage 7: Regression Testing
@@ -105,12 +107,14 @@ For each phase (1 through N):
 
 1. **Invoke the Implementer** to fix regression issues:
    > Fix the following regression issues found by the Regression Tester: {failure details from Regression Tester output}
-2. **Re-invoke the Regression Tester** with the same parameters.
-3. **Parse re-verify output**:
+2. **Commit regression fixes**: Run `git add -A && git commit -m "regression fixes"`.
+3. **Re-invoke the Regression Tester** with the same parameters.
+4. **Parse re-verify output**:
    - **PASS**:
      1. Update progress file: Regression Fixes → Completed, Regression Re-verify → Passed.
-     2. **Invoke the Delivery Manager** with `regression_update`: Status: passed. Target column: Done option ID.
-     3. **Invoke the Delivery Manager** with `stage_update`: Stage: Regression Re-verify. Status: Passed.
+     2. **Push to remote**: Run `git push`.
+     3. **Invoke the Delivery Manager** with `regression_update`: Status: passed. Target column: Done option ID.
+     4. **Invoke the Delivery Manager** with `stage_update`: Stage: Regression Re-verify. Status: Passed.
    - **FAIL**: Update progress file with remaining issues. **Invoke the Delivery Manager** with `complete` (status: failed). **Halt pipeline** — do not loop further. Report remaining regressions to user.
 
 **Cap**: At most 1 fix cycle. If regressions persist after one Implementer fix attempt, halt and report.
@@ -120,7 +124,8 @@ For each phase (1 through N):
 1. **Invoke the Knowledge Keeper**:
    > Update knowledge documentation to reflect the changes made during this task. Changed files: {list}. Task: {description}.
 2. Record knowledge updates in progress file.
-3. **Invoke the Delivery Manager** with `stage_update`:
+3. **Commit and push knowledge updates**: Run `git add -A && git commit -m "knowledge updates" && git push`.
+4. **Invoke the Delivery Manager** with `stage_update`:
    > Command: `stage_update`. Tracking issue: #{number}. Stage: Knowledge Update. Status: Completed.
 
 ### Stage 10: Completion
