@@ -89,6 +89,7 @@ export class AiChatPanelComponent implements OnInit {
   });
 
   constructor() {
+    this.destroyRef.onDestroy(() => this.destroyed = true);
     effect(() => {
       const configs = this.agentConfigurations();
       this.rebuildAgentDisplayMap(configs);
@@ -234,8 +235,11 @@ export class AiChatPanelComponent implements OnInit {
     return (msg.agentName && this.agentDisplayMap.get(msg.agentName)) || DEFAULT_AGENT;
   }
 
+  private destroyed = false;
+
   private scrollToBottom(): void {
     setTimeout(() => {
+      if (this.destroyed) return;
       const el = this.messagesContainer().nativeElement;
       el.scrollTop = el.scrollHeight;
     });

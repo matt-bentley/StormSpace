@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, effect, input, viewChild } from '@angular/core';
+import { AfterViewInit, Component, DestroyRef, ElementRef, effect, inject, input, viewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -34,6 +34,7 @@ const MODIFICATION_TOOLS = ['CreateNote', 'CreateNotes', 'EditNoteText', 'MoveNo
   styleUrls: ['./agent-interaction-diagram.component.scss']
 })
 export class AgentInteractionDiagramComponent implements AfterViewInit {
+  private destroyRef = inject(DestroyRef);
   readonly agents = input<AgentConfiguration[]>([]);
   readonly containerRef = viewChild.required<ElementRef<HTMLDivElement>>('diagramContainer');
 
@@ -48,6 +49,8 @@ export class AgentInteractionDiagramComponent implements AfterViewInit {
   private nodeRadius = 36;
   private baseContainerSize = 500;
 
+  private destroyed = false;
+
   constructor() {
     effect(() => {
       const agents = this.agents();
@@ -56,7 +59,9 @@ export class AgentInteractionDiagramComponent implements AfterViewInit {
   }
 
   ngAfterViewInit(): void {
+    this.destroyRef.onDestroy(() => this.destroyed = true);
     setTimeout(() => {
+      if (this.destroyed) return;
       this.recalcSize();
     });
   }

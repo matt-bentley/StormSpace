@@ -14,7 +14,7 @@
 | 3 | App + Splash | 2026-04-11T12:10:50Z | 2026-04-11T12:12:29Z | Done |
 | 4 | Chat Panel + Agent Diagram | 2026-04-11T12:12:29Z | 2026-04-11T12:15:35Z | Done - input renamed, OnChanges→effect() |
 | 5 | Board Component | 2026-04-11T12:15:35Z | 2026-04-11T12:17:43Z | Done - 20 subs converted |
-| 6 | Board Canvas | 2026-04-11T12:17:43Z | | |
+| 6 | Board Canvas | 2026-04-11T12:17:43Z | 2026-04-11T12:20:10Z | Done - viewChild.required(), takeUntilDestroyed() |
 
 ## Pipeline Stages
 
@@ -23,8 +23,8 @@
 | Planning | 2026-04-11T11:41:12Z | 2026-04-11T11:51:05Z | Completed | 6 phases |
 | Plan Review | 2026-04-11T11:51:05Z | 2026-04-11T12:06:10Z | Completed | Refiner: 1 round, 2 critical + 2 major + 5 minor fixes |
 | Plan Approval | | | Skipped (--auto) | Auto mode |
-| Implementation | 2026-04-11T12:06:33Z | | In Progress | Phase 1 of 6 |
-| Implementation Review | | | | |
+| Implementation | 2026-04-11T12:06:33Z | 2026-04-11T12:20:10Z | Completed | All 6 phases done |
+| Implementation Review | 2026-04-11T12:20:10Z | 2026-04-11T12:33:51Z | Passed | 1 critical + 2 major fixes applied |
 | Regression Testing | | | | |
 | Regression Fixes | | | | |
 | Regression Re-verify | | | | |

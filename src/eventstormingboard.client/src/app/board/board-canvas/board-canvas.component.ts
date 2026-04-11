@@ -32,6 +32,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit {
   private static readonly CURSOR_BROADCAST_INTERVAL_MS = 50;
 
   private destroyRef = inject(DestroyRef);
+  private destroyed = false;
 
   private dialog = inject(MatDialog);
   private canvasService = inject(BoardCanvasService);
@@ -580,6 +581,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit {
   }
 
   public ngAfterViewInit(): void {
+    this.destroyRef.onDestroy(() => this.destroyed = true);
     this.generateCanvas();
   }
 
@@ -673,6 +675,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit {
     this.rafPending = true;
     requestAnimationFrame(() => {
       this.rafPending = false;
+      if (this.destroyed) return;
       this.drawCanvasFrame();
     });
   }
