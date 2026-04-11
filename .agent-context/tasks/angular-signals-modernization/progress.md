@@ -13,7 +13,8 @@
 | 2 | Modal Components | 2026-04-11T12:08:36Z | 2026-04-11T12:10:50Z | Done - 7 modals converted |
 | 3 | App + Splash | 2026-04-11T12:10:50Z | 2026-04-11T12:12:29Z | Done |
 | 4 | Chat Panel + Agent Diagram | 2026-04-11T12:12:29Z | 2026-04-11T12:15:35Z | Done - input renamed, OnChanges→effect() |
-| 5 | Board Component | 2026-04-11T12:15:35Z | | |
+| 5 | Board Component | 2026-04-11T12:15:35Z | 2026-04-11T12:17:43Z | Done - 20 subs converted |
+| 6 | Board Canvas | 2026-04-11T12:17:43Z | | |
 
 ## Pipeline Stages
 
