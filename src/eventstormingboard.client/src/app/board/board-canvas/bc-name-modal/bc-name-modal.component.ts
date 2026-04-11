@@ -1,4 +1,4 @@
-import { Component, Inject } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -20,11 +20,8 @@ import { MatButtonModule } from '@angular/material/button';
     styleUrls: ['./bc-name-modal.component.scss']
 })
 export class BcNameModalComponent {
-
-  constructor(
-    public dialogRef: MatDialogRef<BcNameModalComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: { name: string }
-  ) {}
+  public dialogRef = inject<MatDialogRef<BcNameModalComponent>>(MatDialogRef);
+  public data = inject<{ name: string }>(MAT_DIALOG_DATA);
 
   public onCancel(): void {
     this.dialogRef.close();

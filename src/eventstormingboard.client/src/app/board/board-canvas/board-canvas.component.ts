@@ -1,4 +1,5 @@
-import { AfterViewInit, Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, DestroyRef, ElementRef, HostListener, OnInit, inject, viewChild } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Note, getNoteColor } from '../../_shared/models/note.model';
 import { Connection } from '../../_shared/models/connection.model';
 import { BoundedContext } from '../../_shared/models/bounded-context.model';
@@ -11,7 +12,6 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { NoteTextModalComponent } from './note-text-modal/note-text-modal.component';
 import { BcNameModalComponent } from './bc-name-modal/bc-name-modal.component';
 import { BoardCanvasService } from './board-canvas.service';
-import { Subject, takeUntil } from 'rxjs';
 import { KeyboardShortcutsModalComponent } from '../keyboard-shortcuts-modal/keyboard-shortcuts-modal.component';
 import { BoardsSignalRService } from '../../_shared/services/boards-signalr.service';
 import { BoardUser } from '../../_shared/models/board-user.model';
@@ -27,11 +27,16 @@ import { UserService } from '../../_shared/services/user.service';
     templateUrl: './board-canvas.component.html',
     styleUrls: ['./board-canvas.component.scss']
 })
-export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
+export class BoardCanvasComponent implements OnInit, AfterViewInit {
 
   private static readonly CURSOR_BROADCAST_INTERVAL_MS = 50;
 
-  private destroy$ = new Subject<void>();
+  private dialog = inject(MatDialog);
+  private canvasService = inject(BoardCanvasService);
+  private boardsHub = inject(BoardsSignalRService);
+  private themeService = inject(ThemeService);
+  private userService = inject(UserService);
+  private destroyRef = inject(DestroyRef);
 
   private ctx!: CanvasRenderingContext2D;
   private minimapCtx!: CanvasRenderingContext2D;
@@ -80,23 +85,12 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
   private bcInitialResizeState: { x: number; y: number; width: number; height: number } | null = null;
   private bcInitialDragPosition: { x: number; y: number } | null = null;
 
-  @ViewChild('canvas', { static: true })
-  public canvas!: ElementRef<HTMLCanvasElement>;
+  public canvas = viewChild.required<ElementRef<HTMLCanvasElement>>('canvas');
 
-  @ViewChild('minimap', { static: true })
-  public minimap!: ElementRef<HTMLCanvasElement>;
-
-  constructor(
-    private dialog: MatDialog,
-    private canvasService: BoardCanvasService,
-    private boardsHub: BoardsSignalRService,
-    private themeService: ThemeService,
-    private userService: UserService
-  ) {
-  }
+  public minimap = viewChild.required<ElementRef<HTMLCanvasElement>>('minimap');
 
   public onMinimapClick(event: MouseEvent): void {
-    const rect = this.minimap.nativeElement.getBoundingClientRect();
+    const rect = this.minimap().nativeElement.getBoundingClientRect();
     const clickX = event.clientX - rect.left;
     const clickY = event.clientY - rect.top;
 
@@ -105,7 +99,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     const canvasX = clickX / dynamicScale + minX;
     const canvasY = clickY / dynamicScale + minY;
 
-    const canvasEl = this.canvas.nativeElement;
+    const canvasEl = this.canvas().nativeElement;
     this.canvasService.originX = -canvasX * this.canvasService.scale + canvasEl.width / 2;
     this.canvasService.originY = -canvasY * this.canvasService.scale + canvasEl.height / 2;
 
@@ -403,7 +397,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
       // Ctrl pressed: Zooming behavior  
       event.preventDefault();
 
-      const rect = this.canvas.nativeElement.getBoundingClientRect();
+      const rect = this.canvas().nativeElement.getBoundingClientRect();
       const screenX = event.clientX - rect.left;
       const screenY = event.clientY - rect.top;
 
@@ -551,32 +545,33 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.handleTemporaryArrow(event)) return;
 
     this.updateHoverState();
-    this.canvas.nativeElement.style.cursor = this.getCursorStyle();
+    this.canvas().nativeElement.style.cursor = this.getCursorStyle();
     this.drawCanvas();
   }
 
   @HostListener('window:resize')
   public onResize(): void {
-    this.canvas.nativeElement.width = window.innerWidth;
-    this.canvas.nativeElement.height = window.innerHeight;
+    if (!this.ctx) return;
+    this.canvas().nativeElement.width = window.innerWidth;
+    this.canvas().nativeElement.height = window.innerHeight;
     this.drawCanvas();
   }
 
   public ngOnInit(): void {
     this.canvasService.canvasUpdated$
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => {
         this.drawCanvas();
       });
 
     this.canvasService.canvasImageDownloaded$
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => {
         this.exportBoardAsImage();
       });
 
     this.themeService.theme$
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => {
         if (this.ctx) {
           this.drawCanvas();
@@ -588,24 +583,19 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     this.generateCanvas();
   }
 
-  public ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
-  }
-
   private generateCanvas(): void {
-    this.ctx = this.canvas.nativeElement.getContext('2d')!;
-    this.canvas.nativeElement.width = window.innerWidth;
-    this.canvas.nativeElement.height = window.innerHeight;
+    this.ctx = this.canvas().nativeElement.getContext('2d')!;
+    this.canvas().nativeElement.width = window.innerWidth;
+    this.canvas().nativeElement.height = window.innerHeight;
 
-    this.minimapCtx = this.minimap.nativeElement.getContext('2d')!;
-    this.minimap.nativeElement.width = 260;
-    this.minimap.nativeElement.height = 185;
+    this.minimapCtx = this.minimap().nativeElement.getContext('2d')!;
+    this.minimap().nativeElement.width = 260;
+    this.minimap().nativeElement.height = 185;
     this.drawCanvas();
   }
 
   private exportBoardAsImage(): void {
-    const canvasEl = this.canvas.nativeElement;
+    const canvasEl = this.canvas().nativeElement;
     const tempCanvas = document.createElement('canvas');
     const tempCtx = tempCanvas.getContext('2d')!;
 
@@ -688,7 +678,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private drawCanvasFrame(): void {
-    const canvasEl = this.canvas.nativeElement;
+    const canvasEl = this.canvas().nativeElement;
     const T = this.theme;
     this.ctx.setTransform(this.canvasService.scale, 0, 0, this.canvasService.scale, this.canvasService.originX, this.canvasService.originY);
 
@@ -921,7 +911,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private drawMinimap(): void {
     const T = this.theme;
-    const minimapCanvas = this.minimap.nativeElement;
+    const minimapCanvas = this.minimap().nativeElement;
     const ctx = this.minimapCtx;
 
     // Dark minimap background
@@ -973,8 +963,8 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     const viewportRect = {
       x: (-this.canvasService.originX) / this.canvasService.scale,
       y: (-this.canvasService.originY) / this.canvasService.scale,
-      width: this.canvas.nativeElement.width / this.canvasService.scale,
-      height: this.canvas.nativeElement.height / this.canvasService.scale
+      width: this.canvas().nativeElement.width / this.canvasService.scale,
+      height: this.canvas().nativeElement.height / this.canvasService.scale
     };
 
     ctx.strokeStyle = T.primaryContainer;
@@ -988,7 +978,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private getCanvasBoundsAndScale() {
-    const minimapCanvas = this.minimap.nativeElement;
+    const minimapCanvas = this.minimap().nativeElement;
 
     if (this.canvasService.boardState.notes.length === 0 && this.canvasService.boardState.boundedContexts.length === 0) {
       return {
@@ -1262,7 +1252,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private getMousePos(event: MouseEvent | WheelEvent): Coordinates {
-    const rect = this.canvas.nativeElement.getBoundingClientRect();
+    const rect = this.canvas().nativeElement.getBoundingClientRect();
     return {
       x: (event.clientX - rect.left - this.canvasService.originX) / this.canvasService.scale,
       y: (event.clientY - rect.top - this.canvasService.originY) / this.canvasService.scale
@@ -1454,7 +1444,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
       this.lastPanX = event.clientX;
       this.lastPanY = event.clientY;
 
-      this.canvas.nativeElement.style.cursor = 'grab';
+      this.canvas().nativeElement.style.cursor = 'grab';
       this.drawCanvas();
       return true;
     }
@@ -1515,7 +1505,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
           break;
       }
 
-      this.canvas.nativeElement.style.cursor = `${this.resizeCorner}-resize`;
+      this.canvas().nativeElement.style.cursor = `${this.resizeCorner}-resize`;
       this.drawCanvas();
       return true;
     }
@@ -1532,7 +1522,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
         note.y += deltaY;
       });
 
-      this.canvas.nativeElement.style.cursor = 'move';
+      this.canvas().nativeElement.style.cursor = 'move';
       this.drawCanvas();
       return true;
     }
@@ -1547,7 +1537,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
         width: Math.abs(this.currentMousePos.x - this.selectionStart.x),
         height: Math.abs(this.currentMousePos.y - this.selectionStart.y)
       };
-      this.canvas.nativeElement.style.cursor = 'crosshair';
+      this.canvas().nativeElement.style.cursor = 'crosshair';
       this.drawCanvas();
       return true;
     }
@@ -1570,7 +1560,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
           break;
         }
       }
-      this.canvas.nativeElement.style.cursor = foundHover ? 'crosshair' : 'default';
+      this.canvas().nativeElement.style.cursor = foundHover ? 'crosshair' : 'default';
       this.drawCanvas();
       return true;
     }
@@ -1581,7 +1571,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
   private handleTemporaryArrow(event: MouseEvent): boolean {
     if (this.canvasService.isDrawingConnection) {
       this.drawTemporaryArrow(event);
-      this.canvas.nativeElement.style.cursor = 'crosshair';
+      this.canvas().nativeElement.style.cursor = 'crosshair';
       return true;
     }
     return false;
