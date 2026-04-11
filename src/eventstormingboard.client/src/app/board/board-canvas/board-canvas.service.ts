@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import { BoardState } from '../../_shared/models/board-state.model';
 import { Subject } from 'rxjs';
 import { BoardsSignalRService } from '../../_shared/services/boards-signalr.service';
@@ -9,14 +9,10 @@ import { RemoteCursorState } from '../../_shared/models/remote-cursor-state.mode
 
 @Injectable()
 export class BoardCanvasService {
+  private boardsHub = inject(BoardsSignalRService);
 
   private undoStack: Command<BoardState>[] = [];
   private redoStack: Command<BoardState>[] = [];
-
-  constructor(
-    private boardsHub: BoardsSignalRService
-  ) {
-  }
 
   public boardState: BoardState = {
     notes: [],

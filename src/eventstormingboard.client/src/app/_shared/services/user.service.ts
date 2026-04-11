@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { AuthService } from './auth.service';
 
@@ -6,8 +6,9 @@ import { AuthService } from './auth.service';
 export class UserService {
   private readonly storageKey = 'userName';
   private userName$ = new BehaviorSubject<string>(localStorage.getItem(this.storageKey) ?? '');
+  private authService = inject(AuthService);
 
-  constructor(private authService: AuthService) {
+  constructor() {
     // When auth is enabled, override with the Entra ID display name
     if (this.authService.isAuthEnabled) {
       const authName = this.authService.getUserName();
