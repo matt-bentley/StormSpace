@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import { MsalService } from '@azure/msal-angular';
 import { AuthConfig } from '../models/auth-config.model';
 import { ReplaySubject } from 'rxjs';
@@ -7,10 +7,11 @@ import { ReplaySubject } from 'rxjs';
 export class AuthService {
   private static authConfig: AuthConfig = { enabled: false };
   private _initialized$ = new ReplaySubject<void>(1);
+  private msalService = inject(MsalService, { optional: true });
 
   public initialized$ = this._initialized$.asObservable();
 
-  constructor(private msalService: MsalService | null) {
+  constructor() {
     // MSAL is already initialized and redirect-handled in main.ts before Angular bootstraps.
     // Signal ready immediately so SignalR and other consumers can proceed.
     this._initialized$.next();

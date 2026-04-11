@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import { MatIconRegistry } from '@angular/material/icon';
 import { DomSanitizer } from '@angular/platform-browser';
 
@@ -10,8 +10,8 @@ export class IconsService {
     { name: 'arrow_selector_tool', path: 'icons/arrow_selector_tool.svg' },
     { name: 'database', path: 'icons/database.svg' }
   ];
-
-  constructor(private iconRegistry: MatIconRegistry, private sanitizer: DomSanitizer) {}
+  private iconRegistry = inject(MatIconRegistry);
+  private sanitizer = inject(DomSanitizer);
 
   public registerIcons(): void {
     this.icons.forEach(icon => {

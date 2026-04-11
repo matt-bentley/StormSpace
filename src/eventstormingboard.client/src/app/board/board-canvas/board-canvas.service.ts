@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import { BoardState } from '../../_shared/models/board-state.model';
 import { Subject } from 'rxjs';
 import { BoardsSignalRService } from '../../_shared/services/boards-signalr.service';
@@ -12,11 +12,7 @@ export class BoardCanvasService {
 
   private undoStack: Command<BoardState>[] = [];
   private redoStack: Command<BoardState>[] = [];
-
-  constructor(
-    private boardsHub: BoardsSignalRService
-  ) {
-  }
+  private boardsHub = inject(BoardsSignalRService);
 
   public boardState: BoardState = {
     notes: [],

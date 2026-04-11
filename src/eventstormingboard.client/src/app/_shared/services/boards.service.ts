@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { BoardCreateDto, BoardDto, BoardSummaryDto } from '../models/board.model';
@@ -9,8 +9,7 @@ import { AgentConfiguration, AgentConfigurationCreate, AgentConfigurationUpdate,
 })
 export class BoardsService {
   private baseUrl = '/api/boards';
-
-  constructor(private http: HttpClient) {}
+  private http = inject(HttpClient);
 
   public get(): Observable<BoardSummaryDto[]> {
     return this.http.get<BoardSummaryDto[]>(this.baseUrl);

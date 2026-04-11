@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import * as signalR from '@microsoft/signalr';
 import { Subject } from 'rxjs';
 import { BoardContextUpdatedEvent, BoardNameUpdatedEvent, BoundedContextCreatedEvent, BoundedContextDeletedEvent, BoundedContextUpdatedEvent, ConnectionCreatedEvent, CursorPositionUpdatedEvent, NoteCreatedEvent, NoteResizedEvent, NotesDeletedEvent, NotesMovedEvent, NoteTextEditedEvent, PastedEvent, UserJoinedBoardEvent, UserLeftBoardEvent } from '../models/board-events.model';
@@ -42,12 +42,13 @@ export interface AutonomousFacilitatorStatus {
 
 @Injectable({ providedIn: 'root' })
 export class BoardsSignalRService {
-  
+
   private hubConnection!: signalR.HubConnection;
   private connectionEstablished: Promise<void>;
   private pendingJoin: { boardId: string; userName: string } | null = null;
+  private authService = inject(AuthService);
 
-  constructor(private authService: AuthService) {
+  constructor() {
     this.connectionEstablished = this.initConnection();
   }
 
