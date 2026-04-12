@@ -18,6 +18,7 @@ Progress files track the status of agentic workflow pipeline runs. They are crea
 **Task**: {Brief description of what was requested}
 **Started**: {utc-datetime}
 **Status**: {In Progress | Completed | Failed | Halted}
+**Spec**: [spec.md](spec.md)
 **Plan**: [plan.md](plan.md)
 
 ## Phase Status
@@ -31,6 +32,7 @@ Progress files track the status of agentic workflow pipeline runs. They are crea
 
 | Stage | Started | Completed | Status | Notes |
 |-------|---------|-----------|--------|-------|
+| Specification | | | {Completed / Failed} | {notes} |
 | Planning | {utc-datetime} | {utc-datetime} | {Completed / Failed} | {notes} |
 | Plan Review | | | {Completed / Failed} | {notes} |
 | Plan Approval | | | {Approved / Pending / Skipped (--auto)} | {notes} |

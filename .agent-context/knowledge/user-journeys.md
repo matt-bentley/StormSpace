@@ -1,6 +1,6 @@
 # User Journeys
 
-User journeys for StormSpace, documented for automated browser testing by AI agents using VS Code integrated browser tools (`read_page`, `click_element`, `type_in_page`, `screenshot_page`, etc.).
+User journeys for StormSpace, documented for automated browser testing by AI agents using `playwright-cli` (see `.github/skills/playwright-cli/SKILL.md`). All interactions use `playwright-cli` commands via terminal execution.
 
 ## Routing & Navigation
 
@@ -42,19 +42,23 @@ The **STORMSPACE logo** in the nav bar is clickable and navigates back to the sp
 
 **Precondition**: On splash page (`/`)
 
+> **⚠ Display name required**: `createNewBoard()` is gated by `if (this.userName)`. If the display name field is empty, clicking NEW BOARD does nothing — no error, no disabled state, no toast. Always fill the display name first. Skip step 0 if the name is already pre-filled (persisted from a previous session — the user avatar will show an initial letter instead of a `person` icon).
+
 ### Steps
 
-| # | Action | Tool Call | Expected Result |
-|---|--------|-----------|-----------------|
-| 1 | Click NEW BOARD | `click_element(element="NEW BOARD button")` | "Create Storm Board" dialog opens |
-| 2 | Type board name | `type_in_page(element="Board Name input", ref=<textbox "Board Name">, text="My Board")` | Text appears in input; Create button becomes enabled |
-| 3 | *(Optional)* Expand board context | `click_element(element="Optional Board Context for AI")` | Domain and Session Scope fields appear |
-| 4 | *(Optional)* Fill Domain | `type_in_page(ref=<textbox "Domain">, text="eCommerce marketplace")` | Domain text entered |
-| 5 | *(Optional)* Fill Session Scope | `type_in_page(ref=<textbox "Session Scope">, text="Order fulfillment flow")` | Session scope text entered |
-| 6 | Click Create | `click_element(element="Create button")` | Navigates to `/boards/{id}`, board page loads |
+| # | Action | Command | Expected Result |
+|---|--------|---------|-----------------||
+| 0 | Fill display name | `playwright-cli fill <ref of "Enter your name" textbox> "Tester"` then `playwright-cli press Tab` | User avatar in nav bar shows initial letter (e.g. "T") instead of `person` icon |
+| 1 | Click NEW BOARD | `playwright-cli click <ref of "NEW BOARD" button>` | "Create Storm Board" dialog opens |
+| 2 | Type board name | `playwright-cli fill <ref of "Board Name" textbox> "My Board"` | Text appears in input; Create button becomes enabled |
+| 3 | *(Optional)* Expand board context | `playwright-cli click <ref of "Optional Board Context for AI">` | Domain and Session Scope fields appear |
+| 4 | *(Optional)* Fill Domain | `playwright-cli fill <ref of "Domain" textbox> "eCommerce marketplace"` | Domain text entered |
+| 5 | *(Optional)* Fill Session Scope | `playwright-cli fill <ref of "Session Scope" textbox> "Order fulfillment flow"` | Session scope text entered |
+| 6 | Click Create | `playwright-cli click <ref of "Create" button>` | Navigates to `/boards/{id}`, board page loads |
 
 ### Verification
 
+After navigating, run `playwright-cli snapshot` and verify:
 - URL pattern: `/boards/{guid}`
 - Board name input in top bar shows entered name: `textbox "Enter board name"`
 - Status bar shows "0 NOTES" and "0 CONNECTIONS"
@@ -83,18 +87,23 @@ dialog "Create Storm Board"
 
 **Precondition**: On splash page (`/`), at least one board exists
 
+> **⚠ Display name required**: Same as Journey 1 — `selectExistingBoard()` is also gated by `if (this.userName)`. Fill display name first if not already set.
+>
+> **⚠ JOIN BOARD disabled when no boards exist**: The JOIN BOARD button is `[disabled]` when there are no existing boards. Ensure at least one board has been created first (e.g. run Journey 1 beforehand).
+
 ### Steps
 
-| # | Action | Tool Call | Expected Result |
-|---|--------|-----------|-----------------|
-| 1 | Click JOIN BOARD | `click_element(element="JOIN BOARD button")` | "Select a Board" dialog opens |
-| 2 | Click Board Name dropdown | `click_element(ref=<combobox "Board Name">)` | Dropdown expands showing available boards |
-| 3 | Select a board | `click_element(ref=<option "Board Name">)` | Board selected; Select button becomes enabled |
-| 4 | Click Select | `click_element(element="Select button")` | Navigates to `/boards/{id}` |
+| # | Action | Command | Expected Result |
+|---|--------|---------|-----------------||
+| 0 | Fill display name (if not pre-filled) | `playwright-cli fill <ref of "Enter your name" textbox> "Tester"` then `playwright-cli press Tab` | User avatar shows initial letter |
+| 1 | Click JOIN BOARD | `playwright-cli click <ref of "JOIN BOARD" button>` | "Select a Board" dialog opens |
+| 2 | Click Board Name dropdown | `playwright-cli click <ref of "Board Name" combobox>` | Dropdown expands showing available boards |
+| 3 | Select a board | `playwright-cli click <ref of board option>` | Board selected; Select button becomes enabled |
+| 4 | Click Select | `playwright-cli click <ref of "Select" button>` | Navigates to `/boards/{id}` |
 
 ### Alternative: Direct URL
 
-Navigate directly to `https://localhost:51710/boards/{board-id}` — auto-joins and loads the board.
+Navigate directly via `playwright-cli goto https://localhost:51710/boards/{board-id}` — auto-joins and loads the board.
 
 ### Dialog Structure
 
@@ -200,10 +209,10 @@ Phase steps are clickable. Container: `progressbar "Event Storming Phase"`. Indi
 
 ### Steps
 
-| # | Action | Tool Call | Expected Result |
-|---|--------|-----------|-----------------|
-| 1 | Click note type button (e.g. EVENT) | `click_element(element="EVENT button")` | Note created at top-left of canvas viewport |
-| 2 | Verify note count | Read status bar | Note count increments (e.g. "1 NOTES") |
+| # | Action | Command | Expected Result |
+|---|--------|---------|-----------------|
+| 1 | Click note type button (e.g. EVENT) | `playwright-cli click <ref of "EVENT" button>` | Note created at top-left of canvas viewport |
+| 2 | Verify note count | `playwright-cli snapshot` and read status bar | Note count increments (e.g. "1 NOTES") |
 
 Note creation places the note at the top-left of the current canvas viewport. Each toolbar button press creates one note.
 
@@ -211,70 +220,65 @@ Note creation places the note at the top-left of the current canvas viewport. Ea
 
 ### Edit Note Text
 
-| # | Action | Tool Call | Expected Result |
-|---|--------|-----------|-----------------|
-| 1 | Double-click a note on canvas | `click_element(selector="canvas.storming-canvas", dblClick=true)` | Note text edit modal opens |
-| 2 | Type new text | `type_in_page(text="Order Placed")` | Text entered in modal |
-| 3 | Confirm edit | Click Save/OK or press Enter | Modal closes, note displays new text |
+| # | Action | Command | Expected Result |
+|---|--------|---------|-----------------|
+| 1 | Double-click a note on canvas | `playwright-cli dblclick <ref of canvas.storming-canvas>` | Note text edit modal opens |
+| 2 | Type new text | `playwright-cli type "Order Placed"` | Text entered in modal |
+| 3 | Confirm edit | Click Save/OK or `playwright-cli press Enter` | Modal closes, note displays new text |
 
 ### Select and Delete Notes
 
-| # | Action | Tool Call | Expected Result |
-|---|--------|-----------|-----------------|
-| 1 | Ensure SELECT mode active | `click_element(element="SELECT button")` | SELECT button shows `.active` |
-| 2 | Click a note on canvas | `click_element(selector="canvas.storming-canvas")` | Note selected (visual highlight) |
-| 3 | Press Delete | `type_in_page(key="Delete")` | Note removed; count decrements |
+| # | Action | Command | Expected Result |
+|---|--------|---------|-----------------|
+| 1 | Ensure SELECT mode active | `playwright-cli click <ref of "SELECT" button>` | SELECT button shows `.active` |
+| 2 | Click a note on canvas | `playwright-cli click <ref of canvas.storming-canvas>` | Note selected (visual highlight) |
+| 3 | Press Delete | `playwright-cli press Delete` | Note removed; count decrements |
 
 ### Move Notes (SELECT Mode)
 
 **Precondition**: On board page with at least 1 note, SELECT mode active
 
-To move a note, use `run_playwright_code` to perform a mousedown→drag→mouseup on the canvas. You must first retrieve the note's world coordinates to calculate correct viewport positions.
+To move a note, use `playwright-cli eval` and mouse commands to perform a mousedown→drag→mouseup on the canvas. You must first retrieve the note's world coordinates to calculate correct viewport positions.
 
 #### Step 1: Get Note Positions
 
-```js
-// run_playwright_code: retrieve note world coords and canvas transform
-const result = await page.evaluate(`
-  (function() {
-    var ng = window.ng;
-    var bc = document.querySelector('app-board-canvas');
-    var comp = ng.getComponent(bc);
-    var svc = comp.canvasService;
-    var notes = svc.boardState.notes;
-    return JSON.stringify({
-      originX: svc.originX, originY: svc.originY, scale: svc.scale,
-      notes: notes.map(function(n) {
-        return { type: n.type, text: n.text, x: n.x, y: n.y, w: n.width, h: n.height };
-      })
-    });
-  })()
-`);
-return result;
+> **⚠ IIFE syntax fails in `playwright-cli eval`**: Wrapping code in `(() => { ... })()` causes a `TypeError: result is not a function` error. Access properties individually or use simple expressions instead.
+
+```bash
+# Get canvas transform and note count
+playwright-cli eval "window.ng.getComponent(document.querySelector('app-board-canvas')).canvasService.scale"
+playwright-cli eval "window.ng.getComponent(document.querySelector('app-board-canvas')).canvasService.originX"
+playwright-cli eval "window.ng.getComponent(document.querySelector('app-board-canvas')).canvasService.originY"
+playwright-cli eval "window.ng.getComponent(document.querySelector('app-board-canvas')).canvasService.boardState.notes.length"
+# Get individual note coords (index 0, 1, etc.)
+playwright-cli eval "window.ng.getComponent(document.querySelector('app-board-canvas')).canvasService.boardState.notes[0].x"
+playwright-cli eval "window.ng.getComponent(document.querySelector('app-board-canvas')).canvasService.boardState.notes[0].y"
+playwright-cli eval "window.ng.getComponent(document.querySelector('app-board-canvas')).canvasService.boardState.notes[0].width + '/' + window.ng.getComponent(document.querySelector('app-board-canvas')).canvasService.boardState.notes[0].height"
+# Get canvas bounding box (note: canvases uses x:0, y:48 in default viewport)
+playwright-cli eval "JSON.stringify(document.querySelector('canvas.storming-canvas').getBoundingClientRect())"
 ```
+
+Viewport formula: `vpX = canvasBox.x + (worldX * scale) + originX`, `vpY = canvasBox.y + (worldY * scale) + originY`.
 
 #### Step 2: Drag the Note
 
 Convert world-coords to viewport: `vpX = canvasBox.x + (worldX * scale) + originX`, `vpY = canvasBox.y + (worldY * scale) + originY`.
 
-```js
-// run_playwright_code: drag note from current center to new position
-const canvas = page.locator('canvas.storming-canvas');
-const box = await canvas.boundingBox();
-// Example: move note from world center (200,160) by 300px right
-const fromVpX = box.x + 200;
-const fromVpY = box.y + 160;
-const toVpX = fromVpX + 300;
-const toVpY = fromVpY;
-await page.mouse.move(fromVpX, fromVpY);
-await page.mouse.down();
-for (let i = 1; i <= 20; i++) {
-  await page.mouse.move(
-    fromVpX + (toVpX - fromVpX) * (i / 20),
-    fromVpY + (toVpY - fromVpY) * (i / 20)
-  );
-}
-await page.mouse.up();
+Use `playwright-cli mousemove`, `playwright-cli mousedown`, and `playwright-cli mouseup` for the drag:
+
+```bash
+# Move to note center, mousedown, drag in steps, mouseup
+playwright-cli mousemove <fromVpX> <fromVpY>
+playwright-cli mousedown
+# Move in increments to the destination
+playwright-cli mousemove <toVpX> <toVpY>
+playwright-cli mouseup
+```
+
+For smoother drags (required for canvas to register movement), use `playwright-cli eval`:
+
+```bash
+playwright-cli eval "async (page) => { const canvas = document.querySelector('canvas.storming-canvas'); const box = canvas.getBoundingClientRect(); /* calculate fromVpX/Y and toVpX/Y from world coords */ }"
 ```
 
 **Important**: The note must be clicked first (single click in SELECT mode) to select it before dragging. A cyan selection border appears when selected. If the note is already under the cursor at mousedown, the drag will move it.
@@ -285,45 +289,42 @@ await page.mouse.up();
 
 **Precondition**: On board page with at least 2 notes
 
+> **⚠ Notes spawn close together**: Sequential note creation places notes at nearly the same world position (e.g. (140,100) and (150,110)), causing them to overlap. **Move the second note at least 300px to the right before drawing a connection**, otherwise the mousedown and mouseup land inside the same note and no connection is created.
+
 ### Steps
 
-| # | Action | Tool Call | Expected Result |
-|---|--------|-----------|-----------------|
-| 1 | Click DRAW button | `click_element(element="DRAW button")` | DRAW button active (`[active]` state); toast "Draw Connection" appears |
-| 2 | mousedown on source note → drag → mouseup on target note | `run_playwright_code` (see below) | Connection arrow drawn between notes |
-| 3 | Verify connection count | Read status bar | Connection count increments (e.g. "1 CONNECTIONS") |
+| # | Action | Command | Expected Result |
+|---|--------|---------|-----------------|
+| 0 | Get note positions | Use individual property evals (see Step 1 below) | Know world coords of both notes |
+| 0b | Switch to SELECT mode | `playwright-cli click <ref of "SELECT" button>` | SELECT button active |
+| 0c | Move second note right | mousedown on note[1] center → drag 300+ px right → mouseup (see Move Notes in Journey 3) | Notes are now clearly separated |
+| 1 | Click DRAW button | `playwright-cli click <ref of "DRAW" button>` | DRAW button active (`[active]` state); toast "Draw Connection" appears |
+| 2 | mousedown on source note → drag → mouseup on target note | `playwright-cli mousemove`/`mousedown`/`mouseup` (see below) | Connection arrow drawn between notes |
+| 3 | Verify connection count | `playwright-cli snapshot` and read status bar | Connection count increments (e.g. "1 CONNECTIONS") |
 
-### Drawing a Connection with Playwright
+### Drawing a Connection with Playwright CLI
 
-Connection drawing requires `run_playwright_code` because notes are on an HTML Canvas, not DOM elements. You must mousedown **inside** the source note and mouseup **inside** the target note — start dragging immediately from mousedown.
+Connection drawing requires coordinate-based mouse commands because notes are on an HTML Canvas, not DOM elements. You must mousedown **inside** the source note and mouseup **inside** the target note — start dragging immediately from mousedown.
 
 **Do NOT double-click** — double-clicking a note opens the "Edit Note Text" dialog, even in DRAW mode.
 
-#### Step 1: Get Note Positions (same as Move Notes above)
+#### Step 1: Get Note Positions (same as Move Notes above — use individual property evals, not IIFE)
 
 #### Step 2: Draw the Connection
 
-```js
-// run_playwright_code: draw connection from Event note to Command note
-const canvas = page.locator('canvas.storming-canvas');
-const box = await canvas.boundingBox();
-// World coords → viewport: vpX = box.x + worldX, vpY = box.y + worldY (when scale=1, origin=0,0)
-// Source note center (e.g. Event at world 200,160)
-const fromVpX = box.x + 200;
-const fromVpY = box.y + 160;
-// Target note center (e.g. Command at world 510,171)
-const toVpX = box.x + 510;
-const toVpY = box.y + 171;
-// Immediate mousedown → drag → mouseup
-await page.mouse.move(fromVpX, fromVpY);
-await page.mouse.down();
-for (let i = 1; i <= 20; i++) {
-  await page.mouse.move(
-    fromVpX + (toVpX - fromVpX) * (i / 20),
-    fromVpY + (toVpY - fromVpY) * (i / 20)
-  );
-}
-await page.mouse.up();
+```bash
+# Get canvas bounding box and note positions first via eval
+# Then draw connection from source to target note centers:
+playwright-cli mousemove <sourceVpX> <sourceVpY>
+playwright-cli mousedown
+playwright-cli mousemove <targetVpX> <targetVpY>
+playwright-cli mouseup
+```
+
+For smoother drags with incremental mouse moves, use `playwright-cli eval`:
+
+```bash
+playwright-cli eval "async () => { const canvas = document.querySelector('canvas.storming-canvas'); const box = canvas.getBoundingClientRect(); /* calculate source/target viewport coords, then use mouse.move/down/up */ }"
 ```
 
 **Key points**:
@@ -342,12 +343,12 @@ await page.mouse.up();
 
 ### Steps
 
-| # | Action | Tool Call | Expected Result |
-|---|--------|-----------|-----------------|
-| 1 | Click AI button in toolbar | `click_element(element="AI button")` | AI chat panel opens on right side |
-| 2 | Type message | `type_in_page(ref=<textbox "Ask the AI assistant...">, text="Add an OrderPlaced event")` | Text appears in input |
-| 3 | Send message | `type_in_page(key="Enter")` or click send button | Message sent; AI response streams in |
-| 4 | Close panel | Click close button (X icon) or click AI button again | Panel closes |
+| # | Action | Command | Expected Result |
+|---|--------|---------|-----------------|
+| 1 | Click AI button in toolbar | `playwright-cli click <ref of "AI" button>` | AI chat panel opens on right side |
+| 2 | Type message | `playwright-cli fill <ref of "Ask the AI assistant..." textbox> "Add an OrderPlaced event"` | Text appears in input |
+| 3 | Send message | `playwright-cli press Enter` or click send button ref | Message sent; AI response streams in |
+| 4 | Close panel | Click close button (X icon) ref or click AI button again | Panel closes |
 
 ### AI Chat Panel Structure
 
@@ -382,14 +383,14 @@ generic (chat container)
 
 ### Steps
 
-| # | Action | Tool Call | Expected Result |
-|---|--------|-----------|-----------------|
-| 1 | Click psychology icon (Board Context) | `click_element(element="Board Context button")` with `psychology` icon | "Board Context for AI" dialog opens |
-| 2 | Fill Domain | `type_in_page(ref=<textbox "Domain">, text="eCommerce marketplace")` | Domain entered |
-| 3 | Fill Session Scope | `type_in_page(ref=<textbox "Session Scope">, text="Order fulfillment")` | Scope entered |
-| 4 | Select Workshop Phase | `click_element(ref=<combobox "Workshop Phase">)` then select phase option | Phase selected |
-| 5 | *(Optional)* Toggle autonomous mode | `click_element(ref=<switch "Run the AI facilitator autonomously">)` | Toggle switches on/off |
-| 6 | Click Save | `click_element(element="Save button")` | Dialog closes; changes applied |
+| # | Action | Command | Expected Result |
+|---|--------|---------|-----------------|
+| 1 | Click psychology icon (Board Context) | `playwright-cli click <ref of psychology icon button>` | "Board Context for AI" dialog opens |
+| 2 | Fill Domain | `playwright-cli fill <ref of "Domain" textbox> "eCommerce marketplace"` | Domain entered |
+| 3 | Fill Session Scope | `playwright-cli fill <ref of "Session Scope" textbox> "Order fulfillment"` | Scope entered |
+| 4 | Select Workshop Phase | `playwright-cli click <ref of "Workshop Phase" combobox>` then click phase option ref | Phase selected |
+| 5 | *(Optional)* Toggle autonomous mode | `playwright-cli click <ref of "Run the AI facilitator autonomously" switch>` | Toggle switches on/off |
+| 6 | Click Save | `playwright-cli click <ref of "Save" button>` | Dialog closes; changes applied |
 
 ### Dialog Structure
 
@@ -420,14 +421,14 @@ dialog "Board Context for AI"
 
 ### Steps
 
-| # | Action | Tool Call | Expected Result |
-|---|--------|-----------|-----------------|
-| 1 | Click smart_toy icon (Agent Config) | `click_element(element="Agent Config button")` with `smart_toy` icon | "Configure AI Agents" dialog opens |
-| 2 | View agent list | Read dialog | Lists: Facilitator, EventExplorer, TriggerMapper, DomainDesigner, Organiser, DomainExpert |
-| 3 | Expand an agent | `click_element(element="EventExplorer agent row")` | Agent config form expands |
-| 4 | Edit agent fields | Modify Name, Model, System Prompt, etc. | Fields update |
-| 5 | Switch to interaction diagram | Click hub icon tab button | Diagram shows agent communication graph |
-| 6 | Click Save | `click_element(element="Save button")` | Dialog closes; agent configs saved |
+| # | Action | Command | Expected Result |
+|---|--------|---------|-----------------|
+| 1 | Click smart_toy icon (Agent Config) | `playwright-cli click <ref of smart_toy icon button>` | "Configure AI Agents" dialog opens |
+| 2 | View agent list | `playwright-cli snapshot` | Lists: Facilitator, EventExplorer, TriggerMapper, DomainDesigner, Organiser, DomainExpert |
+| 3 | Expand an agent | `playwright-cli click <ref of "EventExplorer" agent row>` | Agent config form expands |
+| 4 | Edit agent fields | Modify Name, Model, System Prompt, etc. via `fill`/`click`/`select` | Fields update |
+| 5 | Switch to interaction diagram | `playwright-cli click <ref of hub icon tab>` | Diagram shows agent communication graph |
+| 6 | Click Save | `playwright-cli click <ref of "Save" button>` | Dialog closes; agent configs saved |
 
 ### Dialog Structure — Config Tab
 
@@ -476,24 +477,42 @@ dialog "Configure AI Agents"
 
 ## Journey 8: Export and Import Board
 
-### Export as JSON
+**⚠ Export buttons trigger OS-level file dialogs that cannot be dismissed by browser automation.** Do NOT click the export buttons during automated regression testing — this will leave a Save-As dialog open and block all subsequent journeys.
 
-| # | Action | Tool Call | Expected Result |
-|---|--------|-----------|-----------------|
-| 1 | Click download icon | `click_element(element="Export as JSON button")` with `download` icon | Browser downloads `.json` file |
+### Automated Testing Strategy
 
-### Export as Image
+For regression testing, **verify only that the export buttons exist and are enabled** — do not click them:
 
-| # | Action | Tool Call | Expected Result |
-|---|--------|-----------|-----------------|
-| 1 | Click image icon | `click_element(element="Export as Image button")` with `image` icon | Browser downloads `.png` file |
+| # | Action | Command | Expected Result |
+|---|--------|---------|-----------------|
+| 1 | Verify Export as JSON button exists | `playwright-cli snapshot` and check for `download` icon button | Button is present and not disabled |
+| 2 | Verify Export as Image button exists | Check snapshot for `image` icon button | Button is present and not disabled |
+| 3 | Verify Import from JSON button exists | Check snapshot for `upload` icon button | Button is present and not disabled |
 
-### Import from JSON
+Mark this journey as **Pass (presence only)** in the regression report and add to "Manual Verification Needed" that actual export/import file operations need manual testing.
 
-| # | Action | Tool Call | Expected Result |
-|---|--------|-----------|-----------------|
-| 1 | Click upload icon | `click_element(element="Import from JSON button")` with `upload` icon | File chooser dialog opens |
-| 2 | Select JSON file | `handle_dialog(selectFiles=["/path/to/board.json"])` | Board state loaded from file |
+### Manual Testing Reference
+
+These steps are for **manual testing only** — do not execute in automated runs:
+
+#### Export as JSON
+
+| # | Action | Expected Result |
+|---|--------|-----------------|
+| 1 | Click download icon (`download` icon) | Browser downloads `.json` file |
+
+#### Export as Image
+
+| # | Action | Expected Result |
+|---|--------|-----------------|
+| 1 | Click image icon (`image` icon) | Browser downloads `.png` file |
+
+#### Import from JSON
+
+| # | Action | Expected Result |
+|---|--------|-----------------|
+| 1 | Click upload icon (`upload` icon) | File chooser dialog opens |
+| 2 | Select JSON file | Board state loaded from file |
 
 ---
 
@@ -501,11 +520,11 @@ dialog "Configure AI Agents"
 
 **Precondition**: On board page
 
-| # | Action | Tool Call | Expected Result |
-|---|--------|-----------|-----------------|
-| 1 | Click board name input | `click_element(ref=<textbox "Enter board name">)` | Input becomes focused |
-| 2 | Clear and type new name | `type_in_page(key="Control+a")` then `type_in_page(text="New Board Name")` | Name updated |
-| 3 | Click away or press Enter | `type_in_page(key="Enter")` or click elsewhere | Name saved and broadcast |
+| # | Action | Command | Expected Result |
+|---|--------|---------|-----------------|
+| 1 | Click board name input | `playwright-cli click <ref of "Enter board name" textbox>` | Input becomes focused |
+| 2 | Clear and type new name | `playwright-cli press Control+a` then `playwright-cli type "New Board Name"` | Name updated |
+| 3 | Click away or press Enter | `playwright-cli press Enter` or click elsewhere | Name saved and broadcast |
 
 ---
 
@@ -513,13 +532,13 @@ dialog "Configure AI Agents"
 
 **Precondition**: On any page
 
-| # | Action | Tool Call | Expected Result |
-|---|--------|-----------|-----------------|
-| 1 | Click settings gear in nav bar | `click_element(element="settings gear icon")` | Appearance popover opens |
-| 2 | Toggle light/dark switch | `click_element(ref=<switch "Toggle light mode">)` | Theme changes; popover shows "Light"/"Dark" |
-| 3 | Click outside popover | `click_element(selector=".settings-menu-backdrop")` | Popover closes |
+| # | Action | Command | Expected Result |
+|---|--------|---------|-----------------|
+| 1 | Click settings gear in nav bar | `playwright-cli click <ref of settings icon>` | Appearance popover opens |
+| 2 | Toggle light/dark switch | `playwright-cli click <ref of "Toggle light mode" switch>` | Theme changes; popover shows "Light"/"Dark" |
+| 3 | Click outside popover | `playwright-cli eval "document.querySelector('.settings-menu-backdrop').click()"` | Popover closes |
 
-**Note**: The backdrop must be clicked using a CSS selector (`.settings-menu-backdrop`), not an aria ref. The theme indicator shows icon `dark_mode` + "Dark" or `light_mode` + "Light" depending on current theme.
+**Note**: The backdrop must be clicked using a JS eval with CSS selector (`.settings-menu-backdrop`), not a snapshot ref. The theme indicator shows icon `dark_mode` + "Dark" or `light_mode` + "Light" depending on current theme.
 
 ---
 
@@ -531,6 +550,9 @@ The board canvas is an HTML Canvas element — notes and connections are **not**
 |---------|--------|
 | **Note selection** | Notes are rendered imperatively on canvas; cannot be targeted by DOM selectors |
 | **Note positioning** | Requires coordinate-based mouse events rather than element clicks |
+| **Canvas offset** | The canvas bounding box is `{ x: 0, y: 48 }` in the default viewport (top nav is 48px tall). Always add this offset when converting world coords to viewport coords. |
+| **IIFE in eval fails** | `playwright-cli eval "(() => { ... })()"` causes `TypeError: result is not a function`. Use individual property access expressions instead. |
+| **Note overlap on creation** | Sequential note creation places notes at nearby positions (e.g. (140,100) and (150,110)). For connection testing, create notes in separate steps and verify positions before drawing. |
 | **Double-click to edit** | Double-click on canvas at note coordinates opens the Note Text Modal (DOM dialog) |
 | **Bounded context drawing** | In CONTEXT mode, click-and-drag on canvas creates a rectangle |
 | **Connection drawing** | In DRAW mode, drag from source note to target note on canvas |
