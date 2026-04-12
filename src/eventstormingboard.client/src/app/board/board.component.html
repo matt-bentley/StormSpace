@@ -165,9 +165,15 @@
 
 <div class="phase-stepper-wrapper">
   <div class="phase-stepper-container floating">
-    <div class="stepper-content" role="progressbar" aria-label="Event Storming Phase">
+    <div class="stepper-content" role="group" aria-label="Event Storming Phase">
       @for (phase of phases; track phase.value; let i = $index) {
-        <div class="step" [class.active]="isPhaseActive(phase.value)">
+        <div class="step" [class.active]="isPhaseActive(phase.value)"
+             (click)="onPhaseClick(phase.value)"
+             (keydown.enter)="onPhaseClick(phase.value)"
+             (keydown.space)="$event.preventDefault(); onPhaseClick(phase.value)"
+             tabindex="0"
+             role="button"
+             [attr.aria-current]="isPhaseActive(phase.value) ? 'step' : null">
           <div class="step-circle">{{ i + 1 }}</div>
           <span class="step-label">{{ phase.label }}</span>
         </div>

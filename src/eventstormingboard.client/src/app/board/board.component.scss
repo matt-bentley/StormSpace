@@ -458,6 +458,11 @@
     transition: all var(--duration-slow) var(--ease-sharp);
     cursor: pointer;
 
+    &:focus-visible {
+      outline: 1px solid var(--sys-primary);
+      outline-offset: 2px;
+    }
+
     &.active {
       opacity: 1;
 

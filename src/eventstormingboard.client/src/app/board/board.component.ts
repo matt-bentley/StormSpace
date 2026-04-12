@@ -101,6 +101,25 @@ export class BoardComponent implements OnInit, OnDestroy {
     return this.canvasService.boardState.phase === phase;
   }
 
+  public onPhaseClick(phase: string): void {
+    if (this.isPhaseActive(phase)) {
+      return;
+    }
+
+    const command = new UpdateBoardContextCommand(
+      this.canvasService.boardState.domain,
+      this.canvasService.boardState.domain,
+      this.canvasService.boardState.sessionScope,
+      this.canvasService.boardState.sessionScope,
+      phase,
+      this.canvasService.boardState.phase,
+      this.canvasService.boardState.autonomousEnabled,
+      this.canvasService.boardState.autonomousEnabled
+    );
+
+    this.canvasService.executeCommand(command);
+  }
+
   public exportBoardAsJSON(): void {
     const boardState = {
       boardName: this.canvasService.boardState.name,
