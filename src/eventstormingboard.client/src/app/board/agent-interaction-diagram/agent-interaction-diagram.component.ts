@@ -1,4 +1,4 @@
-import { Component, Input, OnChanges, SimpleChanges, ElementRef, ViewChild, AfterViewInit } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, effect, input, viewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -33,9 +33,9 @@ const MODIFICATION_TOOLS = ['CreateNote', 'CreateNotes', 'EditNoteText', 'MoveNo
   templateUrl: './agent-interaction-diagram.component.html',
   styleUrls: ['./agent-interaction-diagram.component.scss']
 })
-export class AgentInteractionDiagramComponent implements OnChanges, AfterViewInit {
-  @Input() agents: AgentConfiguration[] = [];
-  @ViewChild('diagramContainer') containerRef!: ElementRef<HTMLDivElement>;
+export class AgentInteractionDiagramComponent implements AfterViewInit {
+  readonly agents = input<AgentConfiguration[]>([]);
+  readonly containerRef = viewChild<ElementRef<HTMLDivElement>>('diagramContainer');
 
   nodes: AgentNode[] = [];
   edges: AgentEdge[] = [];
@@ -47,6 +47,10 @@ export class AgentInteractionDiagramComponent implements OnChanges, AfterViewIni
   orbitRadius = 185;
   private nodeRadius = 36;
   private baseContainerSize = 500;
+  private agentsEffect = effect(() => {
+    this.agents();
+    this.buildGraph();
+  });
 
   ngAfterViewInit(): void {
     setTimeout(() => {
@@ -54,15 +58,10 @@ export class AgentInteractionDiagramComponent implements OnChanges, AfterViewIni
     });
   }
 
-  ngOnChanges(changes: SimpleChanges): void {
-    if (changes['agents']) {
-      this.buildGraph();
-    }
-  }
-
   private recalcSize(): void {
-    if (this.containerRef) {
-      const rect = this.containerRef.nativeElement.getBoundingClientRect();
+    const containerRef = this.containerRef();
+    if (containerRef) {
+      const rect = containerRef.nativeElement.getBoundingClientRect();
       if (rect.width > 100 && rect.height > 100) {
         this.baseContainerSize = Math.min(rect.width, rect.height);
         this.svgWidth = Math.min(rect.width, 900);
@@ -75,7 +74,13 @@ export class AgentInteractionDiagramComponent implements OnChanges, AfterViewIni
   }
 
   private buildGraph(): void {
-    if (!this.agents || this.agents.length === 0) return;
+    const agents = this.agents();
+    if (!agents || agents.length === 0) {
+      this.nodes = [];
+      this.edges = [];
+      this.bundledEdges = [];
+      return;
+    }
 
     this.computeSizes();
     this.layoutNodes();
@@ -85,7 +90,7 @@ export class AgentInteractionDiagramComponent implements OnChanges, AfterViewIni
 
   /** Scale node and orbit sizes based on agent count so the diagram stays readable */
   private computeSizes(): void {
-    const outerCount = this.agents.filter(a => !a.isFacilitator).length;
+    const outerCount = this.agents().filter(a => !a.isFacilitator).length;
 
     if (outerCount <= 1) {
       this.nodeRadius = 40;
@@ -104,8 +109,9 @@ export class AgentInteractionDiagramComponent implements OnChanges, AfterViewIni
   }
 
   private layoutNodes(): void {
-    const facilitator = this.agents.find(a => a.isFacilitator);
-    const others = this.agents.filter(a => !a.isFacilitator);
+    const agents = this.agents();
+    const facilitator = agents.find(a => a.isFacilitator);
+    const others = agents.filter(a => !a.isFacilitator);
 
     this.nodes = [];
 
@@ -133,15 +139,16 @@ export class AgentInteractionDiagramComponent implements OnChanges, AfterViewIni
 
   private deriveEdges(): void {
     this.edges = [];
-    const agentNames = new Set(this.agents.map(a => a.name));
+    const agents = this.agents();
+    const agentNames = new Set(agents.map(a => a.name));
     const agentsWithModTools = new Set(
-      this.agents.filter(a => a.allowedTools.some(t => MODIFICATION_TOOLS.includes(t))).map(a => a.name)
+      agents.filter(a => a.allowedTools.some(t => MODIFICATION_TOOLS.includes(t))).map(a => a.name)
     );
 
-    for (const agent of this.agents) {
+    for (const agent of agents) {
       // Delegate edges
       if (agent.allowedTools.includes('DelegateToAgent')) {
-        for (const target of this.agents) {
+        for (const target of agents) {
           if (target.name === agent.name) continue;
           if (agentsWithModTools.has(target.name)) {
             this.edges.push({ from: agent.name, to: target.name, type: 'delegate', label: 'Delegate' });
@@ -151,7 +158,7 @@ export class AgentInteractionDiagramComponent implements OnChanges, AfterViewIni
 
       // Review edges
       if (agent.allowedTools.includes('RequestBoardReview')) {
-        for (const target of this.agents) {
+        for (const target of agents) {
           if (target.name === agent.name) continue;
           if (!target.isFacilitator) {
             this.edges.push({ from: agent.name, to: target.name, type: 'review', label: 'Review' });
@@ -163,7 +170,7 @@ export class AgentInteractionDiagramComponent implements OnChanges, AfterViewIni
       if (agent.allowedTools.includes('AskAgentQuestion')) {
         const askTargets = agent.canAskAgents
           ? agent.canAskAgents.filter(n => agentNames.has(n))
-          : this.agents.filter(a => a.name !== agent.name).map(a => a.name);
+          : agents.filter(a => a.name !== agent.name).map(a => a.name);
 
         for (const targetName of askTargets) {
           this.edges.push({ from: agent.name, to: targetName, type: 'ask', label: 'Ask' });

@@ -1,11 +1,11 @@
-import { Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, Pipe, PipeTransform, SimpleChanges, ViewChild, HostListener } from '@angular/core';
+import { Component, DestroyRef, ElementRef, HostListener, OnInit, Pipe, PipeTransform, effect, inject, input, output, viewChild } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { BoardsSignalRService, AgentChatMessage, AgentToolCallStartedEvent, AutonomousFacilitatorStatus } from '../../_shared/services/boards-signalr.service';
-import { Subject, takeUntil } from 'rxjs';
+import { BoardsSignalRService, AgentChatMessage, AutonomousFacilitatorStatus } from '../../_shared/services/boards-signalr.service';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { AgentConfiguration } from '../../_shared/models/agent-configuration.model';
@@ -44,17 +44,18 @@ const DEFAULT_AGENT: AgentDisplayInfo = { label: 'AI Assistant', icon: 'smart_to
   templateUrl: './ai-chat-panel.component.html',
   styleUrls: ['./ai-chat-panel.component.scss']
 })
-export class AiChatPanelComponent implements OnInit, OnDestroy, OnChanges {
-  @Input() boardId!: string;
-  @Input() userName!: string;
-  @Input() autonomousEnabled = false;
-  @Input() autonomousStatus?: AutonomousFacilitatorStatus;
-  @Input() agentConfigurations: AgentConfiguration[] = [];
-  @Output() closed = new EventEmitter<void>();
-  @Output() disableAutonomousRequested = new EventEmitter<void>();
-  @ViewChild('messagesContainer') private messagesContainer!: ElementRef<HTMLDivElement>;
+export class AiChatPanelComponent implements OnInit {
+  readonly boardId = input.required<string>();
+  readonly userName = input.required<string>();
+  readonly autonomousEnabled = input(false);
+  readonly autonomousStatus = input<AutonomousFacilitatorStatus | undefined>();
+  readonly agentConfigurations = input<AgentConfiguration[]>([]);
+  readonly closed = output<void>();
+  readonly disableAutonomousRequested = output<void>();
+  private messagesContainer = viewChild<ElementRef<HTMLDivElement>>('messagesContainer');
 
-  private destroy$ = new Subject<void>();
+  private signalRService = inject(BoardsSignalRService);
+  private destroyRef = inject(DestroyRef);
 
   public messages: ChatMessage[] = [];
   public activeToolCalls: { name: string; arguments: string }[] = [];
@@ -66,30 +67,22 @@ export class AiChatPanelComponent implements OnInit, OnDestroy, OnChanges {
   private startX = 0;
   private startWidth = 0;
   private agentDisplayMap = new Map<string, AgentDisplayInfo>();
-
-  constructor(private signalRService: BoardsSignalRService) { }
-
-  ngOnChanges(changes: SimpleChanges): void {
-    if (changes['agentConfigurations']) {
-      this.rebuildAgentDisplayMap();
-    }
-  }
-
-  private rebuildAgentDisplayMap(): void {
+  private agentConfigEffect = effect(() => {
+    const configs = this.agentConfigurations();
     this.agentDisplayMap.clear();
-    for (const config of this.agentConfigurations) {
+    for (const config of configs) {
       this.agentDisplayMap.set(config.name, {
         label: config.name,
         icon: config.icon,
         color: config.color
       });
     }
-  }
+  });
 
   ngOnInit(): void {
     // Always request fresh history from server for the current board.
-    this.signalRService.getAgentHistory(this.boardId).then(() => {
-      const cached = this.signalRService.getHistoryForBoard(this.boardId);
+    this.signalRService.getAgentHistory(this.boardId()).then(() => {
+      const cached = this.signalRService.getHistoryForBoard(this.boardId());
       if (cached.length > 0) {
         this.messages = cached.map(m => this.mapToDisplayMessage(m));
         this.scrollToBottom();
@@ -97,17 +90,17 @@ export class AiChatPanelComponent implements OnInit, OnDestroy, OnChanges {
     });
 
     this.signalRService.agentUserMessage$
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(msg => {
-        if (msg.boardId && msg.boardId !== this.boardId) return;
+        if (msg.boardId && msg.boardId !== this.boardId()) return;
         this.messages.push(this.mapToDisplayMessage(msg));
         this.scrollToBottom();
       });
 
     this.signalRService.agentResponse$
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(msg => {
-        if (msg.boardId && msg.boardId !== this.boardId) return;
+        if (msg.boardId && msg.boardId !== this.boardId()) return;
         this.loading = false;
         this.activeToolCalls = [];
         this.messages.push(this.mapToDisplayMessage(msg));
@@ -115,9 +108,9 @@ export class AiChatPanelComponent implements OnInit, OnDestroy, OnChanges {
       });
 
     this.signalRService.agentStepUpdate$
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(msg => {
-        if (msg.boardId && msg.boardId !== this.boardId) return;
+        if (msg.boardId && msg.boardId !== this.boardId()) return;
         const display = this.mapToDisplayMessage(msg);
         // Replace-or-append: if a message with this stepId exists, replace it in-place.
         if (display.stepId) {
@@ -133,17 +126,17 @@ export class AiChatPanelComponent implements OnInit, OnDestroy, OnChanges {
       });
 
     this.signalRService.agentChatComplete$
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(boardId => {
-        if (boardId && boardId !== this.boardId) return;
+        if (boardId && boardId !== this.boardId()) return;
         this.loading = false;
         this.activeToolCalls = [];
       });
 
     this.signalRService.agentToolCallStarted$
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(event => {
-        if (event.boardId && event.boardId !== this.boardId) return;
+        if (event.boardId && event.boardId !== this.boardId()) return;
         if (this.loading) {
           const args = Object.entries(event.arguments ?? {})
             .map(([k, v]) => `${k}: ${v}`)
@@ -154,18 +147,13 @@ export class AiChatPanelComponent implements OnInit, OnDestroy, OnChanges {
       });
 
     this.signalRService.agentHistoryCleared$
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(boardId => {
-        if (boardId && boardId !== this.boardId) return;
+        if (boardId && boardId !== this.boardId()) return;
         this.messages = [];
         this.activeToolCalls = [];
         this.loading = false;
       });
-  }
-
-  ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
   }
 
   public send(): void {
@@ -175,11 +163,11 @@ export class AiChatPanelComponent implements OnInit, OnDestroy, OnChanges {
     this.input = '';
     this.loading = true;
     this.activeToolCalls = [];
-    this.signalRService.sendAgentMessage(this.boardId, text);
+    this.signalRService.sendAgentMessage(this.boardId(), text);
   }
 
   public clearHistory(): void {
-    this.signalRService.clearAgentHistory(this.boardId);
+    this.signalRService.clearAgentHistory(this.boardId());
   }
 
   public onKeydown(event: KeyboardEvent): void {
@@ -190,7 +178,7 @@ export class AiChatPanelComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   public isOwnMessage(msg: ChatMessage): boolean {
-    return msg.role === 'user' && msg.userName === this.userName;
+    return msg.role === 'user' && msg.userName === this.userName();
   }
 
   public aggregateToolCalls(toolCalls: { name: string; arguments: string }[]): { name: string; count: number, active: boolean }[] {
@@ -204,19 +192,19 @@ export class AiChatPanelComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   public get autonomousStatusLabel(): string {
-    if (!this.autonomousEnabled) {
+    if (!this.autonomousEnabled()) {
       return 'Autonomy off';
     }
 
-    if (this.autonomousStatus?.isRunning) {
+    if (this.autonomousStatus()?.isRunning) {
       return 'Autonomy working';
     }
 
-    if (this.autonomousStatus?.stopReason === 'noActiveUsers') {
+    if (this.autonomousStatus()?.stopReason === 'noActiveUsers') {
       return 'Paused: no users';
     }
 
-    if (this.autonomousStatus?.stopReason === 'failureLimitExceeded') {
+    if (this.autonomousStatus()?.stopReason === 'failureLimitExceeded') {
       return 'Paused after errors';
     }
 
@@ -241,7 +229,7 @@ export class AiChatPanelComponent implements OnInit, OnDestroy, OnChanges {
 
   private scrollToBottom(): void {
     setTimeout(() => {
-      const el = this.messagesContainer?.nativeElement;
+      const el = this.messagesContainer()?.nativeElement;
       if (el) el.scrollTop = el.scrollHeight;
     });
   }

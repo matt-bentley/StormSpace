@@ -1,4 +1,4 @@
-import { Component, Inject } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { MatDialogRef, MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -31,11 +31,8 @@ export interface BoardContextData {
 })
 export class BoardContextModalComponent {
   public phases = EVENT_STORMING_PHASES;
-
-  constructor(
-    public dialogRef: MatDialogRef<BoardContextModalComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: BoardContextData
-  ) { }
+  public dialogRef = inject<MatDialogRef<BoardContextModalComponent>>(MatDialogRef);
+  public data = inject<BoardContextData>(MAT_DIALOG_DATA);
 
   public onCancel(): void {
     this.dialogRef.close();

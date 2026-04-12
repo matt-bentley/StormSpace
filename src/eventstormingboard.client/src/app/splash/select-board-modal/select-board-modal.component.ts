@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -24,14 +24,12 @@ import { MatSelectModule } from '@angular/material/select';
     styleUrls: ['./select-board-modal.component.scss']
 })
 export class SelectBoardModalComponent implements OnInit {
+  public dialogRef = inject<MatDialogRef<SelectBoardModalComponent>>(MatDialogRef);
+  private boardsService = inject(BoardsService);
+  public data = inject<{ id: string }>(MAT_DIALOG_DATA);
+
   boards: BoardSummaryDto[] = [];
   selectedBoardId: string | null = null;
-
-  constructor(
-    public dialogRef: MatDialogRef<SelectBoardModalComponent>,
-    private boardsService: BoardsService,
-    @Inject(MAT_DIALOG_DATA) public data: { id: string }
-  ) { }
 
   ngOnInit(): void {
     this.boardsService.get().subscribe({

@@ -1,4 +1,4 @@
-import { Component, Inject } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -20,11 +20,8 @@ import { MatButtonModule } from '@angular/material/button';
     styleUrls: ['./note-text-modal.component.scss']
 })
 export class NoteTextModalComponent {
-
-  constructor(
-    public dialogRef: MatDialogRef<NoteTextModalComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: { text: string }
-  ) {}
+  public dialogRef = inject<MatDialogRef<NoteTextModalComponent>>(MatDialogRef);
+  public data = inject<{ text: string }>(MAT_DIALOG_DATA);
 
   public onCancel(): void {
     this.dialogRef.close();

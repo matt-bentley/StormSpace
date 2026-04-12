@@ -1,4 +1,5 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, DestroyRef, inject, OnInit } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router, RouterOutlet } from '@angular/router';
 import { IconsService } from './_shared/services/icons.service';
 import { MatIconModule } from '@angular/material/icon';
@@ -7,7 +8,6 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { FormsModule } from '@angular/forms';
 import { UserService } from './_shared/services/user.service';
 import { ThemeService } from './_shared/services/theme.service';
-import { Subject, takeUntil } from 'rxjs';
 
 @Component({
     selector: 'app-root',
@@ -21,17 +21,18 @@ import { Subject, takeUntil } from 'rxjs';
     templateUrl: './app.component.html',
     styleUrl: './app.component.scss'
 })
-export class AppComponent implements OnInit, OnDestroy {
+export class AppComponent implements OnInit {
+  private iconsService = inject(IconsService);
+  private router = inject(Router);
+  private userService = inject(UserService);
+  public themeService = inject(ThemeService);
+  private destroyRef = inject(DestroyRef);
+
   public isUserMenuOpen = false;
   public isSettingsMenuOpen = false;
   public userName: string = '';
-  private destroy$ = new Subject<void>();
 
-  constructor(private iconsService: IconsService,
-    private router: Router,
-    private userService: UserService,
-    public themeService: ThemeService
-  ) {
+  constructor() {
     this.iconsService.registerIcons();
   }
 
@@ -40,14 +41,11 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   public ngOnInit(): void {
-    this.userService.displayName$.pipe(takeUntil(this.destroy$)).subscribe(name => {
+    this.userService.displayName$.pipe(
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(name => {
       this.userName = name;
     });
-  }
-
-  public ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
   }
 
   public home() {

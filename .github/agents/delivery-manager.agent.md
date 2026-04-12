@@ -169,7 +169,8 @@ Use this template for the tracking issue body on `init` (before planning is comp
 
 | Stage | Status |
 |-------|--------|
-| Planning | 🔄 In Progress |
+| Specification | 🔄 In Progress |
+| Planning | ⏳ Pending |
 | Plan Review | ⏳ Pending |
 | Implementation | ⏳ Pending |
 | Implementation Review | ⏳ Pending |
@@ -202,6 +203,7 @@ Use this template when updating the issue body on `plan_ready`:
 
 | Stage | Status |
 |-------|--------|
+| Specification | ✅ Completed |
 | Planning | ✅ Completed |
 | Plan Review | 🔄 In Progress |
 | Implementation | ⏳ Pending |
