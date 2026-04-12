@@ -173,7 +173,9 @@
              (keydown.space)="$event.preventDefault(); onPhaseClick(phase.value)"
              tabindex="0"
              role="button"
-             [attr.aria-current]="isPhaseActive(phase.value) ? 'step' : null">
+             [attr.aria-label]="'Go to phase: ' + phase.label"
+             [attr.aria-current]="isPhaseActive(phase.value) ? 'step' : null"
+             [attr.aria-disabled]="isPhaseActive(phase.value) ? 'true' : null">
           <div class="step-circle">{{ i + 1 }}</div>
           <span class="step-label">{{ phase.label }}</span>
         </div>

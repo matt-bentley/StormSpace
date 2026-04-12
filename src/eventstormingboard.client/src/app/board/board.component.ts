@@ -21,7 +21,7 @@ import { AiChatPanelComponent } from './ai-chat-panel/ai-chat-panel.component';
 import { BoardContextModalComponent, BoardContextData } from './board-context-modal/board-context-modal.component';
 import { AgentConfigModalComponent, AgentConfigModalData } from './agent-config-modal/agent-config-modal.component';
 import { AgentConfiguration } from '../_shared/models/agent-configuration.model';
-import { EVENT_STORMING_PHASES } from '../_shared/models/board.model';
+import { EVENT_STORMING_PHASES, EventStormingPhase } from '../_shared/models/board.model';
 import { UserService } from '../_shared/services/user.service';
 import { Connection } from '../_shared/models/connection.model';
 import { BoundedContext } from '../_shared/models/bounded-context.model';
@@ -97,11 +97,11 @@ export class BoardComponent implements OnInit, OnDestroy {
     });
   }
 
-  public isPhaseActive(phase: string): boolean {
+  public isPhaseActive(phase: EventStormingPhase): boolean {
     return this.canvasService.boardState.phase === phase;
   }
 
-  public onPhaseClick(phase: string): void {
+  public onPhaseClick(phase: EventStormingPhase): void {
     if (this.isPhaseActive(phase)) {
       return;
     }

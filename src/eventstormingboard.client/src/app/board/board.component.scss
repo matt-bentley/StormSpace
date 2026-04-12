@@ -461,6 +461,12 @@
     &:focus-visible {
       outline: 1px solid var(--sys-primary);
       outline-offset: 2px;
+
+      .step-label {
+        max-width: 150px;
+        opacity: 1;
+        margin-left: var(--space-3);
+      }
     }
 
     &.active {
