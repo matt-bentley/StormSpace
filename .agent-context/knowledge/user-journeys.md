@@ -189,7 +189,16 @@ Toolbar buttons use CSS class `.tool-btn`. Active state: `.active` class.
 | 4 | `"4"` | Define Aggregates | `DefineAggregates` |
 | 5 | `"5"` | Break It Down | `BreakItDown` |
 
-Phase steps are clickable. Container: `progressbar "Event Storming Phase"`. Individual steps have class `.step` with `.active` for the current phase.
+Phase steps are clickable — clicking a step changes the board's active workshop phase (uses `UpdateBoardContextCommand` → SignalR broadcast). Clicking the already-active step is a no-op. Steps are keyboard-accessible (Enter/Space) with `:focus-visible` outline styling.
+
+Container: `group "Event Storming Phase"`. Individual steps have `role="button"`, `tabindex="0"`, class `.step` with `.active` for the current phase.
+
+| Attribute | Value |
+|-----------|-------|
+| `role` | `button` |
+| `aria-label` | `Go to phase: {label}` (e.g., "Go to phase: Identify Events") |
+| `aria-current` | `step` (on active step only) |
+| `aria-disabled` | `true` (on active step only) |
 
 ### Bottom Controls
 
