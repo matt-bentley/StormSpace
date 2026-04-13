@@ -35,7 +35,28 @@ Cycle through these phases based on user input. This is iterative, not linear. I
 
 Do NOT run these sequentially. All researchers MUST be dispatched in the same parallel batch.
 
-### 2. Approach Evaluation
+### 2. Alignment
+
+If research reveals major ambiguities or if you need to validate assumptions:
+- Use the **Question Relay** subagent to clarify intent with the user.
+   Invoke the Question Relay subagent:
+
+   ```
+   runSubagent("Question Relay", prompt: "
+   Tracking issue: #{tracking_issue_number}
+   Source agent: Planner
+   Questions:
+   1. {question 1}
+   2. {question 2}
+   ...
+   Poll interval: 60 seconds
+   Max attempts: 30
+   ")
+   ```
+- Surface discovered technical constraints or alternative approaches
+- If answers significantly change the scope, loop back to **Discovery**
+
+### 3. Approach Evaluation
 
 Before proceeding to Plan Generation, evaluate the implementation approach:
 
@@ -43,7 +64,7 @@ Before proceeding to Plan Generation, evaluate the implementation approach:
 2. **Evaluate trade-offs** — For each approach, assess: alignment with existing patterns, complexity, risk, impact on other features, and testability
 3. **Select and justify** — Choose the recommended approach and document why. If the choice is obvious (single clear pattern to follow), state that briefly rather than fabricating alternatives
 
-### 3. Design the Plan
+### 4. Design the Plan
 
 Once context is clear, draft a comprehensive implementation plan.
 
@@ -64,7 +85,7 @@ Organize the implementation into phases. Each phase should:
 - Group related changes together
 - Progress from foundational to dependent (e.g., backend entities before frontend UI)
 
-### 4. Write Plan Files
+### 5. Write Plan Files
 
 Create the plan directory and files:
 

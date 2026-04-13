@@ -53,7 +53,7 @@ If `--refine-spec` is NOT present, set `refine-spec: false` — the Spec Writer 
 ### Stage 3: Planning
 
 1. **Invoke the Planner** with the spec file as primary input:
-   > Implement the specification at `.agent-context/tasks/{task-slug}/spec.md`. Raw user request: {task description}.
+   > Implement the specification at `.agent-context/tasks/{task-slug}/spec.md`. Raw user request: {task description}. Tracking issue: #{number}. Task slug: {task-slug}.
    The Planner creates:
    - `.agent-context/tasks/{task-slug}/plan.md` (master plan)
    - `.agent-context/tasks/{task-slug}/phase-{N}-{name}.md` (per-phase details)

@@ -50,7 +50,7 @@ runSubagent("Question Relay", prompt: "
   2. {question 2}
   ...
   Poll interval: 60 seconds
-  Max attempts: 10
+  Max attempts: 30
 ")
 ```
 
