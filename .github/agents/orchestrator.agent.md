@@ -155,9 +155,10 @@ For each phase (1 through N):
 ### Stage 11: Completion
 
 1. Update progress file: Status → Completed.
-2. **Invoke the Delivery Manager** with the `complete` command:
+2. **Commit and push Complete**: Run `git add -A && git commit -m "Complete" && git push`.
+3. **Invoke the Delivery Manager** with the `complete` command:
    > Command: `complete`. Tracking issue: #{number}. Status: completed. Summary: {final pipeline summary}.
-3. Report final summary to user.
+4. Report final summary to user.
 
 ## Error Handling
 
