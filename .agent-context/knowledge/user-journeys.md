@@ -189,7 +189,7 @@ Toolbar buttons use CSS class `.tool-btn`. Active state: `.active` class.
 | 4 | `"4"` | Define Aggregates | `DefineAggregates` |
 | 5 | `"5"` | Break It Down | `BreakItDown` |
 
-Phase steps are clickable. Container: `progressbar "Event Storming Phase"`. Individual steps have class `.step` with `.active` for the current phase.
+Phase steps are clickable (`role="button"`, keyboard accessible via Enter/Space). Clicking a non-active step opens a confirmation modal before changing phase. Container: `group "Event Storming Phase"`. Individual steps have class `.step` with `.active` for the current phase, `tabindex="0"` (or `-1` when active), and `aria-current="step"` when active.
 
 ### Bottom Controls
 
@@ -203,7 +203,36 @@ Phase steps are clickable. Container: `progressbar "Event Storming Phase"`. Indi
 
 ---
 
-## Journey 3: Create Sticky Notes
+## Journey 3: Change Workshop Phase (via Stepper)
+
+**Precondition**: On board page
+
+### Steps
+
+| # | Action | Command | Expected Result |
+|---|--------|---------|------------------|
+| 1 | Click a phase step (e.g. "Identify Events") | `playwright-cli click <ref of step with text "Identify Events">` | "Change Phase" confirmation modal opens |
+| 2 | Confirm the change | `playwright-cli click <ref of "CONFIRM" button>` | Modal closes; phase stepper updates — clicked step becomes `.active` |
+
+> **Clicking the already-active phase does nothing** — no modal opens (the step has `tabindex="-1"`).
+
+Phase change goes through `UpdateBoardContextCommand`, which flows through the standard command/undo/SignalR pipeline — all connected clients see the phase update.
+
+### Confirmation Modal Structure
+
+```
+dialog "Change Phase"
+├── heading "Change Phase"
+├── paragraph: "Are you sure you want to change the workshop phase to \"{phase label}\"?"
+├── button "CANCEL"
+└── button "CONFIRM" (focused by default)
+```
+
+This uses the reusable `ConfirmModalComponent` (see Reusable Components below).
+
+---
+
+## Journey 4: Create Sticky Notes
 
 **Precondition**: On board page
 
@@ -285,7 +314,7 @@ playwright-cli eval "async (page) => { const canvas = document.querySelector('ca
 
 ---
 
-## Journey 4: Create Connections (DRAW Mode)
+## Journey 5: Create Connections (DRAW Mode)
 
 **Precondition**: On board page with at least 2 notes
 
@@ -337,7 +366,7 @@ playwright-cli eval "async () => { const canvas = document.querySelector('canvas
 
 ---
 
-## Journey 5: Use AI Chat
+## Journey 6: Use AI Chat
 
 **Precondition**: On board page
 
@@ -377,7 +406,7 @@ generic (chat container)
 
 ---
 
-## Journey 6: Configure Board Context
+## Journey 7: Configure Board Context
 
 **Precondition**: On board page
 
@@ -415,7 +444,7 @@ dialog "Board Context for AI"
 
 ---
 
-## Journey 7: Configure AI Agents
+## Journey 8: Configure AI Agents
 
 **Precondition**: On board page
 
@@ -475,7 +504,7 @@ dialog "Configure AI Agents"
 
 ---
 
-## Journey 8: Export and Import Board
+## Journey 9: Export and Import Board
 
 **⚠ Export buttons trigger OS-level file dialogs that cannot be dismissed by browser automation.** Do NOT click the export buttons during automated regression testing — this will leave a Save-As dialog open and block all subsequent journeys.
 
@@ -516,7 +545,7 @@ These steps are for **manual testing only** — do not execute in automated runs
 
 ---
 
-## Journey 9: Board Name Editing
+## Journey 10: Board Name Editing
 
 **Precondition**: On board page
 
@@ -528,7 +557,7 @@ These steps are for **manual testing only** — do not execute in automated runs
 
 ---
 
-## Journey 10: Theme Toggle
+## Journey 11: Theme Toggle
 
 **Precondition**: On any page
 
@@ -579,3 +608,23 @@ The board canvas is an HTML Canvas element — notes and connections are **not**
 | Keyboard shortcuts modal | `src/eventstormingboard.client/src/app/board/keyboard-shortcuts-modal/keyboard-shortcuts-modal.component.ts` |
 | Note text edit modal | `src/eventstormingboard.client/src/app/board/board-canvas/note-text-modal/note-text-modal.component.ts` |
 | Agent interaction diagram | `src/eventstormingboard.client/src/app/board/agent-interaction-diagram/agent-interaction-diagram.component.ts` |
+| Confirm modal (reusable) | `src/eventstormingboard.client/src/app/_shared/components/confirm-modal/confirm-modal.component.ts` |
+
+## Reusable Components
+
+### ConfirmModalComponent
+
+A generic confirmation dialog in `_shared/components/confirm-modal/`. Opens via `MatDialog` with configurable title, message, and button labels. Returns `true` (confirmed) or `false`/`undefined` (cancelled/dismissed).
+
+**Interface:** `ConfirmModalData`
+
+| Property | Type | Default | Purpose |
+|----------|------|---------|---------|
+| `title` | `string` | — | Dialog heading |
+| `message` | `string` | — | Body text |
+| `confirmLabel` | `string?` | `"CONFIRM"` | Confirm button label |
+| `cancelLabel` | `string?` | `"CANCEL"` | Cancel button label |
+
+**Usage:** Pass `ConfirmModalData` via `MAT_DIALOG_DATA` when opening with `MatDialog.open(ConfirmModalComponent, { data: ... })`. Subscribe to `afterClosed()` to receive the boolean result.
+
+**File:** `src/eventstormingboard.client/src/app/_shared/components/confirm-modal/confirm-modal.component.ts`
