@@ -1,7 +1,7 @@
 ---
 name: "Orchestrator"
 description: "Top-level lifecycle coordinator for agentic development workflows. Use when: executing a full development task end-to-end, implementing features with automated planning/review/testing cycles."
-tools: [read, edit, search, execute, agent, todo, vscode]
+tools: [read, edit, search, execute, agent, todo]
 model: "Claude Opus 4.6"
 ---
 
@@ -19,11 +19,11 @@ If `--auto` is NOT present, pause after plan review and present the plan to the 
 
 ## Refine Spec Detection
 
-Scan the user's message for the literal string `--refine-spec` (case-insensitive). If present:
-- Set `refine-spec: true` — the Spec Writer will invoke Q&A via the Question Relay agent
-- Remove `--refine-spec` from the task description when creating progress/plan files
+Scan the user's message for the literal string `--refine` (case-insensitive). If present:
+- Set `refine: true` — the Business Analyst will invoke Q&A via the Question Relay agent
+- Remove `--refine` from the task description when creating progress/plan files
 
-If `--refine-spec` is NOT present, set `refine-spec: false` — the Spec Writer drafts the spec without Q&A.
+If `--refine` is NOT present, set `refine: false` — the Business Analyst drafts the spec without Q&A.
 
 ## Pipeline Workflow
 
@@ -40,15 +40,17 @@ If `--refine-spec` is NOT present, set `refine-spec: false` — the Spec Writer 
 
 ### Stage 2: Specification
 
-1. **Invoke the Spec Writer** subagent (single invocation — the Orchestrator never writes spec.md directly):
-   > User request: {raw task description}. Tracking issue: #{number}. Task slug: {task-slug}. Refine: {true/false} (from `--refine-spec` detection). Repository context: relevant knowledge and instructions.
-   - The Spec Writer always drafts a structured `spec.md`
-   - If `refine: true`, the Spec Writer handles Q&A internally via the Question Relay agent
-   - If `refine: false`, the Spec Writer drafts the spec without Q&A
-2. **Parse Spec Writer output**: Look for `## Spec: COMPLETE`. Verify the spec file was written.
+1. **Invoke the Business Analyst** subagent (single invocation — the Orchestrator never writes spec.md directly):
+   > User request: {raw task description}. Tracking issue: #{number}. Task slug: {task-slug}. Refine: {true/false} (from `--refine` detection). Repository context: relevant knowledge and instructions.
+   - The Business Analyst always drafts a structured `spec.md`
+   - If `refine: true`, the Business Analyst handles Q&A internally via the Question Relay agent
+   - If `refine: false`, the Business Analyst drafts the spec without Q&A
+2. **Parse Business Analyst output**: Look for `## Spec: COMPLETE`. Verify the spec file was written.
 3. Update progress file: Specification → Completed (with notes on whether refinement was enabled and whether questions were asked/answered).
-4. **Invoke the Delivery Manager** with `stage_update`:
-   > Command: `stage_update`. Tracking issue: #{number}. Stage: Specification. Status: Completed.
+4. **Read the spec file** at `.agent-context/tasks/{task-slug}/spec.md` and capture its full content.
+5. **Invoke the Delivery Manager** with `spec_complete`:
+   > Command: `spec_complete`. Tracking issue: #{number}. Spec content: {contents of spec.md}.
+6. **Parse Delivery Manager output**: Look for `## Delivery: SPEC_COMPLETE`.
 
 ### Stage 3: Planning
 
@@ -79,16 +81,18 @@ If `--refine-spec` is NOT present, set `refine-spec: false` — the Spec Writer 
 
 ### Stage 6: Per-Phase Implementation
 
-1. **Commit pre-implementation baseline**: Run `git add -A && git commit -m "pre-implementation baseline"` to create a single baseline for the full implementation diff. Record this commit hash — it is used by the Implementation Reviewer later.
+1. **Invoke the Delivery Manager** with `stage_update`:
+   > Command: `stage_update`. Tracking issue: #{number}. Stage: Implementation. Status: In Progress.
+2. **Commit pre-implementation baseline**: Run `git add -A && git commit -m "pre-implementation baseline"` to create a single baseline for the full implementation diff. Record this commit hash — it is used by the Implementation Reviewer later.
 
 For each phase (1 through N):
 
-2. **Invoke the Implementer** with the phase plan file:
+3. **Invoke the Implementer** with the phase plan file:
    > Implement the plan in `.agent-context/tasks/{task-slug}/phase-{N}-{name}.md`
-3. Update progress file: Phase {N} Implementation → In Progress.
-4. After Implementer completes, commit the phase: Run `git add -A && git commit -m "phase-{N} {name}"`.
-5. Update progress file: Phase {N} → Completed.
-6. **Invoke the Delivery Manager** with `phase_end`:
+4. Update progress file: Phase {N} Implementation → In Progress.
+5. After Implementer completes, commit the phase: Run `git add -A && git commit -m "phase-{N} {name}"`.
+6. Update progress file: Phase {N} → Completed.
+7. **Invoke the Delivery Manager** with `phase_end`:
    > Command: `phase_end`. Phase: {N}. Phase sub-issue issue #: {from GitHub Tracking}. Tracking issue #: {from GitHub Tracking}. Status: completed.
 
 ### Stage 7: Implementation Review
@@ -111,7 +115,7 @@ For each phase (1 through N):
 ### Stage 8: Regression Testing
 
 1. **Invoke the Delivery Manager** with `regression_update`:
-   > Command: `regression_update`. Regression sub-issue issue #: {from GitHub Tracking}. Status: in_progress.
+   > Command: `regression_update`. Regression sub-issue issue #: {from GitHub Tracking}. Status: In Progress.
 2. **Start the application**: Launch the app using the VS Code task `StormSpace` (this starts the backend with SPA proxy, which also serves the Angular frontend). After starting the task, wait for the app to become accessible at `https://localhost:51710` by polling the URL. If the app does not become accessible within a reasonable time, **stop the app** (kill the `StormSpace` terminal), **halt** and report the startup failure.
 3. **Invoke the Regression Tester** with the list of changed files across all phases:
    > Run regression testing. Changed files: {list of all files changed across phases}. App URL: https://localhost:51710
@@ -145,11 +149,13 @@ For each phase (1 through N):
 
 ### Stage 10: Knowledge Update
 
-1. **Invoke the Knowledge Keeper**:
+1. **Invoke the Delivery Manager** with `stage_update`:
+   > Command: `stage_update`. Tracking issue: #{number}. Stage: Knowledge Update. Status: In Progress.
+2. **Invoke the Knowledge Keeper**:
    > Update knowledge documentation to reflect the changes made during this task. Changed files: {list}. Task: {description}.
-2. Record knowledge updates in progress file.
-3. **Commit and push knowledge updates**: Run `git add -A && git commit -m "knowledge updates" && git push`.
-4. **Invoke the Delivery Manager** with `stage_update`:
+3. Record knowledge updates in progress file.
+4. **Commit and push knowledge updates**: Run `git add -A && git commit -m "knowledge updates" && git push`.
+5. **Invoke the Delivery Manager** with `stage_update`:
    > Command: `stage_update`. Tracking issue: #{number}. Stage: Knowledge Update. Status: Completed.
 
 ### Stage 11: Completion

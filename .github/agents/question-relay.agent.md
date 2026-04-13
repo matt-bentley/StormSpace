@@ -1,7 +1,7 @@
 ---
 name: "Question Relay"
 description: "Posts questions to a GitHub issue and polls for user replies. Use when: any agent needs interactive Q&A with the user via GitHub issue comments. Reusable by Spec Writer, Planner, or any agent."
-tools: [read, "github/*"]
+tools: [read, execute, "github/*"]
 model: "Claude Haiku 4.5"
 user-invocable: false
 ---

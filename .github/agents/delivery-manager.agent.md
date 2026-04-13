@@ -75,6 +75,20 @@ IssueNodeId: {node_id}
 Phase: {N}
 ```
 
+### Command: `spec_complete`
+
+**Input**: tracking issue number, spec content (full text of spec.md)
+
+**Actions**:
+1. Update the tracking issue body via `mcp_github_issue_write` (method: `update`) using the Issue Body Template — Spec Complete (see below). Insert the spec content into the `## Specification` section.
+
+**Output**:
+```
+## Delivery: SPEC_COMPLETE
+Stage: Specification
+Status: Completed
+```
+
 ### Command: `stage_update`
 
 **Input**: tracking issue number, stage name, status, notes
@@ -178,6 +192,33 @@ Use this template for the tracking issue body on `init` (before planning is comp
 | Knowledge Update | ⏳ Pending |
 ```
 
+## Issue Body Template — Spec Complete
+
+Use this template when updating the issue body on `spec_complete`:
+
+```markdown
+# {Task Title}
+
+**Status**: 🔄 In Progress
+**Branch**: `task/{task-slug}`
+
+## Specification
+
+{spec content}
+
+## Pipeline
+
+| Stage | Status |
+|-------|--------|
+| Specification | ✅ Completed |
+| Planning | 🔄 In Progress |
+| Plan Review | ⏳ Pending |
+| Implementation | ⏳ Pending |
+| Implementation Review | ⏳ Pending |
+| Regression Testing | ⏳ Pending |
+| Knowledge Update | ⏳ Pending |
+```
+
 ## Issue Body Template — Plan Ready
 
 Use this template when updating the issue body on `plan_ready`:
@@ -187,6 +228,10 @@ Use this template when updating the issue body on `plan_ready`:
 
 **Status**: 🔄 In Progress
 **Branch**: `task/{task-slug}`
+
+## Specification
+
+{spec content from previous issue body}
 
 ## Plan Summary
 
