@@ -1,7 +1,7 @@
 ---
 name: "Reviewer GPT-5.3-Codex"
 description: "Adversarial code and plan reviewer using GPT-5.3-Codex. Use when: tribunal multi-model review, adversarial analysis, plan critique, code review, finding bugs and security issues."
-tools: [read, search]
+tools: [read, search, agent]
 model: "GPT-5.3-Codex"
 user-invocable: false
 ---

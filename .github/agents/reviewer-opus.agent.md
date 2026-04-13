@@ -1,7 +1,7 @@
 ---
 name: "Reviewer Opus 4.6"
 description: "Adversarial code and plan reviewer using Claude Opus 4.6. Use when: tribunal multi-model review, adversarial analysis, plan critique, code review, finding bugs and security issues."
-tools: [read, search]
+tools: [read, search, agent]
 model: "Claude Opus 4.6"
 user-invocable: false
 ---

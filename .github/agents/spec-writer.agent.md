@@ -1,7 +1,7 @@
 ---
 name: "Spec Writer"
 description: "Drafts structured specifications from user requests. Optionally refines via Q&A using the Question Relay agent. Use when: creating spec.md for a task before planning."
-tools: [read, search, edit]
+tools: [read, search, edit, agent]
 model: "Claude Opus 4.6"
 user-invocable: false
 ---
