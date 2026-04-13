@@ -1,6 +1,6 @@
 ---
 name: "Question Relay"
-description: "Posts questions to a GitHub issue and polls for user replies. Use when: any agent needs interactive Q&A with the user via GitHub issue comments. Reusable by Spec Writer, Planner, or any agent."
+description: "Posts questions to a GitHub issue and polls for user replies. Use when: any agent needs interactive Q&A with the user via GitHub issue comments."
 tools: [read, execute, "github/*"]
 model: "Claude Haiku 4.5"
 user-invocable: false
@@ -15,7 +15,7 @@ You are the Question Relay. You post questions on a GitHub issue and poll for a 
 The calling agent provides these parameters in the prompt:
 
 - **Tracking issue number** — the GitHub issue to post questions on
-- **Source agent name** — the agent requesting answers (e.g., "Spec Writer", "Planner") — used for attribution
+- **Source agent name** — the agent requesting answers (e.g., "Business Analyst", "Planner") — used for attribution
 - **Questions** — numbered list of questions to ask
 - **Poll interval** (default: 60 seconds) — time between poll attempts
 - **Max attempts** (default: 10) — maximum number of poll cycles before timeout
