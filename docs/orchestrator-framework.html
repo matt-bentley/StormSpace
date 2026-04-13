@@ -1,0 +1,1575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StormSpace — Orchestrator Agent Framework</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    /* ── Kinetic Ionization Design Tokens ── */
+    :root {
+      --sys-surface: #10131c;
+      --sys-surface-dim: #0d0f16;
+      --sys-surface-bright: #3a3e47;
+      --sys-surface-container-lowest: #12151e;
+      --sys-surface-container-low: #181c24;
+      --sys-surface-container: #1e2229;
+      --sys-surface-container-high: #282c34;
+      --sys-surface-container-highest: #31353e;
+      --sys-surface-variant: #31353e;
+      --sys-primary: #dbfcff;
+      --sys-primary-container: #00f0ff;
+      --sys-on-primary: #10131c;
+      --sys-on-primary-container: #dbfcff;
+      --sys-primary-fixed-dim: #00c8d6;
+      --sys-secondary: #f0b4ff;
+      --sys-secondary-container: #e040fb;
+      --sys-on-secondary: #10131c;
+      --sys-tertiary: #ff4081;
+      --sys-tertiary-container: #ff80ab;
+      --sys-on-surface: #e2e2e6;
+      --sys-on-surface-variant: #a0a4ad;
+      --sys-outline: #8a8e96;
+      --sys-outline-variant: #44474e;
+      --shadow-glow-primary: 0 0 30px rgba(0, 240, 255, 0.10);
+      --shadow-glow-secondary: 0 0 30px rgba(224, 64, 251, 0.10);
+      --shadow-glow-tertiary: 0 0 30px rgba(255, 64, 129, 0.10);
+      --shadow-glow-primary-elevated: 0 0 40px rgba(0, 240, 255, 0.18);
+      --font-display: 'Space Grotesk', system-ui, sans-serif;
+      --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    /* ── Reset & Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--sys-surface);
+      color: var(--sys-on-surface);
+      font-family: var(--font-body);
+      font-size: 14px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Layout ── */
+    .page {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+    }
+
+    /* ── Header ── */
+    .header {
+      text-align: center;
+      padding: 60px 0 48px;
+    }
+
+    .header__eyebrow {
+      font-family: var(--font-display);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--sys-primary-container);
+      margin-bottom: 12px;
+    }
+
+    .header__title {
+      font-family: var(--font-display);
+      font-size: 45px;
+      font-weight: 400;
+      letter-spacing: -0.04em;
+      line-height: 52px;
+      color: var(--sys-primary);
+      margin-bottom: 16px;
+    }
+
+    .header__subtitle {
+      font-family: var(--font-body);
+      font-size: 16px;
+      color: var(--sys-on-surface-variant);
+      max-width: 640px;
+      margin: 0 auto;
+      line-height: 24px;
+    }
+
+    /* ── Section ── */
+    .section {
+      margin-bottom: 48px;
+    }
+
+    .section__title {
+      font-family: var(--font-display);
+      font-size: 28px;
+      font-weight: 500;
+      letter-spacing: -0.02em;
+      line-height: 36px;
+      color: var(--sys-primary);
+      margin-bottom: 8px;
+    }
+
+    .section__desc {
+      color: var(--sys-on-surface-variant);
+      font-size: 14px;
+      margin-bottom: 24px;
+      max-width: 720px;
+    }
+
+    /* ── Pipeline Flow ── */
+    .pipeline {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .pipeline__track {
+      position: absolute;
+      left: 28px;
+      top: 28px;
+      bottom: 28px;
+      width: 2px;
+      background: linear-gradient(
+        180deg,
+        var(--sys-primary-container) 0%,
+        var(--sys-secondary-container) 50%,
+        var(--sys-primary-container) 100%
+      );
+      opacity: 0.3;
+    }
+
+    .stage {
+      display: grid;
+      grid-template-columns: 56px 1fr;
+      gap: 0 20px;
+      padding: 16px 0;
+      position: relative;
+    }
+
+    .stage__marker {
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding-top: 2px;
+    }
+
+    .stage__dot {
+      width: 18px;
+      height: 18px;
+      background: var(--sys-surface-container);
+      border: 2px solid var(--sys-primary-container);
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-display);
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--sys-primary-container);
+    }
+
+    .stage__body {
+      background: var(--sys-surface-container-lowest);
+      padding: 20px 24px;
+      border: 1px solid rgba(68, 71, 78, 0.15);
+      transition: box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .stage__body:hover {
+      box-shadow: var(--shadow-glow-primary);
+    }
+
+    .stage__number {
+      font-family: var(--font-display);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--sys-primary-container);
+      margin-bottom: 4px;
+    }
+
+    .stage__name {
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 500;
+      color: var(--sys-on-surface);
+      margin-bottom: 8px;
+    }
+
+    .stage__detail {
+      color: var(--sys-on-surface-variant);
+      font-size: 13px;
+      line-height: 20px;
+    }
+
+    .stage__agents {
+      margin-top: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .stage__outputs {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(68, 71, 78, 0.10);
+    }
+
+    .stage__outputs-label {
+      font-family: var(--font-display);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--sys-on-surface-variant);
+      margin-bottom: 6px;
+    }
+
+    .output-item {
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      font-size: 12px;
+      color: var(--sys-primary-fixed-dim);
+      padding: 2px 0;
+    }
+
+    /* ── Gate badges ── */
+    .gate {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 10px;
+      padding: 4px 10px;
+      font-family: var(--font-display);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .gate--pass {
+      color: var(--sys-primary-container);
+      border: 1px solid rgba(0, 240, 255, 0.2);
+      background: rgba(0, 240, 255, 0.05);
+    }
+
+    .gate--fail {
+      color: var(--sys-tertiary);
+      border: 1px solid rgba(255, 64, 129, 0.2);
+      background: rgba(255, 64, 129, 0.05);
+    }
+
+    .gate--skip {
+      color: var(--sys-secondary);
+      border: 1px solid rgba(240, 180, 255, 0.2);
+      background: rgba(240, 180, 255, 0.05);
+    }
+
+    .gate__icon {
+      font-size: 12px;
+    }
+
+    /* ── Agent chips ── */
+    .agent-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border: 1px solid rgba(68, 71, 78, 0.15);
+      font-family: var(--font-display);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      cursor: default;
+    }
+
+    .agent-chip:hover {
+      border-color: rgba(0, 240, 255, 0.3);
+      box-shadow: var(--shadow-glow-primary);
+    }
+
+    .agent-chip--orchestrator { color: var(--sys-primary-container); }
+    .agent-chip--analyst { color: var(--sys-secondary); }
+    .agent-chip--planner { color: #ffab40; }
+    .agent-chip--refiner { color: var(--sys-secondary-container); }
+    .agent-chip--implementer { color: #69f0ae; }
+    .agent-chip--reviewer { color: var(--sys-tertiary); }
+    .agent-chip--tester { color: #40c4ff; }
+    .agent-chip--delivery { color: var(--sys-on-surface-variant); }
+    .agent-chip--knowledge { color: var(--sys-primary-fixed-dim); }
+    .agent-chip--tribunal { color: var(--sys-tertiary-container); }
+    .agent-chip--relay { color: #b0bec5; }
+
+    .agent-chip__dot {
+      width: 6px;
+      height: 6px;
+      background: currentColor;
+    }
+
+    /* ── Agent Cards Grid ── */
+    .agents-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 16px;
+    }
+
+    .agent-card {
+      background: var(--sys-surface-container-lowest);
+      border: 1px solid rgba(68, 71, 78, 0.15);
+      padding: 20px 24px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .agent-card:hover {
+      box-shadow: var(--shadow-glow-primary);
+      border-color: rgba(0, 240, 255, 0.15);
+    }
+
+    .agent-card__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .agent-card__name {
+      font-family: var(--font-display);
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--sys-on-surface);
+    }
+
+    .agent-card__model {
+      font-family: var(--font-display);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border: 1px solid rgba(68, 71, 78, 0.15);
+    }
+
+    .model--opus { color: var(--sys-primary-container); }
+    .model--gpt54 { color: #69f0ae; }
+    .model--gpt53 { color: #ffab40; }
+    .model--sonnet { color: var(--sys-secondary); }
+    .model--haiku { color: var(--sys-on-surface-variant); }
+
+    .agent-card__desc {
+      color: var(--sys-on-surface-variant);
+      font-size: 13px;
+      line-height: 20px;
+      margin-bottom: 12px;
+    }
+
+    .agent-card__tools {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .tool-tag {
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      font-size: 11px;
+      color: var(--sys-primary-fixed-dim);
+      padding: 2px 8px;
+      background: rgba(0, 200, 214, 0.06);
+      border: 1px solid rgba(0, 200, 214, 0.12);
+    }
+
+    /* ── Architecture Diagram ── */
+    .diagram {
+      background: var(--sys-surface-container-lowest);
+      border: 1px solid rgba(68, 71, 78, 0.15);
+      padding: 32px;
+      margin-bottom: 32px;
+      overflow-x: auto;
+    }
+
+    .diagram__title {
+      font-family: var(--font-display);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--sys-on-surface-variant);
+      margin-bottom: 20px;
+    }
+
+    /* SVG Pipeline Diagram */
+    .flow-svg {
+      width: 100%;
+      max-width: 1100px;
+      height: auto;
+      display: block;
+      margin: 0 auto;
+    }
+
+    /* ── Error Handling Section ── */
+    .error-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 768px) {
+      .error-grid { grid-template-columns: 1fr; }
+      .agents-grid { grid-template-columns: 1fr; }
+    }
+
+    .error-card {
+      padding: 20px 24px;
+      border: 1px solid rgba(68, 71, 78, 0.15);
+    }
+
+    .error-card--halt {
+      background: rgba(255, 64, 129, 0.04);
+      border-color: rgba(255, 64, 129, 0.15);
+    }
+
+    .error-card--continue {
+      background: rgba(255, 171, 64, 0.04);
+      border-color: rgba(255, 171, 64, 0.15);
+    }
+
+    .error-card__label {
+      font-family: var(--font-display);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .error-card--halt .error-card__label { color: var(--sys-tertiary); }
+    .error-card--continue .error-card__label { color: #ffab40; }
+
+    .error-card__title {
+      font-family: var(--font-display);
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--sys-on-surface);
+      margin-bottom: 8px;
+    }
+
+    .error-card__desc {
+      color: var(--sys-on-surface-variant);
+      font-size: 13px;
+      line-height: 20px;
+    }
+
+    /* ── Key Concepts List ── */
+    .concepts {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+    }
+
+    .concept {
+      background: var(--sys-surface-container-lowest);
+      border: 1px solid rgba(68, 71, 78, 0.15);
+      padding: 20px 24px;
+    }
+
+    .concept__label {
+      font-family: var(--font-display);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--sys-primary-container);
+      margin-bottom: 6px;
+    }
+
+    .concept__title {
+      font-family: var(--font-display);
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--sys-on-surface);
+      margin-bottom: 8px;
+    }
+
+    .concept__desc {
+      color: var(--sys-on-surface-variant);
+      font-size: 13px;
+      line-height: 20px;
+    }
+
+    /* ── Separator ── */
+    .sep {
+      height: 1px;
+      background: linear-gradient(90deg, transparent 0%, rgba(0, 240, 255, 0.15) 50%, transparent 100%);
+      margin: 48px 0;
+    }
+
+    /* ── Legend ── */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .legend__item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--sys-on-surface-variant);
+    }
+
+    .legend__swatch {
+      width: 12px;
+      height: 12px;
+    }
+
+    /* ── Connections Table ── */
+    .connections-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .connections-table th {
+      font-family: var(--font-display);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--sys-on-surface-variant);
+      text-align: left;
+      padding: 10px 16px;
+      border-bottom: 1px solid rgba(68, 71, 78, 0.15);
+    }
+
+    .connections-table td {
+      padding: 10px 16px;
+      color: var(--sys-on-surface);
+      border-bottom: 1px solid rgba(68, 71, 78, 0.08);
+    }
+
+    .connections-table tr:hover td {
+      background: rgba(0, 240, 255, 0.02);
+    }
+
+    .connections-table .mono {
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      font-size: 12px;
+      color: var(--sys-primary-fixed-dim);
+    }
+
+    /* ── Footer ── */
+    .footer {
+      text-align: center;
+      padding: 40px 0 0;
+      color: var(--sys-on-surface-variant);
+      font-size: 12px;
+    }
+
+    .footer__brand {
+      font-family: var(--font-display);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--sys-primary-container);
+      letter-spacing: 0.05em;
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--sys-surface-dim); }
+    ::-webkit-scrollbar-thumb { background: var(--sys-surface-bright); }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ═══════════════ HEADER ═══════════════ -->
+  <header class="header">
+    <div class="header__eyebrow">StormSpace Agent Framework</div>
+    <h1 class="header__title">Orchestrator Pipeline</h1>
+    <p class="header__subtitle">
+      An autonomous, multi-agent development lifecycle — from specification through implementation, review, regression testing, and knowledge capture.
+    </p>
+  </header>
+
+  <div class="sep"></div>
+
+  <!-- ═══════════════ HIGH-LEVEL ARCHITECTURE ═══════════════ -->
+  <section class="section">
+    <h2 class="section__title">Architecture Overview</h2>
+    <p class="section__desc">
+      The Orchestrator coordinates a linear pipeline of 11 stages. Each stage invokes specialised sub-agents,
+      tracks progress in a persistent <code>progress.md</code> file, and reports status to GitHub via the Delivery Manager.
+      The pipeline halts on any non-Delivery-Manager failure; GitHub tracking is non-blocking.
+    </p>
+
+    <div class="diagram">
+      <div class="diagram__title">Agent Invocation Flow</div>
+      <svg class="flow-svg" viewBox="0 0 1100 620" xmlns="http://www.w3.org/2000/svg">
+        <!-- Background grid dots -->
+        <defs>
+          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+            <circle cx="20" cy="20" r="0.5" fill="#44474e" opacity="0.3"/>
+          </pattern>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#00f0ff" opacity="0.6"/>
+          </marker>
+          <marker id="arrow-pink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#e040fb" opacity="0.6"/>
+          </marker>
+          <marker id="arrow-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#ff4081" opacity="0.5"/>
+          </marker>
+        </defs>
+        <rect width="1100" height="620" fill="url(#grid)"/>
+
+        <!-- Orchestrator (center top) -->
+        <rect x="430" y="20" width="240" height="52" fill="#12151e" stroke="#00f0ff" stroke-width="1.5" opacity="0.9"/>
+        <text x="550" y="42" text-anchor="middle" font-family="Space Grotesk" font-size="11" font-weight="700" fill="#00f0ff" letter-spacing="0.1em">ORCHESTRATOR</text>
+        <text x="550" y="58" text-anchor="middle" font-family="Inter" font-size="10" fill="#a0a4ad">Claude Opus 4.6 · Pipeline Coordinator</text>
+
+        <!-- Delivery Manager (right side) -->
+        <rect x="870" y="20" width="200" height="52" fill="#12151e" stroke="#a0a4ad" stroke-width="1" opacity="0.7"/>
+        <text x="970" y="42" text-anchor="middle" font-family="Space Grotesk" font-size="11" font-weight="700" fill="#a0a4ad" letter-spacing="0.08em">DELIVERY MANAGER</text>
+        <text x="970" y="58" text-anchor="middle" font-family="Inter" font-size="10" fill="#8a8e96">Claude Sonnet 4.6 · GitHub</text>
+        <!-- Connection to DM -->
+        <line x1="670" y1="46" x2="868" y2="46" stroke="#a0a4ad" stroke-width="1" stroke-dasharray="4,4" opacity="0.4" marker-end="url(#arrow)"/>
+        <text x="770" y="40" text-anchor="middle" font-family="Inter" font-size="9" fill="#8a8e96">every stage</text>
+
+        <!-- Row 1: Spec -->
+        <rect x="30" y="120" width="180" height="52" fill="#12151e" stroke="#e040fb" stroke-width="1" opacity="0.8"/>
+        <text x="120" y="142" text-anchor="middle" font-family="Space Grotesk" font-size="11" font-weight="700" fill="#f0b4ff" letter-spacing="0.08em">BUSINESS ANALYST</text>
+        <text x="120" y="158" text-anchor="middle" font-family="Inter" font-size="10" fill="#a0a4ad">Claude Opus 4.6</text>
+        <line x1="550" y1="72" x2="550" y2="100" stroke="#00f0ff" stroke-width="1" opacity="0.3"/>
+        <line x1="550" y1="100" x2="120" y2="100" stroke="#00f0ff" stroke-width="1" opacity="0.3"/>
+        <line x1="120" y1="100" x2="120" y2="118" stroke="#00f0ff" stroke-width="1" opacity="0.3" marker-end="url(#arrow)"/>
+        <text x="335" y="96" text-anchor="middle" font-family="Space Grotesk" font-size="9" font-weight="700" fill="#00f0ff" opacity="0.5" letter-spacing="0.05em">STAGE 2</text>
+
+        <!-- Question Relay (sub of BA) -->
+        <rect x="50" y="190" width="140" height="38" fill="#12151e" stroke="#44474e" stroke-width="1" opacity="0.5"/>
+        <text x="120" y="210" text-anchor="middle" font-family="Space Grotesk" font-size="10" font-weight="600" fill="#b0bec5" letter-spacing="0.05em">Question Relay</text>
+        <text x="120" y="222" text-anchor="middle" font-family="Inter" font-size="9" fill="#8a8e96">Haiku 4.5</text>
+        <line x1="120" y1="172" x2="120" y2="190" stroke="#44474e" stroke-width="1" stroke-dasharray="3,3" opacity="0.4" marker-end="url(#arrow)"/>
+        <text x="145" y="184" font-family="Inter" font-size="8" fill="#8a8e96">--refine</text>
+
+        <!-- Row 1: Planner -->
+        <rect x="260" y="120" width="180" height="52" fill="#12151e" stroke="#ffab40" stroke-width="1" opacity="0.8"/>
+        <text x="350" y="142" text-anchor="middle" font-family="Space Grotesk" font-size="11" font-weight="700" fill="#ffab40" letter-spacing="0.08em">PLANNER</text>
+        <text x="350" y="158" text-anchor="middle" font-family="Inter" font-size="10" fill="#a0a4ad">Claude Opus 4.6</text>
+        <line x1="550" y1="100" x2="350" y2="100" stroke="#00f0ff" stroke-width="1" opacity="0.3"/>
+        <line x1="350" y1="100" x2="350" y2="118" stroke="#00f0ff" stroke-width="1" opacity="0.3" marker-end="url(#arrow)"/>
+        <text x="405" y="114" font-family="Space Grotesk" font-size="9" font-weight="700" fill="#00f0ff" opacity="0.5" letter-spacing="0.05em">STAGE 3</text>
+
+        <!-- Researcher (sub of Planner) -->
+        <rect x="230" y="190" width="140" height="38" fill="#12151e" stroke="#44474e" stroke-width="1" opacity="0.5"/>
+        <text x="300" y="210" text-anchor="middle" font-family="Space Grotesk" font-size="10" font-weight="600" fill="#a0a4ad" letter-spacing="0.05em">Researcher ×N</text>
+        <text x="300" y="222" text-anchor="middle" font-family="Inter" font-size="9" fill="#8a8e96">Haiku 4.5 · parallel</text>
+        <line x1="330" y1="172" x2="300" y2="190" stroke="#44474e" stroke-width="1" stroke-dasharray="3,3" opacity="0.4" marker-end="url(#arrow)"/>
+
+        <!-- Question Relay (sub of Planner) -->
+        <rect x="380" y="190" width="140" height="38" fill="#12151e" stroke="#44474e" stroke-width="1" opacity="0.5"/>
+        <text x="450" y="210" text-anchor="middle" font-family="Space Grotesk" font-size="10" font-weight="600" fill="#b0bec5" letter-spacing="0.05em">Question Relay</text>
+        <text x="450" y="222" text-anchor="middle" font-family="Inter" font-size="9" fill="#8a8e96">Haiku 4.5 · alignment</text>
+        <line x1="370" y1="172" x2="450" y2="190" stroke="#44474e" stroke-width="1" stroke-dasharray="3,3" opacity="0.4" marker-end="url(#arrow)"/>
+
+        <!-- Row 1: Refiner (Plan Review) — shifted right to avoid trunk line -->
+        <rect x="700" y="120" width="180" height="52" fill="#12151e" stroke="#e040fb" stroke-width="1" opacity="0.8"/>
+        <text x="790" y="142" text-anchor="middle" font-family="Space Grotesk" font-size="11" font-weight="700" fill="#e040fb" letter-spacing="0.08em">REFINER</text>
+        <text x="790" y="158" text-anchor="middle" font-family="Inter" font-size="10" fill="#a0a4ad">Plan Review · 1 round</text>
+        <line x1="550" y1="100" x2="790" y2="100" stroke="#00f0ff" stroke-width="1" opacity="0.3"/>
+        <line x1="790" y1="100" x2="790" y2="118" stroke="#00f0ff" stroke-width="1" opacity="0.3" marker-end="url(#arrow)"/>
+        <text x="846" y="114" font-family="Space Grotesk" font-size="9" font-weight="700" fill="#00f0ff" opacity="0.5" letter-spacing="0.05em">STAGE 4</text>
+
+        <!-- Adversarial Reviewer (sub of Refiner) -->
+        <rect x="700" y="190" width="180" height="52" fill="#12151e" stroke="#ff80ab" stroke-width="1" opacity="0.6"/>
+        <text x="790" y="208" text-anchor="middle" font-family="Space Grotesk" font-size="10" font-weight="700" fill="#ff80ab" letter-spacing="0.05em">ADVERSARIAL REVIEWER</text>
+        <text x="790" y="222" text-anchor="middle" font-family="Inter" font-size="9" fill="#8a8e96">Tribunal · 3 models</text>
+        <line x1="790" y1="172" x2="790" y2="190" stroke="#ff80ab" stroke-width="1" stroke-dasharray="3,3" opacity="0.4" marker-end="url(#arrow-pink)"/>
+
+        <!-- Three reviewer models -->
+        <rect x="670" y="260" width="80" height="30" fill="#12151e" stroke="#44474e" stroke-width="1" opacity="0.4"/>
+        <text x="710" y="279" text-anchor="middle" font-family="Inter" font-size="8" fill="#00f0ff">Opus 4.6</text>
+        <rect x="760" y="260" width="80" height="30" fill="#12151e" stroke="#44474e" stroke-width="1" opacity="0.4"/>
+        <text x="800" y="279" text-anchor="middle" font-family="Inter" font-size="8" fill="#69f0ae">GPT-5.4</text>
+        <rect x="850" y="260" width="80" height="30" fill="#12151e" stroke="#44474e" stroke-width="1" opacity="0.4"/>
+        <text x="890" y="279" text-anchor="middle" font-family="Inter" font-size="8" fill="#ffab40">GPT-5.3</text>
+        <line x1="750" y1="242" x2="710" y2="258" stroke="#44474e" stroke-width="1" opacity="0.3"/>
+        <line x1="790" y1="242" x2="800" y2="258" stroke="#44474e" stroke-width="1" opacity="0.3"/>
+        <line x1="830" y1="242" x2="890" y2="258" stroke="#44474e" stroke-width="1" opacity="0.3"/>
+
+        <!-- Row 2: Implementation -->
+        <rect x="30" y="330" width="200" height="64" fill="#12151e" stroke="#69f0ae" stroke-width="1.5" opacity="0.8"/>
+        <text x="130" y="352" text-anchor="middle" font-family="Space Grotesk" font-size="11" font-weight="700" fill="#69f0ae" letter-spacing="0.08em">IMPLEMENTER</text>
+        <text x="130" y="368" text-anchor="middle" font-family="Inter" font-size="10" fill="#a0a4ad">GPT-5.3-Codex</text>
+        <text x="130" y="382" text-anchor="middle" font-family="Inter" font-size="9" fill="#8a8e96">Phase 1..N → commit each</text>
+        <line x1="550" y1="72" x2="550" y2="310" stroke="#00f0ff" stroke-width="1" opacity="0.15"/>
+        <line x1="550" y1="310" x2="130" y2="310" stroke="#00f0ff" stroke-width="1" opacity="0.3"/>
+        <line x1="130" y1="310" x2="130" y2="328" stroke="#00f0ff" stroke-width="1" opacity="0.3" marker-end="url(#arrow)"/>
+        <text x="340" y="306" text-anchor="middle" font-family="Space Grotesk" font-size="9" font-weight="700" fill="#00f0ff" opacity="0.5" letter-spacing="0.05em">STAGE 6</text>
+
+        <!-- Row 2: Implementation Reviewer -->
+        <rect x="290" y="330" width="220" height="64" fill="#12151e" stroke="#ff4081" stroke-width="1" opacity="0.8"/>
+        <text x="400" y="348" text-anchor="middle" font-family="Space Grotesk" font-size="10" font-weight="700" fill="#ff4081" letter-spacing="0.08em">IMPLEMENTATION REVIEWER</text>
+        <text x="400" y="364" text-anchor="middle" font-family="Inter" font-size="10" fill="#a0a4ad">Claude Opus 4.6</text>
+        <text x="400" y="380" text-anchor="middle" font-family="Inter" font-size="9" fill="#8a8e96">diff baseline..HEAD → tribunal</text>
+        <line x1="550" y1="310" x2="400" y2="310" stroke="#00f0ff" stroke-width="1" opacity="0.3"/>
+        <line x1="400" y1="310" x2="400" y2="328" stroke="#00f0ff" stroke-width="1" opacity="0.3" marker-end="url(#arrow)"/>
+        <text x="475" y="324" font-family="Space Grotesk" font-size="9" font-weight="700" fill="#00f0ff" opacity="0.5" letter-spacing="0.05em">STAGE 7</text>
+
+        <!-- Adversarial Reviewer (sub of Impl Reviewer) -->
+        <rect x="300" y="410" width="200" height="44" fill="#12151e" stroke="#ff80ab" stroke-width="1" opacity="0.6"/>
+        <text x="400" y="428" text-anchor="middle" font-family="Space Grotesk" font-size="10" font-weight="700" fill="#ff80ab" letter-spacing="0.05em">ADVERSARIAL REVIEWER</text>
+        <text x="400" y="442" text-anchor="middle" font-family="Inter" font-size="9" fill="#8a8e96">Tribunal · 3 models</text>
+        <line x1="400" y1="394" x2="400" y2="410" stroke="#ff80ab" stroke-width="1" stroke-dasharray="3,3" opacity="0.4" marker-end="url(#arrow-pink)"/>
+
+        <!-- Three reviewer models (under Impl Reviewer) -->
+        <rect x="270" y="468" width="80" height="28" fill="#12151e" stroke="#44474e" stroke-width="1" opacity="0.4"/>
+        <text x="310" y="486" text-anchor="middle" font-family="Inter" font-size="8" fill="#00f0ff">Opus 4.6</text>
+        <rect x="360" y="468" width="80" height="28" fill="#12151e" stroke="#44474e" stroke-width="1" opacity="0.4"/>
+        <text x="400" y="486" text-anchor="middle" font-family="Inter" font-size="8" fill="#69f0ae">GPT-5.4</text>
+        <rect x="450" y="468" width="80" height="28" fill="#12151e" stroke="#44474e" stroke-width="1" opacity="0.4"/>
+        <text x="490" y="486" text-anchor="middle" font-family="Inter" font-size="8" fill="#ffab40">GPT-5.3</text>
+        <line x1="360" y1="454" x2="310" y2="466" stroke="#44474e" stroke-width="1" opacity="0.3"/>
+        <line x1="400" y1="454" x2="400" y2="466" stroke="#44474e" stroke-width="1" opacity="0.3"/>
+        <line x1="440" y1="454" x2="490" y2="466" stroke="#44474e" stroke-width="1" opacity="0.3"/>
+
+        <!-- Gate from reviewer -->
+        <rect x="310" y="510" width="60" height="20" fill="none" stroke="#ff4081" stroke-width="1" opacity="0.4"/>
+        <text x="340" y="524" text-anchor="middle" font-family="Space Grotesk" font-size="8" font-weight="700" fill="#ff4081" letter-spacing="0.05em">FAIL</text>
+        <line x1="380" y1="496" x2="340" y2="510" stroke="#ff4081" stroke-width="1" stroke-dasharray="3,3" opacity="0.3"/>
+
+        <rect x="410" y="510" width="60" height="20" fill="none" stroke="#00f0ff" stroke-width="1" opacity="0.4"/>
+        <text x="440" y="524" text-anchor="middle" font-family="Space Grotesk" font-size="8" font-weight="700" fill="#00f0ff" letter-spacing="0.05em">PASS</text>
+        <line x1="420" y1="496" x2="440" y2="510" stroke="#00f0ff" stroke-width="1" stroke-dasharray="3,3" opacity="0.3"/>
+
+        <!-- Row 2: Regression Tester -->
+        <rect x="570" y="330" width="210" height="64" fill="#12151e" stroke="#40c4ff" stroke-width="1" opacity="0.8"/>
+        <text x="675" y="352" text-anchor="middle" font-family="Space Grotesk" font-size="11" font-weight="700" fill="#40c4ff" letter-spacing="0.08em">REGRESSION TESTER</text>
+        <text x="675" y="368" text-anchor="middle" font-family="Inter" font-size="10" fill="#a0a4ad">Claude Sonnet 4.6</text>
+        <text x="675" y="382" text-anchor="middle" font-family="Inter" font-size="9" fill="#8a8e96">Playwright · browser journeys</text>
+        <line x1="550" y1="310" x2="675" y2="310" stroke="#00f0ff" stroke-width="1" opacity="0.3"/>
+        <line x1="675" y1="310" x2="675" y2="328" stroke="#00f0ff" stroke-width="1" opacity="0.3" marker-end="url(#arrow)"/>
+        <text x="612" y="324" font-family="Space Grotesk" font-size="9" font-weight="700" fill="#00f0ff" opacity="0.5" letter-spacing="0.05em">STAGE 8</text>
+
+        <!-- Fix cycle arrow -->
+        <path d="M 675 394 L 675 550 L 130 550 L 130 396" fill="none" stroke="#ff4081" stroke-width="1" stroke-dasharray="4,3" opacity="0.3" marker-end="url(#arrow-red)"/>
+        <text x="400" y="564" text-anchor="middle" font-family="Space Grotesk" font-size="9" font-weight="700" fill="#ff4081" opacity="0.4" letter-spacing="0.05em">STAGE 9 — FIX CYCLE (MAX 1)</text>
+
+        <!-- Row 3: Knowledge Keeper -->
+        <rect x="830" y="330" width="200" height="64" fill="#12151e" stroke="#00c8d6" stroke-width="1" opacity="0.8"/>
+        <text x="930" y="352" text-anchor="middle" font-family="Space Grotesk" font-size="11" font-weight="700" fill="#00c8d6" letter-spacing="0.08em">KNOWLEDGE KEEPER</text>
+        <text x="930" y="368" text-anchor="middle" font-family="Inter" font-size="10" fill="#a0a4ad">Claude Opus 4.6</text>
+        <text x="930" y="382" text-anchor="middle" font-family="Inter" font-size="9" fill="#8a8e96">.agent-context/knowledge/</text>
+        <line x1="930" y1="310" x2="930" y2="328" stroke="#00f0ff" stroke-width="1" opacity="0.3" marker-end="url(#arrow)"/>
+        <line x1="675" y1="310" x2="930" y2="310" stroke="#00f0ff" stroke-width="1" opacity="0.3"/>
+        <text x="802" y="324" font-family="Space Grotesk" font-size="9" font-weight="700" fill="#00f0ff" opacity="0.5" letter-spacing="0.05em">STAGE 10</text>
+
+        <!-- Git/GitHub bar -->
+        <rect x="30" y="585" width="1040" height="28" fill="rgba(68, 71, 78, 0.08)" stroke="rgba(68, 71, 78, 0.15)" stroke-width="1"/>
+        <text x="550" y="603" text-anchor="middle" font-family="Space Grotesk" font-size="10" font-weight="700" fill="#a0a4ad" letter-spacing="0.08em">GIT · GITHUB ISSUES · PR · PROJECT BOARD — TRACKED VIA DELIVERY MANAGER AT EVERY STAGE</text>
+      </svg>
+    </div>
+  </section>
+
+  <div class="sep"></div>
+
+  <!-- ═══════════════ PIPELINE STAGES ═══════════════ -->
+  <section class="section">
+    <h2 class="section__title">Pipeline Stages</h2>
+    <p class="section__desc">
+      The pipeline progresses linearly through 11 stages. Each stage has defined inputs, outputs, and gate conditions.
+      The Delivery Manager is invoked at every stage transition but is non-blocking.
+    </p>
+
+    <div class="pipeline">
+      <div class="pipeline__track"></div>
+
+      <!-- Stage 1 -->
+      <div class="stage">
+        <div class="stage__marker"><div class="stage__dot">1</div></div>
+        <div class="stage__body">
+          <div class="stage__number">Stage 1</div>
+          <div class="stage__name">Initialisation</div>
+          <div class="stage__detail">
+            Creates the task branch (<code>task/{slug}</code>), initialises the <code>progress.md</code> tracking file,
+            and invokes the Delivery Manager to create the GitHub tracking issue with the <code>agent-task</code> label.
+          </div>
+          <div class="stage__agents">
+            <span class="agent-chip agent-chip--orchestrator"><span class="agent-chip__dot"></span>Orchestrator</span>
+            <span class="agent-chip agent-chip--delivery"><span class="agent-chip__dot"></span>Delivery Manager</span>
+          </div>
+          <div class="stage__outputs">
+            <div class="stage__outputs-label">Outputs</div>
+            <div class="output-item">task/{slug} branch</div>
+            <div class="output-item">.agent-context/tasks/{slug}/progress.md</div>
+            <div class="output-item">GitHub tracking issue #{number}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stage 2 -->
+      <div class="stage">
+        <div class="stage__marker"><div class="stage__dot">2</div></div>
+        <div class="stage__body">
+          <div class="stage__number">Stage 2</div>
+          <div class="stage__name">Specification</div>
+          <div class="stage__detail">
+            The Business Analyst drafts a structured <code>spec.md</code> from the user's request.
+            When <code>--refine</code> is set, it invokes the Question Relay to post clarifying questions
+            on the GitHub issue and poll for user replies before finalising.
+          </div>
+          <div class="stage__agents">
+            <span class="agent-chip agent-chip--analyst"><span class="agent-chip__dot"></span>Business Analyst</span>
+            <span class="agent-chip agent-chip--relay"><span class="agent-chip__dot"></span>Question Relay</span>
+            <span class="agent-chip agent-chip--delivery"><span class="agent-chip__dot"></span>Delivery Manager</span>
+          </div>
+          <div class="stage__outputs">
+            <div class="stage__outputs-label">Outputs</div>
+            <div class="output-item">.agent-context/tasks/{slug}/spec.md</div>
+          </div>
+          <div>
+            <span class="gate gate--skip"><span class="gate__icon">⊘</span> --refine skips Q&amp;A</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stage 3 -->
+      <div class="stage">
+        <div class="stage__marker"><div class="stage__dot">3</div></div>
+        <div class="stage__body">
+          <div class="stage__number">Stage 3</div>
+          <div class="stage__name">Planning</div>
+          <div class="stage__detail">
+            The Planner analyses the spec, launches parallel Researcher sub-agents to gather codebase
+            context and external documentation, then produces a master plan and per-phase detail files.
+            If research reveals ambiguities, it invokes the Question Relay for user clarification before finalising.
+            Each phase maps to one future commit.
+          </div>
+          <div class="stage__agents">
+            <span class="agent-chip agent-chip--planner"><span class="agent-chip__dot"></span>Planner</span>
+            <span class="agent-chip agent-chip--relay"><span class="agent-chip__dot"></span>Question Relay</span>
+            <span class="agent-chip agent-chip--delivery"><span class="agent-chip__dot"></span>Delivery Manager</span>
+          </div>
+          <div class="stage__outputs">
+            <div class="stage__outputs-label">Outputs</div>
+            <div class="output-item">.agent-context/tasks/{slug}/plan.md</div>
+            <div class="output-item">.agent-context/tasks/{slug}/phase-{N}-{name}.md</div>
+            <div class="output-item">GitHub phase sub-issues</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stage 4 -->
+      <div class="stage">
+        <div class="stage__marker"><div class="stage__dot">4</div></div>
+        <div class="stage__body">
+          <div class="stage__number">Stage 4</div>
+          <div class="stage__name">Plan Review</div>
+          <div class="stage__detail">
+            The Refiner sends the plan to the Adversarial Reviewer (Tribunal) for 1 round of multi-model critique.
+            Three reviewer agents — Claude Opus 4.6, GPT-5.4, and GPT-5.3-Codex — review in parallel and produce
+            a consolidated verdict. The Refiner fixes any critical or major findings.
+          </div>
+          <div class="stage__agents">
+            <span class="agent-chip agent-chip--refiner"><span class="agent-chip__dot"></span>Refiner</span>
+            <span class="agent-chip agent-chip--tribunal"><span class="agent-chip__dot"></span>Adversarial Reviewer</span>
+            <span class="agent-chip agent-chip--delivery"><span class="agent-chip__dot"></span>Delivery Manager</span>
+          </div>
+          <div class="stage__outputs">
+            <div class="stage__outputs-label">Outputs</div>
+            <div class="output-item">Refined plan files (fixes applied)</div>
+            <div class="output-item">Tribunal verdict</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stage 5 -->
+      <div class="stage">
+        <div class="stage__marker"><div class="stage__dot">5</div></div>
+        <div class="stage__body">
+          <div class="stage__number">Stage 5</div>
+          <div class="stage__name">Plan Approval</div>
+          <div class="stage__detail">
+            If <code>--auto</code> was set, this stage is skipped. Otherwise, the plan summary is presented
+            to the user for manual approval before any code is written.
+          </div>
+          <div class="stage__agents">
+            <span class="agent-chip agent-chip--orchestrator"><span class="agent-chip__dot"></span>Orchestrator</span>
+            <span class="agent-chip agent-chip--delivery"><span class="agent-chip__dot"></span>Delivery Manager</span>
+          </div>
+          <div>
+            <span class="gate gate--skip"><span class="gate__icon">⊘</span> --auto skips approval</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stage 6 -->
+      <div class="stage">
+        <div class="stage__marker"><div class="stage__dot">6</div></div>
+        <div class="stage__body">
+          <div class="stage__number">Stage 6</div>
+          <div class="stage__name">Per-Phase Implementation</div>
+          <div class="stage__detail">
+            A pre-implementation baseline commit is created. Then for each phase (1 through N), the Implementer
+            executes the phase plan file, builds and tests, and the Orchestrator commits the result.
+            The Delivery Manager closes each phase sub-issue after completion.
+          </div>
+          <div class="stage__agents">
+            <span class="agent-chip agent-chip--implementer"><span class="agent-chip__dot"></span>Implementer</span>
+            <span class="agent-chip agent-chip--delivery"><span class="agent-chip__dot"></span>Delivery Manager</span>
+          </div>
+          <div class="stage__outputs">
+            <div class="stage__outputs-label">Outputs</div>
+            <div class="output-item">git commit per phase</div>
+            <div class="output-item">Phase sub-issues closed</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stage 7 -->
+      <div class="stage">
+        <div class="stage__marker"><div class="stage__dot">7</div></div>
+        <div class="stage__body">
+          <div class="stage__number">Stage 7</div>
+          <div class="stage__name">Implementation Review</div>
+          <div class="stage__detail">
+            The Implementation Reviewer captures the full diff from the baseline commit, invokes the
+            Adversarial Reviewer tribunal, fixes critical/major findings, and verifies the build and tests pass.
+            This is a hard gate — <strong>FAIL halts the pipeline</strong>.
+          </div>
+          <div class="stage__agents">
+            <span class="agent-chip agent-chip--reviewer"><span class="agent-chip__dot"></span>Implementation Reviewer</span>
+            <span class="agent-chip agent-chip--tribunal"><span class="agent-chip__dot"></span>Adversarial Reviewer</span>
+            <span class="agent-chip agent-chip--delivery"><span class="agent-chip__dot"></span>Delivery Manager</span>
+          </div>
+          <div>
+            <span class="gate gate--pass"><span class="gate__icon">✓</span> PASS → push + create PR</span>
+            <span class="gate gate--fail"><span class="gate__icon">✗</span> FAIL → pipeline halts</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stage 8 -->
+      <div class="stage">
+        <div class="stage__marker"><div class="stage__dot">8</div></div>
+        <div class="stage__body">
+          <div class="stage__number">Stage 8</div>
+          <div class="stage__name">Regression Testing</div>
+          <div class="stage__detail">
+            The application is started via the VS Code task. The Regression Tester navigates through user journeys
+            in a real browser using Playwright, prioritising flows affected by the changed files.
+            It reports issues but never fixes them.
+          </div>
+          <div class="stage__agents">
+            <span class="agent-chip agent-chip--tester"><span class="agent-chip__dot"></span>Regression Tester</span>
+            <span class="agent-chip agent-chip--delivery"><span class="agent-chip__dot"></span>Delivery Manager</span>
+          </div>
+          <div>
+            <span class="gate gate--pass"><span class="gate__icon">✓</span> PASS → knowledge update</span>
+            <span class="gate gate--fail"><span class="gate__icon">✗</span> FAIL → fix cycle</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stage 9 -->
+      <div class="stage">
+        <div class="stage__marker"><div class="stage__dot">9</div></div>
+        <div class="stage__body">
+          <div class="stage__number">Stage 9</div>
+          <div class="stage__name">Regression Fix Cycle</div>
+          <div class="stage__detail">
+            If regressions were found, the Implementer is invoked to fix them (max 1 cycle).
+            The Regression Tester re-verifies. If issues persist after one fix attempt,
+            the pipeline halts and reports remaining regressions.
+          </div>
+          <div class="stage__agents">
+            <span class="agent-chip agent-chip--implementer"><span class="agent-chip__dot"></span>Implementer</span>
+            <span class="agent-chip agent-chip--tester"><span class="agent-chip__dot"></span>Regression Tester</span>
+            <span class="agent-chip agent-chip--delivery"><span class="agent-chip__dot"></span>Delivery Manager</span>
+          </div>
+          <div>
+            <span class="gate gate--pass"><span class="gate__icon">✓</span> PASS → continue</span>
+            <span class="gate gate--fail"><span class="gate__icon">✗</span> FAIL → pipeline halts (max 1 cycle)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stage 10 -->
+      <div class="stage">
+        <div class="stage__marker"><div class="stage__dot">10</div></div>
+        <div class="stage__body">
+          <div class="stage__number">Stage 10</div>
+          <div class="stage__name">Knowledge Update</div>
+          <div class="stage__detail">
+            The Knowledge Keeper updates <code>.agent-context/knowledge/</code> documentation
+            to reflect the verified implementation changes. This always runs last, after all
+            implementation and testing is confirmed passing.
+          </div>
+          <div class="stage__agents">
+            <span class="agent-chip agent-chip--knowledge"><span class="agent-chip__dot"></span>Knowledge Keeper</span>
+            <span class="agent-chip agent-chip--delivery"><span class="agent-chip__dot"></span>Delivery Manager</span>
+          </div>
+          <div class="stage__outputs">
+            <div class="stage__outputs-label">Outputs</div>
+            <div class="output-item">Updated knowledge/*.md files</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stage 11 -->
+      <div class="stage">
+        <div class="stage__marker"><div class="stage__dot">11</div></div>
+        <div class="stage__body">
+          <div class="stage__number">Stage 11</div>
+          <div class="stage__name">Completion</div>
+          <div class="stage__detail">
+            Final commit and push. The Delivery Manager closes the tracking issue, updates the GitHub project board,
+            and marks the PR ready for merge. The progress file is updated to "Completed" status.
+          </div>
+          <div class="stage__agents">
+            <span class="agent-chip agent-chip--orchestrator"><span class="agent-chip__dot"></span>Orchestrator</span>
+            <span class="agent-chip agent-chip--delivery"><span class="agent-chip__dot"></span>Delivery Manager</span>
+          </div>
+          <div class="stage__outputs">
+            <div class="stage__outputs-label">Outputs</div>
+            <div class="output-item">Final git push</div>
+            <div class="output-item">GitHub issue closed</div>
+            <div class="output-item">Pipeline summary</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="sep"></div>
+
+  <!-- ═══════════════ AGENT ROSTER ═══════════════ -->
+  <section class="section">
+    <h2 class="section__title">Agent Roster</h2>
+    <p class="section__desc">
+      Each agent is defined in a <code>.agent.md</code> file with a pinned model, tool permissions, and a structured workflow.
+      Models are assigned based on task complexity — Opus 4.6 for orchestration and review,
+      GPT-5.3-Codex for high-throughput implementation, Sonnet for focused tasks, and Haiku for lightweight utility.
+    </p>
+
+    <div class="legend">
+      <div class="legend__item">
+        <div class="legend__swatch" style="background: #00f0ff;"></div> Claude Opus 4.6
+      </div>
+      <div class="legend__item">
+        <div class="legend__swatch" style="background: #69f0ae;"></div> GPT-5.4
+      </div>
+      <div class="legend__item">
+        <div class="legend__swatch" style="background: #ffab40;"></div> GPT-5.3-Codex
+      </div>
+      <div class="legend__item">
+        <div class="legend__swatch" style="background: #f0b4ff;"></div> Claude Sonnet 4.6
+      </div>
+      <div class="legend__item">
+        <div class="legend__swatch" style="background: #a0a4ad;"></div> Claude Haiku 4.5
+      </div>
+    </div>
+
+    <div class="agents-grid">
+
+      <!-- Orchestrator -->
+      <div class="agent-card">
+        <div class="agent-card__header">
+          <span class="agent-card__name">Orchestrator</span>
+          <span class="agent-card__model model--opus">Opus 4.6</span>
+        </div>
+        <div class="agent-card__desc">
+          Top-level pipeline coordinator. Manages the full lifecycle: creates branches,
+          invokes sub-agents in sequence, tracks progress, and gates on pass/fail verdicts.
+          Never writes code directly.
+        </div>
+        <div class="agent-card__tools">
+          <span class="tool-tag">read</span>
+          <span class="tool-tag">edit</span>
+          <span class="tool-tag">search</span>
+          <span class="tool-tag">execute</span>
+          <span class="tool-tag">agent</span>
+          <span class="tool-tag">todo</span>
+        </div>
+      </div>
+
+      <!-- Business Analyst -->
+      <div class="agent-card">
+        <div class="agent-card__header">
+          <span class="agent-card__name">Business Analyst</span>
+          <span class="agent-card__model model--opus">Opus 4.6</span>
+        </div>
+        <div class="agent-card__desc">
+          Drafts structured specifications from user requests. Analyses codebase context
+          and domain knowledge. Optionally invokes Question Relay for interactive refinement.
+        </div>
+        <div class="agent-card__tools">
+          <span class="tool-tag">read</span>
+          <span class="tool-tag">search</span>
+          <span class="tool-tag">edit</span>
+          <span class="tool-tag">agent</span>
+        </div>
+      </div>
+
+      <!-- Planner -->
+      <div class="agent-card">
+        <div class="agent-card__header">
+          <span class="agent-card__name">Planner</span>
+          <span class="agent-card__model model--opus">Opus 4.6</span>
+        </div>
+        <div class="agent-card__desc">
+          Creates phased implementation plans through parallel Researcher exploration,
+          codebase analysis, and external library documentation. Each phase = one commit.
+          Never writes code.
+        </div>
+        <div class="agent-card__tools">
+          <span class="tool-tag">read</span>
+          <span class="tool-tag">edit</span>
+          <span class="tool-tag">search</span>
+          <span class="tool-tag">agent</span>
+        </div>
+      </div>
+
+      <!-- Refiner -->
+      <div class="agent-card">
+        <div class="agent-card__header">
+          <span class="agent-card__name">Refiner</span>
+          <span class="agent-card__model model--opus">Opus 4.6</span>
+        </div>
+        <div class="agent-card__desc">
+          Iterative review-and-fix loop. Sends work to the Adversarial Reviewer, receives
+          the tribunal verdict, fixes critical/major findings, and re-submits. Default 3 rounds, configurable.
+        </div>
+        <div class="agent-card__tools">
+          <span class="tool-tag">read</span>
+          <span class="tool-tag">edit</span>
+          <span class="tool-tag">search</span>
+          <span class="tool-tag">execute</span>
+          <span class="tool-tag">agent</span>
+          <span class="tool-tag">todo</span>
+        </div>
+      </div>
+
+      <!-- Adversarial Reviewer -->
+      <div class="agent-card">
+        <div class="agent-card__header">
+          <span class="agent-card__name">Adversarial Reviewer</span>
+          <span class="agent-card__model model--opus">Tribunal</span>
+        </div>
+        <div class="agent-card__desc">
+          Dispatches three reviewer agents in parallel — each pinned to a different model —
+          for multi-perspective adversarial critique. Synthesises a consolidated verdict
+          with severity-ranked findings.
+        </div>
+        <div class="agent-card__tools">
+          <span class="tool-tag">read</span>
+          <span class="tool-tag">search</span>
+          <span class="tool-tag">execute</span>
+          <span class="tool-tag">agent</span>
+        </div>
+      </div>
+
+      <!-- Reviewer Opus -->
+      <div class="agent-card">
+        <div class="agent-card__header">
+          <span class="agent-card__name">Reviewer (Opus 4.6)</span>
+          <span class="agent-card__model model--opus">Opus 4.6</span>
+        </div>
+        <div class="agent-card__desc">
+          Senior adversarial critic. Finds logic errors, security vulnerabilities, race conditions,
+          missing edge cases, and architectural violations. Read-only — never fixes.
+        </div>
+        <div class="agent-card__tools">
+          <span class="tool-tag">read</span>
+          <span class="tool-tag">search</span>
+        </div>
+      </div>
+
+      <!-- Reviewer GPT-5.4 -->
+      <div class="agent-card">
+        <div class="agent-card__header">
+          <span class="agent-card__name">Reviewer (GPT-5.4)</span>
+          <span class="agent-card__model model--gpt54">GPT-5.4</span>
+        </div>
+        <div class="agent-card__desc">
+          Adversarial critic on GPT-5.4. Same review protocol — different model perspective
+          ensures diversity of findings. Read-only.
+        </div>
+        <div class="agent-card__tools">
+          <span class="tool-tag">read</span>
+          <span class="tool-tag">search</span>
+        </div>
+      </div>
+
+      <!-- Reviewer GPT-5.3-Codex -->
+      <div class="agent-card">
+        <div class="agent-card__header">
+          <span class="agent-card__name">Reviewer (GPT-5.3-Codex)</span>
+          <span class="agent-card__model model--gpt53">GPT-5.3</span>
+        </div>
+        <div class="agent-card__desc">
+          Adversarial critic on GPT-5.3-Codex. Code-optimised model for catching
+          implementation-level bugs and performance anti-patterns. Read-only.
+        </div>
+        <div class="agent-card__tools">
+          <span class="tool-tag">read</span>
+          <span class="tool-tag">search</span>
+        </div>
+      </div>
+
+      <!-- Implementer -->
+      <div class="agent-card">
+        <div class="agent-card__header">
+          <span class="agent-card__name">Implementer</span>
+          <span class="agent-card__model model--gpt53">GPT-5.3-Codex</span>
+        </div>
+        <div class="agent-card__desc">
+          Executes a single phase plan file precisely. Reads conventions, writes code,
+          runs builds/tests. Also invoked for regression fixes. High-throughput code execution model.
+        </div>
+        <div class="agent-card__tools">
+          <span class="tool-tag">read</span>
+          <span class="tool-tag">edit</span>
+          <span class="tool-tag">search</span>
+          <span class="tool-tag">execute</span>
+          <span class="tool-tag">todo</span>
+          <span class="tool-tag">context7</span>
+          <span class="tool-tag">ms-docs</span>
+        </div>
+      </div>
+
+      <!-- Implementation Reviewer -->
+      <div class="agent-card">
+        <div class="agent-card__header">
+          <span class="agent-card__name">Implementation Reviewer</span>
+          <span class="agent-card__model model--opus">Opus 4.6</span>
+        </div>
+        <div class="agent-card__desc">
+          Captures the full diff from baseline, invokes the tribunal for adversarial review,
+          fixes critical/major findings, and verifies build+tests. Hard gate — fail halts pipeline.
+        </div>
+        <div class="agent-card__tools">
+          <span class="tool-tag">read</span>
+          <span class="tool-tag">edit</span>
+          <span class="tool-tag">search</span>
+          <span class="tool-tag">execute</span>
+          <span class="tool-tag">agent</span>
+        </div>
+      </div>
+
+      <!-- Regression Tester -->
+      <div class="agent-card">
+        <div class="agent-card__header">
+          <span class="agent-card__name">Regression Tester</span>
+          <span class="agent-card__model model--sonnet">Sonnet 4.6</span>
+        </div>
+        <div class="agent-card__desc">
+          Walks through user journeys via Playwright browser automation. Prioritises paths
+          affected by changed files. Reports issues with screenshots — never fixes them.
+        </div>
+        <div class="agent-card__tools">
+          <span class="tool-tag">read</span>
+          <span class="tool-tag">search</span>
+          <span class="tool-tag">execute</span>
+        </div>
+      </div>
+
+      <!-- Delivery Manager -->
+      <div class="agent-card">
+        <div class="agent-card__header">
+          <span class="agent-card__name">Delivery Manager</span>
+          <span class="agent-card__model model--sonnet">Sonnet 4.6</span>
+        </div>
+        <div class="agent-card__desc">
+          Manages GitHub representation: tracking issues, phase sub-issues, PRs, and project board columns.
+          Invoked at every stage transition. Non-blocking — failures are logged, not fatal.
+        </div>
+        <div class="agent-card__tools">
+          <span class="tool-tag">read</span>
+          <span class="tool-tag">search</span>
+          <span class="tool-tag">github/*</span>
+        </div>
+      </div>
+
+      <!-- Knowledge Keeper -->
+      <div class="agent-card">
+        <div class="agent-card__header">
+          <span class="agent-card__name">Knowledge Keeper</span>
+          <span class="agent-card__model model--opus">Opus 4.6</span>
+        </div>
+        <div class="agent-card__desc">
+          Updates <code>.agent-context/knowledge/</code> documentation to reflect verified changes.
+          Runs last — only after all implementation and testing is confirmed passing.
+        </div>
+        <div class="agent-card__tools">
+          <span class="tool-tag">read</span>
+          <span class="tool-tag">edit</span>
+          <span class="tool-tag">search</span>
+        </div>
+      </div>
+
+      <!-- Researcher -->
+      <div class="agent-card">
+        <div class="agent-card__header">
+          <span class="agent-card__name">Researcher</span>
+          <span class="agent-card__model model--haiku">Haiku 4.5</span>
+        </div>
+        <div class="agent-card__desc">
+          Fast read-only codebase and documentation explorer. Launched in parallel by the Planner.
+          Searches code, reads knowledge files, and fetches external library docs via MCP servers.
+        </div>
+        <div class="agent-card__tools">
+          <span class="tool-tag">read</span>
+          <span class="tool-tag">search</span>
+          <span class="tool-tag">web</span>
+          <span class="tool-tag">context7</span>
+          <span class="tool-tag">ms-docs</span>
+        </div>
+      </div>
+
+      <!-- Question Relay -->
+      <div class="agent-card">
+        <div class="agent-card__header">
+          <span class="agent-card__name">Question Relay</span>
+          <span class="agent-card__model model--haiku">Haiku 4.5</span>
+        </div>
+        <div class="agent-card__desc">
+          Posts clarifying questions to a GitHub issue and polls for user replies.
+          Reusable utility agent invoked by the Business Analyst during <code>--refine</code> mode.
+        </div>
+        <div class="agent-card__tools">
+          <span class="tool-tag">read</span>
+          <span class="tool-tag">execute</span>
+          <span class="tool-tag">github/*</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <div class="sep"></div>
+
+  <!-- ═══════════════ AGENT COMMUNICATION ═══════════════ -->
+  <section class="section">
+    <h2 class="section__title">Agent Communication Contracts</h2>
+    <p class="section__desc">
+      Agents communicate through structured output headings. The Orchestrator parses these
+      to gate pipeline flow — no free-form interpretation of results.
+    </p>
+
+    <div class="diagram" style="padding: 24px 32px;">
+      <table class="connections-table">
+        <thead>
+          <tr>
+            <th>Agent</th>
+            <th>Output Contract</th>
+            <th>Values</th>
+            <th>Pipeline Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Implementation Reviewer</td>
+            <td class="mono">## Review Status:</td>
+            <td><span class="gate gate--pass" style="margin:0;">PASS</span> <span class="gate gate--fail" style="margin:0;">FAIL</span></td>
+            <td>PASS → push + PR. FAIL → halt pipeline.</td>
+          </tr>
+          <tr>
+            <td>Regression Tester</td>
+            <td class="mono">## Regression Status:</td>
+            <td><span class="gate gate--pass" style="margin:0;">PASS</span> <span class="gate gate--fail" style="margin:0;">FAIL</span></td>
+            <td>PASS → knowledge update. FAIL → fix cycle.</td>
+          </tr>
+          <tr>
+            <td>Delivery Manager</td>
+            <td class="mono">## Delivery: {CMD}</td>
+            <td class="mono">INIT, SPEC_COMPLETE, PLAN_READY, PHASE_END, ...</td>
+            <td>Extract IDs (issue #, node IDs). Non-blocking on error.</td>
+          </tr>
+          <tr>
+            <td>Business Analyst</td>
+            <td class="mono">## Spec: COMPLETE</td>
+            <td>—</td>
+            <td>Verify spec.md was written. Proceed to planning.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="sep"></div>
+
+  <!-- ═══════════════ KEY CONCEPTS ═══════════════ -->
+  <section class="section">
+    <h2 class="section__title">Key Concepts</h2>
+    <div class="concepts">
+
+      <div class="concept">
+        <div class="concept__label">Progress Tracking</div>
+        <div class="concept__title">progress.md</div>
+        <div class="concept__desc">
+          Persistent state file created at pipeline start, updated after every stage.
+          Records timestamps, GitHub IDs, phase statuses, and an issues log.
+          All GitHub tracking IDs are passed from this file when invoking the Delivery Manager.
+        </div>
+      </div>
+
+      <div class="concept">
+        <div class="concept__label">Git Strategy</div>
+        <div class="concept__title">Commit per Phase</div>
+        <div class="concept__desc">
+          A baseline commit is created before phase 1. Each phase gets its own commit.
+          The Implementation Reviewer diffs from baseline to HEAD for full-scope review.
+          The branch is pushed only after review passes.
+        </div>
+      </div>
+
+      <div class="concept">
+        <div class="concept__label">Quality Gate</div>
+        <div class="concept__title">Multi-Model Tribunal</div>
+        <div class="concept__desc">
+          Three AI models (Opus 4.6, GPT-5.4, GPT-5.3-Codex) review in parallel.
+          Each brings a different perspective — findings are consolidated and severity-ranked.
+          Used for both plan review and code review.
+        </div>
+      </div>
+
+      <div class="concept">
+        <div class="concept__label">Safety Model</div>
+        <div class="concept__title">Non-Blocking DM</div>
+        <div class="concept__desc">
+          The Delivery Manager (GitHub tracking) is non-blocking. If it fails on
+          <code>init</code>, a flag is set and all subsequent DM calls are skipped.
+          Pipeline progress is never blocked by GitHub API issues.
+        </div>
+      </div>
+
+      <div class="concept">
+        <div class="concept__label">Automation Flag</div>
+        <div class="concept__title">--auto Mode</div>
+        <div class="concept__desc">
+          Detected in the user message at pipeline start. Skips the manual plan approval gate
+          (Stage 5), allowing fully autonomous execution from spec to completion
+          without human intervention.
+        </div>
+      </div>
+
+      <div class="concept">
+        <div class="concept__label">Refinement Flag</div>
+        <div class="concept__title">--refine Mode</div>
+        <div class="concept__desc">
+          When set, the Business Analyst invokes the Question Relay to post
+          clarifying questions on the GitHub issue and poll for user replies.
+          Enables interactive specification refinement before planning begins.
+        </div>
+      </div>
+
+      <div class="concept">
+        <div class="concept__label">Async User Input</div>
+        <div class="concept__title">Question Relay</div>
+        <div class="concept__desc">
+          A reusable utility agent (Haiku 4.5) that posts numbered questions to a GitHub
+          issue and polls for user replies at configurable intervals. Used by
+          the Business Analyst (<code>--refine</code>) and the Planner (alignment phase)
+          to gather clarification without blocking the pipeline indefinitely.
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <div class="sep"></div>
+
+  <!-- ═══════════════ ERROR HANDLING ═══════════════ -->
+  <section class="section">
+    <h2 class="section__title">Error Handling</h2>
+    <p class="section__desc">
+      The pipeline distinguishes between fatal failures (which halt execution) and non-blocking warnings
+      (which are logged but allow continuation).
+    </p>
+
+    <div class="error-grid">
+      <div class="error-card error-card--halt">
+        <div class="error-card__label">Fatal — Halts Pipeline</div>
+        <div class="error-card__title">Any Non-DM Agent Failure</div>
+        <div class="error-card__desc">
+          If any agent other than the Delivery Manager fails, the error is logged to the
+          progress file issues log, the task status is set to "Failed", the Delivery Manager
+          is notified with <code>complete</code> (status: failed), and the pipeline halts immediately.
+          Partial changes remain in the working tree — no rollback is attempted.
+        </div>
+      </div>
+
+      <div class="error-card error-card--halt">
+        <div class="error-card__label">Fatal — Halts Pipeline</div>
+        <div class="error-card__title">Implementation Review FAIL</div>
+        <div class="error-card__desc">
+          If the Implementation Reviewer returns <code>## Review Status: FAIL</code>,
+          the pipeline halts. No code is pushed, no PR is created. The tracking issue
+          is marked as failed with a summary of review findings.
+        </div>
+      </div>
+
+      <div class="error-card error-card--halt">
+        <div class="error-card__label">Fatal — Halts Pipeline</div>
+        <div class="error-card__title">Regression Persists After Fix</div>
+        <div class="error-card__desc">
+          Maximum 1 regression fix cycle. If regressions persist after one Implementer
+          fix attempt, the app is stopped, the pipeline halts, and remaining regressions
+          are reported to the user. No further loops.
+        </div>
+      </div>
+
+      <div class="error-card error-card--continue">
+        <div class="error-card__label">Warning — Continues</div>
+        <div class="error-card__title">Delivery Manager Failure</div>
+        <div class="error-card__desc">
+          Delivery Manager errors are logged to the issues log but never halt the pipeline.
+          If the <code>init</code> command fails, a <code>github-tracking-disabled</code>
+          flag is set and all subsequent DM calls are skipped silently.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="sep"></div>
+
+  <!-- ═══════════════ FILE STRUCTURE ═══════════════ -->
+  <section class="section">
+    <h2 class="section__title">Task File Structure</h2>
+    <p class="section__desc">
+      Every pipeline run produces a set of files under <code>.agent-context/tasks/{slug}/</code>.
+      These files are committed to the task branch and serve as a full audit trail.
+    </p>
+    <div class="diagram" style="padding: 24px 32px;">
+      <pre style="font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; line-height: 22px; color: var(--sys-on-surface-variant); margin: 0;">
+<span style="color: var(--sys-primary-fixed-dim);">.agent-context/</span>
+├── <span style="color: var(--sys-primary-fixed-dim);">tasks/</span>
+│   └── <span style="color: var(--sys-primary-fixed-dim);">{task-slug}/</span>
+│       ├── <span style="color: var(--sys-primary-container);">progress.md</span>        <span style="color: var(--sys-outline);">← Pipeline state, timestamps, GitHub IDs</span>
+│       ├── <span style="color: var(--sys-secondary);">spec.md</span>            <span style="color: var(--sys-outline);">← Structured specification (Business Analyst)</span>
+│       ├── <span style="color: #ffab40;">plan.md</span>            <span style="color: var(--sys-outline);">← Master plan with phase overview (Planner)</span>
+│       ├── <span style="color: #ffab40;">phase-1-{name}.md</span>  <span style="color: var(--sys-outline);">← Phase 1 detailed implementation steps</span>
+│       ├── <span style="color: #ffab40;">phase-2-{name}.md</span>  <span style="color: var(--sys-outline);">← Phase 2 detailed implementation steps</span>
+│       └── <span style="color: #ffab40;">phase-N-{name}.md</span>  <span style="color: var(--sys-outline);">← Phase N ...</span>
+└── <span style="color: var(--sys-primary-fixed-dim);">knowledge/</span>
+    └── <span style="color: var(--sys-primary-fixed-dim);">*.md</span>               <span style="color: var(--sys-outline);">← Updated by Knowledge Keeper (Stage 10)</span></pre>
+    </div>
+  </section>
+
+  <div class="sep"></div>
+
+  <!-- ═══════════════ FOOTER ═══════════════ -->
+  <footer class="footer">
+    <div class="footer__brand">STORMSPACE</div>
+    <p style="margin-top: 8px;">Orchestrator Agent Framework Documentation</p>
+  </footer>
+
+</div>
+</body>
+</html>
