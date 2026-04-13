@@ -20,8 +20,9 @@ import { CursorPositionUpdatedEvent } from '../_shared/models/board-events.model
 import { AiChatPanelComponent } from './ai-chat-panel/ai-chat-panel.component';
 import { BoardContextModalComponent, BoardContextData } from './board-context-modal/board-context-modal.component';
 import { AgentConfigModalComponent, AgentConfigModalData } from './agent-config-modal/agent-config-modal.component';
+import { ConfirmModalComponent, ConfirmModalData } from '../_shared/components/confirm-modal/confirm-modal.component';
 import { AgentConfiguration } from '../_shared/models/agent-configuration.model';
-import { EVENT_STORMING_PHASES } from '../_shared/models/board.model';
+import { EVENT_STORMING_PHASES, EventStormingPhase } from '../_shared/models/board.model';
 import { UserService } from '../_shared/services/user.service';
 import { Connection } from '../_shared/models/connection.model';
 import { BoundedContext } from '../_shared/models/bounded-context.model';
@@ -99,6 +100,38 @@ export class BoardComponent implements OnInit, OnDestroy {
 
   public isPhaseActive(phase: string): boolean {
     return this.canvasService.boardState.phase === phase;
+  }
+
+  public onPhaseClick(phase: { value: EventStormingPhase; label: string }): void {
+    if (this.isPhaseActive(phase.value)) {
+      return;
+    }
+
+    const dialogRef = this.dialog.open(ConfirmModalComponent, {
+      width: '400px',
+      maxWidth: '95vw',
+      data: {
+        title: 'Change Phase',
+        message: `Are you sure you want to change the workshop phase to "${phase.label}"?`
+      } as ConfirmModalData
+    });
+
+    dialogRef.afterClosed().subscribe((confirmed: boolean | undefined) => {
+      if (confirmed) {
+        const state = this.canvasService.boardState;
+        const command = new UpdateBoardContextCommand(
+          state.domain,
+          state.domain,
+          state.sessionScope,
+          state.sessionScope,
+          phase.value,
+          state.phase,
+          state.autonomousEnabled,
+          state.autonomousEnabled
+        );
+        this.canvasService.executeCommand(command);
+      }
+    });
   }
 
   public exportBoardAsJSON(): void {
