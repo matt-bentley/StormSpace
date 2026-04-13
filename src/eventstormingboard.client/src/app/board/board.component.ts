@@ -117,7 +117,7 @@ export class BoardComponent implements OnInit, OnDestroy {
     });
 
     dialogRef.afterClosed().subscribe((confirmed: boolean | undefined) => {
-      if (confirmed) {
+      if (confirmed && !this.isPhaseActive(phase.value)) {
         const state = this.canvasService.boardState;
         const command = new UpdateBoardContextCommand(
           state.domain,
