@@ -92,6 +92,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
   public minimap = viewChild.required<ElementRef<HTMLCanvasElement>>('minimap');
 
   public onMinimapClick(event: MouseEvent): void {
+    this.cancelPanAnimation();
     const rect = this.minimap().nativeElement.getBoundingClientRect();
     const clickX = event.clientX - rect.left;
     const clickY = event.clientY - rect.top;
@@ -108,12 +109,17 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     this.drawCanvas();
   }
 
-  private animatePanTo(worldX: number, worldY: number, highlightConnectionId?: string): void {
-    // Cancel any in-flight animation
+  private cancelPanAnimation(): void {
     if (this.panAnimationId !== null) {
       cancelAnimationFrame(this.panAnimationId);
       this.panAnimationId = null;
     }
+  }
+
+  private animatePanTo(worldX: number, worldY: number, highlightConnectionId?: string): void {
+    this.cancelPanAnimation();
+    // Clear any stale highlight from a previous navigation
+    this.canvasService.highlightedCursorConnectionId = null;
 
     const canvasEl = this.canvas().nativeElement;
     const targetOriginX = -worldX * this.canvasService.scale + canvasEl.width / 2;
@@ -157,6 +163,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   public onMouseDown(event: MouseEvent): void {
+    this.cancelPanAnimation();
     const { x, y } = this.getMousePos(event);
 
     if ((this.canvasService.isPanningMode && event.button === 0) || event.button === 1) { // Left mouse button for panning
@@ -443,6 +450,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   public onWheel(event: WheelEvent): void {
+    this.cancelPanAnimation();
     if (event.ctrlKey) {
       // Ctrl pressed: Zooming behavior  
       event.preventDefault();
@@ -635,10 +643,8 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
 
   public ngOnDestroy(): void {
     this.destroyed = true;
-    if (this.panAnimationId !== null) {
-      cancelAnimationFrame(this.panAnimationId);
-      this.panAnimationId = null;
-    }
+    this.cancelPanAnimation();
+    this.canvasService.highlightedCursorConnectionId = null;
   }
 
   public ngAfterViewInit(): void {
