@@ -32,6 +32,9 @@ export class BoardCanvasService {
 
   public canvasUpdated$ = new Subject<void>();
   public canvasImageDownloaded$ = new Subject<void>();
+  public navigateToCoordinate$ = new Subject<{ x: number; y: number; highlightConnectionId?: string }>();
+  public highlightedCursorConnectionId: string | null = null;
+  public highlightStartTime = 0;
 
   public originX = 0;
   public originY = 0;

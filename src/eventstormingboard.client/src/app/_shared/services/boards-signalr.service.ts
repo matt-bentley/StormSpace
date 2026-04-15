@@ -74,6 +74,10 @@ export class BoardsSignalRService {
   public agentChatHistory = new Map<string, AgentChatMessage[]>();
   public autonomousStatuses = new Map<string, AutonomousFacilitatorStatus>();
 
+  public get connectionId(): string | null | undefined {
+    return this.hubConnection?.connectionId;
+  }
+
   public getHistoryForBoard(boardId: string): AgentChatMessage[] {
     return this.agentChatHistory.get(boardId) ?? [];
   }

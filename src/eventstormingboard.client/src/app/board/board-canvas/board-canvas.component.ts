@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, DestroyRef, ElementRef, HostListener, OnInit, inject, viewChild } from '@angular/core';
+import { AfterViewInit, Component, DestroyRef, ElementRef, HostListener, OnDestroy, OnInit, inject, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Note, getNoteColor } from '../../_shared/models/note.model';
 import { Connection } from '../../_shared/models/connection.model';
@@ -27,7 +27,7 @@ import { UserService } from '../../_shared/services/user.service';
     templateUrl: './board-canvas.component.html',
     styleUrls: ['./board-canvas.component.scss']
 })
-export class BoardCanvasComponent implements OnInit, AfterViewInit {
+export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private static readonly CURSOR_BROADCAST_INTERVAL_MS = 50;
 
@@ -43,6 +43,8 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit {
 
   private currentMousePos: Coordinates = { x: 0, y: 0 };
   private rafPending = false;
+  private panAnimationId: number | null = null;
+  private destroyed = false;
 
   private draggingNote: Note | null = null;
   private resizingNote: Note | null = null;
@@ -104,6 +106,54 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit {
     this.canvasService.originY = -canvasY * this.canvasService.scale + canvasEl.height / 2;
 
     this.drawCanvas();
+  }
+
+  private animatePanTo(worldX: number, worldY: number, highlightConnectionId?: string): void {
+    // Cancel any in-flight animation
+    if (this.panAnimationId !== null) {
+      cancelAnimationFrame(this.panAnimationId);
+      this.panAnimationId = null;
+    }
+
+    const canvasEl = this.canvas().nativeElement;
+    const targetOriginX = -worldX * this.canvasService.scale + canvasEl.width / 2;
+    const targetOriginY = -worldY * this.canvasService.scale + canvasEl.height / 2;
+
+    const startOriginX = this.canvasService.originX;
+    const startOriginY = this.canvasService.originY;
+    const duration = 400;
+    const startTime = performance.now();
+
+    const animate = (now: number) => {
+      // Guard against firing after component destroy
+      if (this.destroyed) {
+        this.panAnimationId = null;
+        return;
+      }
+
+      const elapsed = now - startTime;
+      const t = Math.min(elapsed / duration, 1);
+      const eased = t < 1 ? 1 - Math.pow(1 - t, 3) : 1; // easeOutCubic
+
+      this.canvasService.originX = startOriginX + (targetOriginX - startOriginX) * eased;
+      this.canvasService.originY = startOriginY + (targetOriginY - startOriginY) * eased;
+
+      this.drawCanvasFrame();
+
+      if (t < 1) {
+        this.panAnimationId = requestAnimationFrame(animate);
+      } else {
+        this.panAnimationId = null;
+        // Set highlight after animation completes so pulse starts on centered cursor
+        if (highlightConnectionId) {
+          this.canvasService.highlightedCursorConnectionId = highlightConnectionId;
+          this.canvasService.highlightStartTime = Date.now();
+          this.drawCanvas();
+        }
+      }
+    };
+
+    this.panAnimationId = requestAnimationFrame(animate);
   }
 
   public onMouseDown(event: MouseEvent): void {
@@ -577,6 +627,18 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit {
           this.drawCanvas();
         }
       });
+
+    this.canvasService.navigateToCoordinate$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(target => this.animatePanTo(target.x, target.y, target.highlightConnectionId));
+  }
+
+  public ngOnDestroy(): void {
+    this.destroyed = true;
+    if (this.panAnimationId !== null) {
+      cancelAnimationFrame(this.panAnimationId);
+      this.panAnimationId = null;
+    }
   }
 
   public ngAfterViewInit(): void {
