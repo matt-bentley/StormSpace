@@ -2,7 +2,7 @@
 
 **Task**: Click on a user's icon in the header and be taken to where their cursor is on the board
 **Started**: 2026-04-15T11:23:15Z
-**Status**: In Progress
+**Status**: Completed
 **Spec**: [spec.md](spec.md)
 **Plan**: [plan.md](plan.md)
 
@@ -26,9 +26,9 @@
 | Implementation | 2026-04-15T11:53:42Z | 2026-04-15T12:04:57Z | Completed | Both phases done |
 | Implementation Review | 2026-04-15T12:35:00Z | 2026-04-15T12:38:15Z | Passed | 2 MAJOR + 1 MINOR fixed; 1 MAJOR + 2 MINOR deferred |
 | Regression Testing | 2026-04-15T12:39:00Z | 2026-04-15T12:49:53Z | Passed | 10/10 journeys passed; new feature validated |
-| Regression Fixes | | | | |
-| Regression Re-verify | | | | |
-| Knowledge Update | | | | |
+| Regression Fixes | | | Not Needed | |
+| Regression Re-verify | | | Skipped | |
+| Knowledge Update | 2026-04-15T12:50:00Z | 2026-04-15T12:54:43Z | Completed | user-journeys.md updated |
 
 ## Issues Log
 
@@ -39,6 +39,7 @@
 
 | File | Action | Summary |
 |------|--------|---------|
+| user-journeys.md | Updated | Added Journey 11 (Navigate to User Cursor); updated Top Bar Elements |
 
 ## GitHub Tracking
 
