@@ -819,6 +819,18 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     this.drawMinimap();
+
+    // Continue redrawing while cursor highlight is active.
+    if (this.canvasService.highlightedCursorConnectionId) {
+      const highlightElapsed = Date.now() - this.canvasService.highlightStartTime;
+      if (highlightElapsed < 1600) {
+        // Slightly over 1500ms duration to ensure final clear frame renders.
+        this.drawCanvas();
+      } else {
+        // Safety expiry if highlighted cursor was pruned before drawRemoteCursors could clear state.
+        this.canvasService.highlightedCursorConnectionId = null;
+      }
+    }
   }
 
   private drawRemoteCursors(): void {
@@ -880,6 +892,38 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
       this.ctx.fillText(cursor.userName, labelX + paddingX, labelY + labelHeight / 2 + 1);
 
       this.ctx.restore();
+
+      if (cursor.connectionId === this.canvasService.highlightedCursorConnectionId) {
+        const elapsed = Date.now() - this.canvasService.highlightStartTime;
+        const highlightDuration = 1500;
+
+        if (elapsed < highlightDuration) {
+          const progress = elapsed / highlightDuration;
+          const radius = 20 + progress * 30;
+          const opacity = (1 - progress) * 0.6;
+
+          this.ctx.save();
+          this.ctx.beginPath();
+          this.ctx.arc(cursor.x, cursor.y, radius, 0, Math.PI * 2);
+          this.ctx.strokeStyle = `rgba(0, 240, 255, ${opacity})`;
+          this.ctx.lineWidth = 2;
+          this.ctx.stroke();
+
+          // Second ring with offset size for a subtle depth effect.
+          const radius2 = 10 + progress * 20;
+          const opacity2 = (1 - progress) * 0.3;
+          this.ctx.beginPath();
+          this.ctx.arc(cursor.x, cursor.y, radius2, 0, Math.PI * 2);
+          this.ctx.strokeStyle = `rgba(0, 240, 255, ${opacity2})`;
+          this.ctx.lineWidth = 1.5;
+          this.ctx.stroke();
+
+          this.ctx.restore();
+        } else {
+          // Clear highlight after duration.
+          this.canvasService.highlightedCursorConnectionId = null;
+        }
+      }
     }
   }
 
