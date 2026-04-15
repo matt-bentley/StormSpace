@@ -25,7 +25,7 @@
 | Plan Approval | | | Skipped (--auto) | |
 | Implementation | 2026-04-15T11:53:42Z | 2026-04-15T12:04:57Z | Completed | Both phases done |
 | Implementation Review | 2026-04-15T12:35:00Z | 2026-04-15T12:38:15Z | Passed | 2 MAJOR + 1 MINOR fixed; 1 MAJOR + 2 MINOR deferred |
-| Regression Testing | | | | |
+| Regression Testing | 2026-04-15T12:39:00Z | 2026-04-15T12:49:53Z | Passed | 10/10 journeys passed; new feature validated |
 | Regression Fixes | | | | |
 | Regression Re-verify | | | | |
 | Knowledge Update | | | | |
@@ -47,7 +47,7 @@
 | Tracking Issue | #46 |
 | Issue Node ID | I_kwDONt0-ks6Pf6ep |
 | Branch | task/click-user-icon-navigate-cursor |
-| PR | — |
+| PR | #50 |
 
 ### Phase Sub-Issues
 
@@ -60,5 +60,5 @@
 
 | Key | Value |
 |-----|-------|
-| Issue # | — |
-| Node ID | — |
+| Issue # | #49 |
+| Node ID | I_kwDONt0-ks6PwbLd |
