@@ -67,8 +67,12 @@
     text-transform: uppercase;
     box-shadow: 0 0 0 2px var(--sys-surface-container-low);
     margin-left: -10px;
-    cursor: default;
+    cursor: pointer;
     transition: transform var(--duration-normal) var(--ease-sharp);
+
+    &.local-user {
+      cursor: default;
+    }
 
     &:first-child {
       margin-left: 0;

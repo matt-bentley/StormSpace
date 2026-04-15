@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, DestroyRef, ElementRef, HostListener, OnInit, inject, viewChild } from '@angular/core';
+import { AfterViewInit, Component, DestroyRef, ElementRef, HostListener, OnDestroy, OnInit, inject, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Note, getNoteColor } from '../../_shared/models/note.model';
 import { Connection } from '../../_shared/models/connection.model';
@@ -27,7 +27,7 @@ import { UserService } from '../../_shared/services/user.service';
     templateUrl: './board-canvas.component.html',
     styleUrls: ['./board-canvas.component.scss']
 })
-export class BoardCanvasComponent implements OnInit, AfterViewInit {
+export class BoardCanvasComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private static readonly CURSOR_BROADCAST_INTERVAL_MS = 50;
 
@@ -43,6 +43,8 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit {
 
   private currentMousePos: Coordinates = { x: 0, y: 0 };
   private rafPending = false;
+  private panAnimationId: number | null = null;
+  private destroyed = false;
 
   private draggingNote: Note | null = null;
   private resizingNote: Note | null = null;
@@ -90,6 +92,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit {
   public minimap = viewChild.required<ElementRef<HTMLCanvasElement>>('minimap');
 
   public onMinimapClick(event: MouseEvent): void {
+    this.cancelPanAnimation();
     const rect = this.minimap().nativeElement.getBoundingClientRect();
     const clickX = event.clientX - rect.left;
     const clickY = event.clientY - rect.top;
@@ -106,7 +109,61 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit {
     this.drawCanvas();
   }
 
+  private cancelPanAnimation(): void {
+    if (this.panAnimationId !== null) {
+      cancelAnimationFrame(this.panAnimationId);
+      this.panAnimationId = null;
+    }
+  }
+
+  private animatePanTo(worldX: number, worldY: number, highlightConnectionId?: string): void {
+    this.cancelPanAnimation();
+    // Clear any stale highlight from a previous navigation
+    this.canvasService.highlightedCursorConnectionId = null;
+
+    const canvasEl = this.canvas().nativeElement;
+    const targetOriginX = -worldX * this.canvasService.scale + canvasEl.width / 2;
+    const targetOriginY = -worldY * this.canvasService.scale + canvasEl.height / 2;
+
+    const startOriginX = this.canvasService.originX;
+    const startOriginY = this.canvasService.originY;
+    const duration = 400;
+    const startTime = performance.now();
+
+    const animate = (now: number) => {
+      // Guard against firing after component destroy
+      if (this.destroyed) {
+        this.panAnimationId = null;
+        return;
+      }
+
+      const elapsed = now - startTime;
+      const t = Math.min(elapsed / duration, 1);
+      const eased = t < 1 ? 1 - Math.pow(1 - t, 3) : 1; // easeOutCubic
+
+      this.canvasService.originX = startOriginX + (targetOriginX - startOriginX) * eased;
+      this.canvasService.originY = startOriginY + (targetOriginY - startOriginY) * eased;
+
+      this.drawCanvasFrame();
+
+      if (t < 1) {
+        this.panAnimationId = requestAnimationFrame(animate);
+      } else {
+        this.panAnimationId = null;
+        // Set highlight after animation completes so pulse starts on centered cursor
+        if (highlightConnectionId) {
+          this.canvasService.highlightedCursorConnectionId = highlightConnectionId;
+          this.canvasService.highlightStartTime = Date.now();
+          this.drawCanvas();
+        }
+      }
+    };
+
+    this.panAnimationId = requestAnimationFrame(animate);
+  }
+
   public onMouseDown(event: MouseEvent): void {
+    this.cancelPanAnimation();
     const { x, y } = this.getMousePos(event);
 
     if ((this.canvasService.isPanningMode && event.button === 0) || event.button === 1) { // Left mouse button for panning
@@ -393,6 +450,7 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit {
   }
 
   public onWheel(event: WheelEvent): void {
+    this.cancelPanAnimation();
     if (event.ctrlKey) {
       // Ctrl pressed: Zooming behavior  
       event.preventDefault();
@@ -577,6 +635,16 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit {
           this.drawCanvas();
         }
       });
+
+    this.canvasService.navigateToCoordinate$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(target => this.animatePanTo(target.x, target.y, target.highlightConnectionId));
+  }
+
+  public ngOnDestroy(): void {
+    this.destroyed = true;
+    this.cancelPanAnimation();
+    this.canvasService.highlightedCursorConnectionId = null;
   }
 
   public ngAfterViewInit(): void {
@@ -757,6 +825,18 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit {
     }
 
     this.drawMinimap();
+
+    // Continue redrawing while cursor highlight is active.
+    if (this.canvasService.highlightedCursorConnectionId) {
+      const highlightElapsed = Date.now() - this.canvasService.highlightStartTime;
+      if (highlightElapsed < 1600) {
+        // Slightly over 1500ms duration to ensure final clear frame renders.
+        this.drawCanvas();
+      } else {
+        // Safety expiry if highlighted cursor was pruned before drawRemoteCursors could clear state.
+        this.canvasService.highlightedCursorConnectionId = null;
+      }
+    }
   }
 
   private drawRemoteCursors(): void {
@@ -818,6 +898,38 @@ export class BoardCanvasComponent implements OnInit, AfterViewInit {
       this.ctx.fillText(cursor.userName, labelX + paddingX, labelY + labelHeight / 2 + 1);
 
       this.ctx.restore();
+
+      if (cursor.connectionId === this.canvasService.highlightedCursorConnectionId) {
+        const elapsed = Date.now() - this.canvasService.highlightStartTime;
+        const highlightDuration = 1500;
+
+        if (elapsed < highlightDuration) {
+          const progress = elapsed / highlightDuration;
+          const radius = 20 + progress * 30;
+          const opacity = (1 - progress) * 0.6;
+
+          this.ctx.save();
+          this.ctx.beginPath();
+          this.ctx.arc(cursor.x, cursor.y, radius, 0, Math.PI * 2);
+          this.ctx.strokeStyle = `rgba(0, 240, 255, ${opacity})`;
+          this.ctx.lineWidth = 2;
+          this.ctx.stroke();
+
+          // Second ring with offset size for a subtle depth effect.
+          const radius2 = 10 + progress * 20;
+          const opacity2 = (1 - progress) * 0.3;
+          this.ctx.beginPath();
+          this.ctx.arc(cursor.x, cursor.y, radius2, 0, Math.PI * 2);
+          this.ctx.strokeStyle = `rgba(0, 240, 255, ${opacity2})`;
+          this.ctx.lineWidth = 1.5;
+          this.ctx.stroke();
+
+          this.ctx.restore();
+        } else {
+          // Clear highlight after duration.
+          this.canvasService.highlightedCursorConnectionId = null;
+        }
+      }
     }
   }
 

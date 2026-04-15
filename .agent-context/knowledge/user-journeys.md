@@ -144,7 +144,7 @@ dialog "Select a Board"
 | Export as Image | `image` | Icon button with `image` icon | Downloads canvas as PNG |
 | Export as JSON | `download` | Icon button with `download` icon | Downloads board JSON |
 | Import from JSON | `upload` | Icon button with `upload` icon | File input trigger |
-| User circles | — | Circular elements with initial letters | Shows connected users |
+| User circles | — | Circular elements with initial letters | Shows connected users; clickable to pan to that user's cursor |
 | Agent circles | — | Circular elements with bot badges | Shows active AI agents |
 
 #### Agent Avatar Icons
@@ -539,6 +539,48 @@ These steps are for **manual testing only** — do not execute in automated runs
 | 3 | Click outside popover | `playwright-cli eval "document.querySelector('.settings-menu-backdrop').click()"` | Popover closes |
 
 **Note**: The backdrop must be clicked using a JS eval with CSS selector (`.settings-menu-backdrop`), not a snapshot ref. The theme indicator shows icon `dark_mode` + "Dark" or `light_mode` + "Light" depending on current theme.
+
+---
+
+## Journey 11: Navigate to User Cursor
+
+**Precondition**: On board page with at least one other connected user who has a tracked cursor position
+
+Clicking another user's avatar circle in the top bar smoothly pans the canvas to that user's cursor position and shows a pulse highlight effect on the target cursor.
+
+### Steps
+
+| # | Action | Command | Expected Result |
+|---|--------|---------|-----------------|
+| 1 | Click a remote user's avatar circle in the top bar | `playwright-cli click <ref of user circle>` | Canvas smoothly animates to centre on that user's cursor position; cyan pulse rings appear on the target cursor |
+| 2 | Verify canvas centred | `playwright-cli snapshot` | Canvas viewport is centred on the target user's cursor location |
+
+### Behaviour Details
+
+| Aspect | Detail |
+|--------|--------|
+| **Animation** | 400ms easeOutCubic pan animation via `requestAnimationFrame` |
+| **Highlight effect** | Two concentric cyan pulse rings (`rgba(0, 240, 255)`) expanding outward for 1500ms |
+| **Local user click** | Clicking your own avatar does nothing (no-op) |
+| **No cursor available** | If the target user has no tracked cursor position, a snackbar appears: "No cursor position available" (2s, top-centre) |
+| **Cursor styling** | User avatar circles show `cursor: pointer`; local user circle shows `cursor: default` |
+
+### Data Flow
+
+1. `BoardComponent.navigateToUserCursor(user)` looks up cursor in `BoardCanvasService.remoteCursors` map
+2. Emits `{ x, y, highlightConnectionId }` via `BoardCanvasService.navigateToCoordinate$` Subject
+3. `BoardCanvasComponent` subscribes, calls `animatePanTo()` to smoothly update `originX`/`originY`
+4. On animation complete, sets `highlightedCursorConnectionId` + `highlightStartTime` to trigger pulse rendering
+5. `drawRemoteCursors()` renders expanding/fading cyan rings around the highlighted cursor for 1500ms
+
+### Key Files
+
+| File | Change |
+|------|--------|
+| `src/eventstormingboard.client/src/app/board/board.component.ts` | `navigateToUserCursor()` method, avatar click handler |
+| `src/eventstormingboard.client/src/app/board/board.component.html` | `(click)="navigateToUserCursor(user)"` on user circles |
+| `src/eventstormingboard.client/src/app/board/board-canvas/board-canvas.service.ts` | `navigateToCoordinate$` Subject, `highlightedCursorConnectionId`, `highlightStartTime` |
+| `src/eventstormingboard.client/src/app/board/board-canvas/board-canvas.component.ts` | `animatePanTo()`, pulse ring rendering in `drawRemoteCursors()` |
 
 ---
 

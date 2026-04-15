@@ -7,6 +7,7 @@ import { AutonomousFacilitatorStatus, BoardsSignalRService } from '../_shared/se
 import { MatButtonModule } from '@angular/material/button';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -43,6 +44,7 @@ interface ImportedBoardState {
     imports: [
         MatButtonModule,
         MatIconModule,
+        MatSnackBarModule,
         MatTooltipModule,
         CommonModule,
         FormsModule,
@@ -61,6 +63,7 @@ export class BoardComponent implements OnInit, OnDestroy {
   private activatedRoute = inject(ActivatedRoute);
   private boardsService = inject(BoardsService);
   private dialog = inject(MatDialog);
+  private snackBar = inject(MatSnackBar);
   private userService = inject(UserService);
   private destroyRef = inject(DestroyRef);
   private id!: string;
@@ -97,8 +100,35 @@ export class BoardComponent implements OnInit, OnDestroy {
     });
   }
 
+  get localConnectionId(): string | null | undefined {
+    return this.boardsHub.connectionId;
+  }
+
   public isPhaseActive(phase: string): boolean {
     return this.canvasService.boardState.phase === phase;
+  }
+
+  public navigateToUserCursor(user: BoardUser): void {
+    const localId = this.boardsHub.connectionId;
+    if (!localId || user.connectionId === localId) {
+      return;
+    }
+
+    const cursor = this.canvasService.remoteCursors.get(user.connectionId);
+    if (!cursor) {
+      this.snackBar.open('No cursor position available', '', {
+        duration: 2000,
+        horizontalPosition: 'center',
+        verticalPosition: 'top'
+      });
+      return;
+    }
+
+    this.canvasService.navigateToCoordinate$.next({
+      x: cursor.x,
+      y: cursor.y,
+      highlightConnectionId: cursor.connectionId
+    });
   }
 
   public exportBoardAsJSON(): void {
